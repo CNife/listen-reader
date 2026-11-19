@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,6 +71,37 @@ class DefaultReadingServiceTest {
         val state = harness.service.library.value
         assertFalse(state.isLoading)
         assertTrue(state.items.isEmpty())
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun `empty text capture shows no preview and a hint`() = runTest {
+        val harness = createService()
+
+        harness.service.beginTextCapture("   ")
+        advanceUntilIdle()
+
+        assertEquals(CaptureMode.TEXT, harness.service.capture.value.mode)
+        assertNull(harness.service.capture.value.preview)
+        assertNotNull(harness.service.capture.value.error)
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun `save failure clears saved id and reports readable error`() = runTest {
+        val store = FakeLibraryStore().apply { failCreate = true }
+        val harness = createService(libraryStore = store)
+        advanceUntilIdle()
+
+        harness.service.beginTextCapture("文章标题\n\n正文足够长的句子内容。")
+        val returnedId = harness.service.saveCapture()
+        assertNotNull(returnedId)
+        advanceUntilIdle()
+
+        val capture = harness.service.capture.value
+        assertFalse(capture.isSaving)
+        assertNull(capture.savedResourceId)
+        assertEquals("保存失败，请稍后重试", capture.error?.message)
         harness.scope.cancel()
     }
 

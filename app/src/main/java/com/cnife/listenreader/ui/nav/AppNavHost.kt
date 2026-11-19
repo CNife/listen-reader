@@ -48,12 +48,16 @@ fun AppNavHost(service: ReadingService) {
             CaptureScreen(
                 service = service,
                 onBack = { navController.popBackStack() },
+                onOpenPreview = { navController.navigate(Routes.PREVIEW) },
             )
         }
         composable(Routes.PREVIEW) {
             PreviewScreen(
                 service = service,
                 onBack = { navController.popBackStack() },
+                onSaved = {
+                    navController.popBackStack(Routes.LIBRARY, inclusive = false)
+                },
             )
         }
         composable(Routes.SETTINGS) {

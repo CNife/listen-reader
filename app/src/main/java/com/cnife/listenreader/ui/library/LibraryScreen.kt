@@ -107,7 +107,7 @@ private fun LibraryRow(item: LibraryItem, onClick: () -> Unit) {
     ) {
         Text(text = item.title, style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "${item.sourceLabel} · ${item.segmentCount} 段",
+            text = "${item.sourceLabel} · ${item.segmentCount} 句",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -153,4 +153,34 @@ class PlayerScreenTest {
 
         assertTrue(openedSettings)
     }
+
+    @Test
+    fun `voice entry opens the voice sheet`() {
+        val service = FakeReadingService(initialPlayer = playerState())
+        setPlayerScreen(service)
+
+        composeRule.onNodeWithTag("player-voice").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("voice-sheet").assertIsDisplayed()
+        composeRule.onNodeWithText("切换音色").assertIsDisplayed()
+        composeRule.onNodeWithText("温柔女声（当前）").assertIsDisplayed()
+    }
+
+    @Test
+    fun `error segment offers a retry action`() {
+        val state = playerState().copy(
+            segments = playerState().segments.map {
+                if (it.index == 1) it.copy(status = ClipStatus.ERROR) else it
+            },
+        )
+        val service = FakeReadingService(initialPlayer = state)
+        setPlayerScreen(service)
+
+        scrollToSegment(1)
+        composeRule.onNodeWithTag("player-retry-1").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(1), service.retriedSegments)
+    }
 }

@@ -1,2 +1,60 @@
-# 仓库暂无 CI workflow；零检查应判为通过而非空等。真实 workflow 出现后删除本声明。
+# 本仓库暂无 CI workflow；零检查应判为通过而非空等。真实 workflow 出现后删除本声明。
 no_ci: true
+
+# 单元测试基线：单模块 Android 应用，Robolectric + Compose 测试秒级可跑。
+# run worktree 没有 local.properties，用 ANDROID_HOME 定位 SDK。
+# 跑完基线后 test 步骤仍会按意图驱动有针对性的端到端验证。
+commands:
+  test: "ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest --console=plain"
+
+# v1 的两次自动修复用尽后仍漏掉一个同类兄弟位点，本仓库把自动修复轮次放宽到三轮。
+auto_fix:
+  review: 3
+
+# 仓库级审阅规则：只从 main 的可信副本读取，功能分支无法放宽。
+review:
+  path_instructions:
+    - path: "app/src/main/java/com/cnife/listenreader/service/**"
+      instructions: |
+        服务层是唯一状态编排点，默认运行在 Dispatchers.Main.immediate。
+        数据层、网络与文件 IO（Room、DataStore、文件、TTS、LLM）的异常必须在这一层捕获并写入用户当时可见的 State.error；入口初始化、打开资源、刷新资料库、设置写入等兄弟位点要共用同一兜底，不能只修当前一处而留下同类漏网。
+        禁止在调用线程或主线程用 runBlocking 做 IO；阻塞 API 改为 suspend，由协程调度。
+        新增「当前预览/当前资源」这类推导字段时，所有生成新预览或切换资源的路径都必须同步重置或更新它，否则旧值会让 UI 跳到过期对象。
+    - path: "app/src/main/java/com/cnife/listenreader/service/ports/**"
+      instructions: |
+        端口只声明生产代码实际调用的能力。新增或保留没有生产调用方的端口成员属于超出意图的实质缺陷，按 auto-fix 报，不要作为 ask-user 问题留给人工决策。
+    - path: "app/src/test/**"
+      instructions: |
+        测试通过公共接口断言可观察行为或状态；FakePorts / FakeReadingService 只用于构造场景，不能只断言 Fake 的调用或实现源码文本，也不要求为文档、构建配置或 Compose 布局微调新增测试。
+    - path: "app/src/androidTest/**"
+      instructions: |
+        插桩测试面向真实平台集成（WebView 提取、Media3 后台播放、MediaMetadata），fixture 在 app/src/androidTest/assets/；不要要求把纯逻辑场景搬进仪器测试。
+
+# 第三方与生成资产不进入 review 与文档检查，避免把整份第三方代码当变更审阅。
+ignore_patterns:
+  - "gradle/wrapper/gradle-wrapper.jar"
+  - "*.mp3"
+  - "app/src/main/assets/extract/readability.js"
+  - "prototype/**"
+
+# 文档归属：同一事实只在一个文件维护。
+document:
+  instructions: |
+    README.md 面向用户：产品定位、功能、BYOK 配置与构建步骤。
+    GLOSSARY.md 只维护领域术语；架构决策放 docs/adr/，agent 协作约定放 docs/agents/，调研笔记放 docs/research/。
+    app/src/main/assets/extract/NOTICE 负责第三方资产署名，新增或升级第三方脚本时同步维护。
+    代码约束与行为由代码和测试本身负责，不在文档中复述。
+
+# Test 步骤运行手册：只从 main 的可信副本读取。
+test:
+  instructions: |
+    本仓库是单模块 Android 应用（compileSdk 35，minSdk 26），SDK 默认在 $HOME/Android/Sdk。
+    单元测试优先：ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest（Robolectric + Compose，秒级；commands.test 已内置同一命令）。
+    需要真实平台集成（WebView 提取、L3 展开、Media3 后台播放与通知、真实 TTS 合成）时才用设备：./gradlew :app:connectedDebugAndroidTest，或安装 APK 后驱动 UI；优先专用模拟器，避免在常用手机上装调试包。
+    端到端演练可复用 v1 的做法：StepFun（api.stepfun.com）与微信（mp.weixin.qq.com）端点写死在代码里，用自签 CA 注入系统信任库加 /system/etc/hosts 加 adb reverse 指向本地 HTTPS mock；HTML 与音频 fixture 在 app/src/androidTest/assets/。
+    纯文档、配置、纯函数或状态逻辑改动：单元测试与配置解析验证即可，不做模拟器长跑。
+    结束后清理：./gradlew --stop、adb reverse --remove-all、adb shell am force-stop com.cnife.listenreader。
+
+# 上一版 PR 的 Testing 证据接近 19KB；折叠 Validation 尾段，作者叙述与 Intent 保持可见。
+pr:
+  appendix: collapsed

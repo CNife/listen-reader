@@ -133,10 +133,11 @@ class WebViewPageSession(
                 val picked = L3Rules.pick(candidates, clickedKeys)
                 if (picked == null) break
 
-                rounds++
+                val nextRound = rounds + 1
+                _expandProgress.value = "正在展开全文…（第 $nextRound 轮）"
                 clickedKeys += picked.key
-                _expandProgress.value = "正在展开全文…（第 $rounds 轮）"
                 if (!clickL3Candidate(picked.index)) break
+                rounds = nextRound
                 scrollForLazyContent()
                 awaitDomQuiet()
                 extraction = runL1().copy(expandRounds = rounds)

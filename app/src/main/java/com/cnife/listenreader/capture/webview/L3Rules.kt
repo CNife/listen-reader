@@ -36,10 +36,6 @@ object L3Rules {
         "开通", "充值", "二维码", "小程序", "打开app", "打开APP", "app内打开", "在浏览器打开",
     )
 
-    private val BLOCKED_HREF_PARTS = listOf(
-        "login", "signin", "signup", "register", "passport", "pay", "vip", "download", "openapp",
-    )
-
     private val BLOCKED_TAGS = setOf("input", "textarea", "select", "option", "form")
 
     /** 文本是否像展开按钮；「展开」必须单独成词，避免误点「展开更多评论」之类。 */
@@ -71,7 +67,6 @@ object L3Rules {
             // 任何会导航到其他页面的链接都不点：L3 只在当前文章内展开。
             return false
         }
-        if (BLOCKED_HREF_PARTS.any { href.lowercase().contains(it) }) return false
         return true
     }
 

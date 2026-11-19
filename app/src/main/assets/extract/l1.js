@@ -119,6 +119,26 @@
     }
   }
 
+  /**
+   * Readability 只对 p/td/pre 和「无块级子元素的 div」打分，<section> 不在其列。
+   * 公众号等页面用 section 堆叠正文，这里把「纯行内内容」的 section 提纯成 p。
+   */
+  function normalizeSections(root) {
+    if (!root.querySelectorAll) return;
+    var doc = root.ownerDocument || document;
+    var sections = root.querySelectorAll("section");
+    for (var i = sections.length - 1; i >= 0; i--) {
+      var section = sections[i];
+      if (!section.parentNode) continue;
+      if (section.querySelector("p, section, div, ul, ol, blockquote, pre, table, figure, h1, h2, h3, h4, h5, h6, img")) {
+        continue;
+      }
+      var paragraph = doc.createElement("p");
+      paragraph.innerHTML = section.innerHTML;
+      section.parentNode.replaceChild(paragraph, section);
+    }
+  }
+
   function removePromoElements(root) {
     var all = root.querySelectorAll("*");
     for (var i = all.length - 1; i >= 0; i--) {
@@ -618,6 +638,7 @@
     var work = doc.cloneNode(true);
     var pageText = normalizeBodyText(textOf(doc.body));
     liftLazyImages(work);
+    normalizeSections(work);
 
     var templateList = opts.templates && opts.templates.templates ? opts.templates.templates : (opts.templates || []);
     var template = matchTemplate(templateList, location.host || "", location.href || "");

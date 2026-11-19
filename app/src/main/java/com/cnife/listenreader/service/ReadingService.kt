@@ -172,6 +172,9 @@ data class SettingsState(
     val llmTest: TestState = TestState.Idle,
     val storage: StorageUsage = StorageUsage(0, 0),
     val isClearing: Boolean = false,
+    val auditionVoice: String? = null,
+    val isAuditioning: Boolean = false,
+    val auditionError: String? = null,
     val message: String? = null,
     val error: UiError? = null,
 )

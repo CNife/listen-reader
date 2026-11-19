@@ -69,6 +69,16 @@ class FakeReadingService(
     var retryL2Calls: Int = 0
         private set
 
+    val voiceChanges = mutableListOf<String>()
+    val previewedVoices = mutableListOf<String>()
+    val retriedSegments = mutableListOf<Int>()
+    var clearOldAudioTracksCalls: Int = 0
+        private set
+
+    /** 测试里可预设的存储占用；清理后旧音轨归零。 */
+    var storageUsage: com.cnife.listenreader.service.StorageUsage =
+        com.cnife.listenreader.service.StorageUsage(0, 0)
+
     private var savedCount = 0
 
     override fun refreshLibrary() {
@@ -242,6 +252,7 @@ class FakeReadingService(
     }
 
     override fun setVoice(voiceId: String) {
+        voiceChanges += voiceId
         _settings.update { it.copy(voice = voiceId) }
     }
 
@@ -249,7 +260,9 @@ class FakeReadingService(
         _settings.update { it.copy(ttsModel = modelId) }
     }
 
-    override fun retrySegment(index: Int) = Unit
+    override fun retrySegment(index: Int) {
+        retriedSegments += index
+    }
 
     override fun toggleFollow() {
         _player.update { it.copy(follow = !it.follow) }
@@ -298,9 +311,22 @@ class FakeReadingService(
         _settings.update { it.copy(llmTest = TestState.Success("LLM 连接正常")) }
     }
 
-    override fun previewVoice(voiceId: String) = Unit
+    override fun previewVoice(voiceId: String) {
+        previewedVoices += voiceId
+        _settings.update { it.copy(auditionVoice = voiceId, isAuditioning = false, auditionError = null) }
+    }
 
-    override fun clearOldAudioTracks() = Unit
+    override fun clearOldAudioTracks() {
+        clearOldAudioTracksCalls++
+        _settings.update {
+            it.copy(
+                storage = com.cnife.listenreader.service.StorageUsage(storageUsage.activeBytes, 0),
+                message = "已清理旧音轨",
+            )
+        }
+    }
 
-    override fun refreshStorageUsage() = Unit
+    override fun refreshStorageUsage() {
+        _settings.update { it.copy(storage = storageUsage) }
+    }
 }

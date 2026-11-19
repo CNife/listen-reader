@@ -36,6 +36,11 @@ class FakeReadingService(
     private val _library = MutableStateFlow(initialLibrary)
     override val library: StateFlow<LibraryState> = _library.asStateFlow()
 
+    /** 全部条目，用于在测试替身里按查询/筛选复现列表行为。 */
+    private var allItems: List<LibraryItem> = initialLibrary.items
+
+    val deletedIds = mutableListOf<String>()
+
     private val _player = MutableStateFlow(initialPlayer)
     override val player: StateFlow<PlayerState> = _player.asStateFlow()
 
@@ -82,25 +87,53 @@ class FakeReadingService(
     private var savedCount = 0
 
     override fun refreshLibrary() {
-        _library.update { it.copy(isLoading = false) }
+        _library.update { it.copy(isLoading = false, items = visibleItems(it.query, it.filter)) }
     }
 
     override fun setLibraryQuery(query: String) {
-        _library.update { it.copy(query = query) }
+        _library.update { it.copy(query = query, items = visibleItems(query, it.filter)) }
     }
 
     override fun setLibraryFilter(filter: LibraryFilter) {
-        _library.update { it.copy(filter = filter) }
+        _library.update { it.copy(filter = filter, items = visibleItems(it.query, filter)) }
     }
 
     override fun openResource(resourceId: String) {
-        val item = _library.value.items.firstOrNull { it.id == resourceId }
+        val item = allItems.firstOrNull { it.id == resourceId }
         _player.update {
             it.copy(resourceId = resourceId, title = item?.title.orEmpty())
         }
+        _library.update { it.copy(continueListening = item) }
     }
 
-    override fun deleteResource(resourceId: String) = Unit
+    override fun deleteResource(resourceId: String) {
+        deletedIds += resourceId
+        allItems = allItems.filterNot { it.id == resourceId }
+        _library.update { state ->
+            state.copy(
+                items = visibleItems(state.query, state.filter),
+                continueListening = state.continueListening?.takeIf { it.id != resourceId },
+            )
+        }
+    }
+
+    private fun visibleItems(query: String, filter: LibraryFilter): List<LibraryItem> {
+        val needle = query.trim()
+        return allItems
+            .filter { item ->
+                needle.isEmpty() ||
+                    item.title.contains(needle, ignoreCase = true) ||
+                    item.sourceLabel.contains(needle, ignoreCase = true)
+            }
+            .filter { item ->
+                when (filter) {
+                    LibraryFilter.ALL -> true
+                    LibraryFilter.WEB -> item.sourceKind == SourceKind.URL
+                    LibraryFilter.TEXT -> item.sourceKind == SourceKind.TEXT
+                    LibraryFilter.CACHED -> item.hasCachedAudio
+                }
+            }
+    }
 
     override fun beginUrlCapture(url: String?) {
         _capture.value = CaptureState(mode = CaptureMode.URL, url = url.orEmpty())
@@ -187,7 +220,10 @@ class FakeReadingService(
             currentPositionMs = 0,
             lastOpenedAt = 0,
         )
-        _library.update { it.copy(isLoading = false, items = it.items + item) }
+        allItems = allItems + item
+        _library.update { state ->
+            state.copy(isLoading = false, items = visibleItems(state.query, state.filter))
+        }
         _capture.update { it.copy(isSaving = false, savedResourceId = resourceId) }
         return resourceId
     }

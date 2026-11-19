@@ -1,0 +1,12 @@
+Third-party assets bundled with Listen Reader.
+
+Readability.js
+-------------
+File: app/src/main/assets/extract/readability.js
+Source: https://github.com/mozilla/readability (tag 0.6.0)
+Copyright (c) 2010 Arc90 Inc
+Licensed under the Apache License, Version 2.0.
+See the license header at the top of readability.js.
+
+The `l1.js` extractor, `l3.js` expansion runtime and `templates.json`
+site-template data are original Listen Reader code.

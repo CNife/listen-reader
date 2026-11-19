@@ -1,0 +1,177 @@
+package com.cnife.listenreader.ui.capture
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cnife.listenreader.model.L2Status
+import com.cnife.listenreader.service.PreviewState
+import com.cnife.listenreader.service.ReadingService
+import java.util.Locale
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PreviewScreen(
+    service: ReadingService,
+    onBack: () -> Unit,
+    onSaved: (String) -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val state by service.capture.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.savedResourceId) {
+        state.savedResourceId?.let(onSaved)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("预览") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        val preview = state.preview
+        if (preview == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("还没有预览内容，请先粘贴文本。", style = MaterialTheme.typography.bodyLarge)
+                state.error?.let { error ->
+                    Text(
+                        text = error.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            return@Scaffold
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            OutlinedTextField(
+                value = preview.title,
+                onValueChange = service::updatePreviewTitle,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("preview-title"),
+                label = { Text("标题") },
+                singleLine = true,
+            )
+
+            OutlinedTextField(
+                value = preview.body,
+                onValueChange = service::updatePreviewBody,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("preview-body"),
+                label = { Text("正文") },
+                minLines = 10,
+                maxLines = 24,
+            )
+
+            Text(
+                text = "${preview.charCount} 字 · ${preview.segmentDrafts.size} 句",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.testTag("preview-meta"),
+            )
+            state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
+                Text(
+                    text = if (extraction.usedFullPage) {
+                        "已使用页面全文，可编辑正文后保存。"
+                    } else {
+                        "正文可能不完整：${extraction.degradedReason ?: "提取置信度较低"}" +
+                            "（可编辑正文，或使用页面全文）"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("preview-degraded-hint"),
+                )
+                if (!extraction.usedFullPage) {
+                    Button(
+                        onClick = { service.useFullPage() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("preview-use-full-page"),
+                    ) {
+                        Text("使用页面全文")
+                    }
+                }
+            }
+            L2StatusSection(
+                preview = preview,
+                onRetryL2 = service::retryL2,
+                onOpenSettings = onOpenSettings,
+            )
+            Text(
+                text = buildString {
+                    append("来源：").append(preview.sourceLabel)
+                    preview.extractor?.let { append(" · 提取：").append(it) }
+                    preview.score?.let { append(" · score ").append(String.format(Locale.ROOT, "%.2f", it)) }
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            state.error?.let { error ->
+                Text(
+                    text = error.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Button(
+                onClick = { service.saveCapture() },
+                enabled = !state.isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(saveButtonLabel(state.isSaving, preview))
+            }
+        }
+    }
+}
+
+private fun saveButtonLabel(isSaving: Boolean, preview: PreviewState): String = when {
+    isSaving -> "保存中…"
+    preview.l2Status == L2Status.FAILED ||
+        preview.l2Status == L2Status.NOT_CONFIGURED ||
+        preview.l2Status == L2Status.RUNNING -> "保存（规则分段）"
+    else -> "保存"
+}

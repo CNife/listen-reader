@@ -1,0 +1,420 @@
+package com.cnife.listenreader.testing
+
+import android.content.Context
+import android.view.View
+import com.cnife.listenreader.capture.ShareText
+import com.cnife.listenreader.core.RuleSegmenter
+import com.cnife.listenreader.model.L2Status
+import com.cnife.listenreader.model.LibraryFilter
+import com.cnife.listenreader.model.LibraryItem
+import com.cnife.listenreader.model.SegmentationSource
+import com.cnife.listenreader.model.SourceKind
+import com.cnife.listenreader.model.ThemeMode
+import com.cnife.listenreader.service.CaptureMode
+import com.cnife.listenreader.service.CaptureState
+import com.cnife.listenreader.service.ExtractionInfo
+import com.cnife.listenreader.service.LibraryState
+import com.cnife.listenreader.service.PlayerState
+import com.cnife.listenreader.service.PreviewState
+import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.service.SettingsState
+import com.cnife.listenreader.service.TestState
+import com.cnife.listenreader.service.ports.PageExtraction
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+
+/**
+ * 可配置的 UI 测试替身：实现 ReadingService 全部成员，只在测试 source 使用。
+ */
+class FakeReadingService(
+    initialLibrary: LibraryState = LibraryState(isLoading = false),
+    initialSettings: SettingsState = SettingsState(),
+    initialPlayer: PlayerState = PlayerState(),
+    initialCapture: CaptureState = CaptureState(),
+) : ReadingService {
+
+    private val _library = MutableStateFlow(initialLibrary)
+    override val library: StateFlow<LibraryState> = _library.asStateFlow()
+
+    /** 全部条目，用于在测试替身里按查询/筛选复现列表行为。 */
+    private var allItems: List<LibraryItem> = initialLibrary.items
+
+    val deletedIds = mutableListOf<String>()
+
+    private val _player = MutableStateFlow(initialPlayer)
+    override val player: StateFlow<PlayerState> = _player.asStateFlow()
+
+    private val _capture = MutableStateFlow(initialCapture)
+    override val capture: StateFlow<CaptureState> = _capture.asStateFlow()
+
+    private val _settings = MutableStateFlow(initialSettings)
+    override val settings: StateFlow<SettingsState> = _settings.asStateFlow()
+
+    var lastThemeMode: ThemeMode? = null
+        private set
+
+    var lastSeekIndex: Int? = null
+        private set
+
+    val speedChanges = mutableListOf<Float>()
+    val sleepTimerChanges = mutableListOf<Int?>()
+
+    /** 测试连接时设置的状态。 */
+    var stepFunTestResult: TestState = TestState.Success("连接成功，已合成试听音频")
+
+    /** 保存 Key 时记录的明文，便于断言表单传递。 */
+    var lastSavedStepFunKey: String? = null
+        private set
+
+    var lastLlmSave: Triple<String, String, String>? = null
+        private set
+
+    var llmKeyCleared: Boolean = false
+        private set
+
+    var retryL2Calls: Int = 0
+        private set
+
+    val voiceChanges = mutableListOf<String>()
+    val previewedVoices = mutableListOf<String>()
+    val retriedSegments = mutableListOf<Int>()
+    var clearOldAudioTracksCalls: Int = 0
+        private set
+
+    /** 测试里可预设的存储占用；清理后旧音轨归零。 */
+    var storageUsage: com.cnife.listenreader.service.StorageUsage =
+        com.cnife.listenreader.service.StorageUsage(0, 0)
+
+    private var savedCount = 0
+
+    override fun refreshLibrary() {
+        _library.update { it.copy(isLoading = false, items = visibleItems(it.query, it.filter)) }
+    }
+
+    override fun setLibraryQuery(query: String) {
+        _library.update { it.copy(query = query, items = visibleItems(query, it.filter)) }
+    }
+
+    override fun setLibraryFilter(filter: LibraryFilter) {
+        _library.update { it.copy(filter = filter, items = visibleItems(it.query, filter)) }
+    }
+
+    override fun openResource(resourceId: String) {
+        val item = allItems.firstOrNull { it.id == resourceId }
+        _player.update {
+            it.copy(resourceId = resourceId, title = item?.title.orEmpty())
+        }
+        _library.update { it.copy(continueListening = item) }
+    }
+
+    override fun deleteResource(resourceId: String) {
+        deletedIds += resourceId
+        allItems = allItems.filterNot { it.id == resourceId }
+        _library.update { state ->
+            state.copy(
+                items = visibleItems(state.query, state.filter),
+                continueListening = state.continueListening?.takeIf { it.id != resourceId },
+            )
+        }
+    }
+
+    private fun visibleItems(query: String, filter: LibraryFilter): List<LibraryItem> {
+        val needle = query.trim()
+        return allItems
+            .filter { item ->
+                needle.isEmpty() ||
+                    item.title.contains(needle, ignoreCase = true) ||
+                    item.sourceLabel.contains(needle, ignoreCase = true)
+            }
+            .filter { item ->
+                when (filter) {
+                    LibraryFilter.ALL -> true
+                    LibraryFilter.WEB -> item.sourceKind == SourceKind.URL
+                    LibraryFilter.TEXT -> item.sourceKind == SourceKind.TEXT
+                    LibraryFilter.CACHED -> item.hasCachedAudio
+                }
+            }
+    }
+
+    override fun beginUrlCapture(url: String?) {
+        _capture.value = CaptureState(
+            mode = CaptureMode.URL,
+            url = url.orEmpty(),
+            sessionId = _capture.value.sessionId + 1,
+        )
+    }
+
+    override fun beginTextCapture(text: String) {
+        val normalized = text.trim()
+        if (normalized.isEmpty()) {
+            _capture.value = CaptureState(
+                mode = CaptureMode.TEXT,
+                url = text,
+                error = com.cnife.listenreader.core.UiError(
+                    "请先粘贴要朗读的文本",
+                    com.cnife.listenreader.core.ErrorKind.UNKNOWN,
+                ),
+                sessionId = _capture.value.sessionId + 1,
+            )
+            return
+        }
+        val (title, body) = splitTitle(normalized)
+        _capture.value = CaptureState(
+            mode = CaptureMode.TEXT,
+            url = text,
+            extraction = ExtractionInfo(
+                title = title,
+                extractor = "文本输入",
+                score = 1.0,
+                confidence = 1.0,
+                needsExpand = false,
+            ),
+            preview = newPreview(title, body),
+            sessionId = _capture.value.sessionId + 1,
+            previewRevision = _capture.value.previewRevision + 1,
+        )
+    }
+
+    override fun handleShareIntent(text: String) {
+        val url = ShareText.firstUrl(text)
+        if (url != null) beginUrlCapture(url) else beginTextCapture(text)
+    }
+
+    override fun loadUrl(url: String) {
+        _capture.update { it.copy(mode = CaptureMode.URL, url = url) }
+    }
+
+    override fun reloadPage() = Unit
+
+    override fun pageBack(): Boolean = false
+
+    override fun createPageView(context: Context): View? = null
+
+    override fun releasePageView() = Unit
+
+    /** 测试可预设一次网页提取结果，驱动 URL -> 预览的导航与 UI。 */
+    var urlExtraction: PageExtraction? = null
+
+    override fun extractPage() {
+        val extraction = urlExtraction ?: return
+        val url = _capture.value.url
+        val title = extraction.title
+        _capture.update { state ->
+            state.copy(
+                isExtracting = false,
+                page = com.cnife.listenreader.service.PageUiState.Ready,
+                extraction = ExtractionInfo(
+                    title = title,
+                    extractor = extraction.extractor,
+                    score = extraction.score,
+                    confidence = extraction.confidence,
+                    needsExpand = extraction.needsExpand,
+                    degradedReason = extraction.degradedReason,
+                ),
+                preview = PreviewState(
+                    title = title,
+                    body = extraction.text,
+                    charCount = extraction.text.length,
+                    segmentDrafts = RuleSegmenter.segment(title, extraction.text),
+                    segmentation = SegmentationSource.RULE,
+                    l2Status = L2Status.NOT_RUN,
+                    sourceKind = SourceKind.URL,
+                    sourceLabel = ShareText.sourceLabel(url),
+                    extractor = extraction.extractor,
+                    score = extraction.score,
+                    sourceUrl = url,
+                ),
+                previewRevision = state.previewRevision + 1,
+            )
+        }
+    }
+
+    override fun useFullPage() = Unit
+
+    override fun retryL2() {
+        retryL2Calls++
+    }
+
+    override fun updatePreviewTitle(title: String) {
+        _capture.update { state ->
+            val preview = state.preview ?: return@update state
+            state.copy(preview = newPreview(title, preview.body))
+        }
+    }
+
+    override fun updatePreviewBody(body: String) {
+        _capture.update { state ->
+            val preview = state.preview ?: return@update state
+            state.copy(preview = newPreview(preview.title, body))
+        }
+    }
+
+    override fun saveCapture(): String? {
+        val preview = _capture.value.preview ?: return null
+        val resourceId = "fake-resource-${++savedCount}"
+        val item = LibraryItem(
+            id = resourceId,
+            title = preview.title,
+            sourceKind = SourceKind.TEXT,
+            sourceLabel = preview.sourceLabel,
+            segmentCount = preview.segmentDrafts.size,
+            durationMs = 0,
+            hasCachedAudio = false,
+            currentSegmentIndex = 0,
+            currentPositionMs = 0,
+            lastOpenedAt = 0,
+        )
+        allItems = allItems + item
+        _library.update { state ->
+            state.copy(isLoading = false, items = visibleItems(state.query, state.filter))
+        }
+        _capture.update { it.copy(isSaving = false, savedResourceId = resourceId) }
+        return resourceId
+    }
+
+    private fun newPreview(title: String, body: String) = PreviewState(
+        title = title,
+        body = body,
+        charCount = body.length,
+        segmentDrafts = RuleSegmenter.segment(title, body),
+        segmentation = SegmentationSource.RULE,
+        l2Status = L2Status.NOT_RUN,
+        sourceKind = SourceKind.TEXT,
+        sourceLabel = "粘贴文本",
+        extractor = "文本输入",
+        score = 1.0,
+    )
+
+    private fun splitTitle(text: String): Pair<String, String> {
+        val lines = text.lines()
+        val first = lines.firstOrNull { it.isNotBlank() }?.trim() ?: return "粘贴文本" to text
+        val rest = lines.drop(lines.indexOfFirst { it.isNotBlank() } + 1).joinToString("\n").trim()
+        val titleLike = first.length <= 80 && first.last() !in charArrayOf('。', '！', '？', '!', '?', '；', ';', '…')
+        return if (titleLike && rest.isNotEmpty()) first to rest else "粘贴文本" to text
+    }
+
+    override fun discardCapture() {
+        _capture.value = CaptureState()
+    }
+
+    override fun play() {
+        _player.update { it.copy(isPlaying = true) }
+    }
+
+    override fun pause() {
+        _player.update { it.copy(isPlaying = false) }
+    }
+
+    override fun togglePlay() {
+        _player.update { it.copy(isPlaying = !it.isPlaying) }
+    }
+
+    override fun nextSegment() {
+        _player.update { it.copy(currentIndex = it.currentIndex + 1) }
+    }
+
+    override fun previousSegment() {
+        _player.update { it.copy(currentIndex = (it.currentIndex - 1).coerceAtLeast(0)) }
+    }
+
+    override fun seekToSegment(index: Int) {
+        lastSeekIndex = index
+        _player.update { it.copy(currentIndex = index, positionInSegmentMs = 0) }
+    }
+
+    override fun setSpeed(speed: Float) {
+        speedChanges += speed
+        _player.update { it.copy(speed = speed) }
+    }
+
+    override fun setSleepTimer(minutes: Int?) {
+        sleepTimerChanges += minutes
+        _player.update {
+            it.copy(
+                sleepTimerMinutes = minutes,
+                sleepTimerRemainingMs = minutes?.takeIf { value -> value > 0 }?.let { value -> value * 60_000L },
+            )
+        }
+    }
+
+    override fun setVoice(voiceId: String) {
+        voiceChanges += voiceId
+        _settings.update { it.copy(voice = voiceId) }
+    }
+
+    override fun setModel(modelId: String) {
+        _settings.update { it.copy(ttsModel = modelId) }
+    }
+
+    override fun retrySegment(index: Int) {
+        retriedSegments += index
+    }
+
+    override fun toggleFollow() {
+        _player.update { it.copy(follow = !it.follow) }
+    }
+
+    override fun closePlayer() {
+        _player.value = PlayerState()
+    }
+
+    override fun saveStepFunKey(key: String) {
+        lastSavedStepFunKey = key
+        _settings.update { it.copy(stepFunKeyConfigured = key.isNotBlank()) }
+    }
+
+    override fun saveLlmConfig(endpoint: String, key: String, model: String) {
+        lastLlmSave = Triple(endpoint, key, model)
+        _settings.update {
+            it.copy(
+                llmEndpoint = endpoint.ifBlank { it.llmEndpoint },
+                llmModel = model.ifBlank { it.llmModel },
+                llmKeyConfigured = key.isNotBlank() || it.llmKeyConfigured,
+            )
+        }
+    }
+
+    override fun setLlmKey(key: String) {
+        llmKeyCleared = key.isBlank()
+        _settings.update { it.copy(llmKeyConfigured = key.isNotBlank()) }
+    }
+
+    override fun setThemeMode(mode: ThemeMode) {
+        lastThemeMode = mode
+        _settings.update { it.copy(themeMode = mode) }
+    }
+
+    override fun setPrefetchCount(count: Int) {
+        _settings.update { it.copy(prefetchCount = count) }
+    }
+
+    override fun testStepFun() {
+        _settings.update { it.copy(stepFunTest = TestState.Running) }
+        _settings.update { it.copy(stepFunTest = stepFunTestResult) }
+    }
+
+    override fun testLlm() {
+        _settings.update { it.copy(llmTest = TestState.Success("LLM 连接正常")) }
+    }
+
+    override fun previewVoice(voiceId: String) {
+        previewedVoices += voiceId
+        _settings.update { it.copy(auditionVoice = voiceId, isAuditioning = false, auditionError = null) }
+    }
+
+    override fun clearOldAudioTracks() {
+        clearOldAudioTracksCalls++
+        _settings.update {
+            it.copy(
+                storage = com.cnife.listenreader.service.StorageUsage(storageUsage.activeBytes, 0),
+                message = "已清理旧音轨",
+            )
+        }
+    }
+
+    override fun refreshStorageUsage() {
+        _settings.update { it.copy(storage = storageUsage) }
+    }
+}

@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.PlayerState
 
-/** 底部常驻播放条：进度、上一句/播放/下一句、倍速、跟随。 */
+/** 底部常驻播放条：进度、上一句/播放/下一句、睡眠定时、倍速、跟随。 */
 @Composable
 fun MiniPlayer(
     state: PlayerState,
@@ -35,6 +35,7 @@ fun MiniPlayer(
     onNext: () -> Unit,
     onSpeedClick: () -> Unit,
     onToggleFollow: () -> Unit,
+    onSleepTimer: (Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val total = state.totalDurationMs
@@ -84,6 +85,7 @@ fun MiniPlayer(
                 IconButton(onClick = onNext) {
                     Icon(Icons.Filled.SkipNext, contentDescription = "下一句")
                 }
+                SleepTimerButton(state = state, onSelectMinutes = onSleepTimer)
                 TextButton(onClick = onSpeedClick, modifier = Modifier.testTag("player-speed")) {
                     Text("${formatSpeed(state.speed)}×")
                 }

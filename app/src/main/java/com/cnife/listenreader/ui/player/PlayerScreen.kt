@@ -62,6 +62,7 @@ fun PlayerScreen(
     onOpenSettings: () -> Unit,
 ) {
     val state by service.player.collectAsStateWithLifecycle()
+    val notificationPermission = rememberNotificationPermission()
 
     LaunchedEffect(resourceId) {
         if (resourceId.isNotBlank() && state.resourceId != resourceId) {
@@ -144,6 +145,11 @@ fun PlayerScreen(
                 }
             }
 
+            NotificationPermissionHint(
+                state = notificationPermission,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
             MiniPlayer(
                 state = state,
                 onPlayPause = service::togglePlay,
@@ -151,6 +157,7 @@ fun PlayerScreen(
                 onNext = service::nextSegment,
                 onSpeedClick = { service.setSpeed(nextSpeed(state.speed)) },
                 onToggleFollow = service::toggleFollow,
+                onSleepTimer = service::setSleepTimer,
             )
         }
     }

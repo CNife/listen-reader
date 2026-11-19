@@ -2,6 +2,7 @@ package com.cnife.listenreader.service
 
 import android.content.Context
 import android.view.View
+import com.cnife.listenreader.capture.ShareText
 import com.cnife.listenreader.core.ErrorKind
 import com.cnife.listenreader.core.RuleSegmenter
 import com.cnife.listenreader.core.UiError
@@ -20,7 +21,10 @@ import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.ports.AuditionPlayer
 import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.LibraryStore
+import com.cnife.listenreader.service.ports.PageExtraction
+import com.cnife.listenreader.service.ports.PageExtractionException
 import com.cnife.listenreader.service.ports.PageSession
+import com.cnife.listenreader.service.ports.PageSessionState
 import com.cnife.listenreader.service.ports.PlaybackEngine
 import com.cnife.listenreader.service.ports.PlaybackEngineState
 import com.cnife.listenreader.service.ports.ScriptCleaner
@@ -29,7 +33,6 @@ import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
 import com.cnife.listenreader.tts.SpeechException
 import java.io.File
-import java.net.URI
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -119,6 +122,10 @@ class DefaultReadingService(
     /** 最近一次 LLM 配置写入，供 testLlm 等待保存完成。 */
     private var llmConfigSaveJob: Job? = null
 
+    /** 最近一次网页提取的原始快照，保存时写入 Source（Markdown + HTML）。 */
+    private var pendingMarkdown: String? = null
+    private var pendingHtml: String? = null
+
     init {
         scope.launch {
             settingsStore.settings.collect { appSettings ->
@@ -145,6 +152,13 @@ class DefaultReadingService(
         }
         scope.launch {
             playbackEngine.state.collect { state -> onEngineState(state) }
+        }
+        scope.launch {
+            pageSession.state.collect { pageState ->
+                if (_capture.value.mode == CaptureMode.URL) {
+                    _capture.update { it.copy(page = pageState.toUiState()) }
+                }
+            }
         }
         scope.launch {
             val resourceId = runCatching { libraryStore.lastOpenedResourceId() }.getOrNull()
@@ -242,16 +256,28 @@ class DefaultReadingService(
     override fun beginUrlCapture(url: String?) {
         captureEpoch++
         invalidateL2()
+        pendingMarkdown = null
+        pendingHtml = null
+        val requested = url?.trim().orEmpty()
         _capture.value = CaptureState(
             mode = CaptureMode.URL,
-            url = url.orEmpty(),
+            url = requested,
             page = PageUiState.Idle,
+            sessionId = _capture.value.sessionId + 1,
         )
+        if (requested.isNotEmpty() && !openUrl(requested)) {
+            _capture.update {
+                it.copy(error = UiError("仅支持 http/https 网址", ErrorKind.PAGE))
+            }
+        }
     }
 
     override fun beginTextCapture(text: String) {
         captureEpoch++
         invalidateL2()
+        pendingMarkdown = null
+        pendingHtml = null
+        val sessionId = _capture.value.sessionId + 1
         val normalized = text.replace("\r\n", "\n").replace('\r', '\n').trim()
         if (normalized.isBlank()) {
             _capture.value = CaptureState(
@@ -259,6 +285,7 @@ class DefaultReadingService(
                 url = text,
                 page = PageUiState.Idle,
                 error = UiError("请先粘贴要朗读的文本", ErrorKind.UNKNOWN),
+                sessionId = sessionId,
             )
             return
         }
@@ -289,6 +316,7 @@ class DefaultReadingService(
                 extractor = TEXT_EXTRACTOR,
                 score = 1.0,
             ),
+            sessionId = sessionId,
         )
         if (configured) {
             startL2(captureEpoch, title, body)
@@ -296,39 +324,200 @@ class DefaultReadingService(
     }
 
     override fun handleShareIntent(text: String) {
-        val url = URL_PATTERN.find(text)?.value
-        if (url != null) {
-            beginUrlCapture(url)
-        } else {
-            beginTextCapture(text)
-        }
+        val url = ShareText.firstUrl(text)
+        if (url != null) beginUrlCapture(url) else beginTextCapture(text)
     }
 
     override fun loadUrl(url: String) {
-        _capture.update {
-            it.copy(mode = CaptureMode.URL, url = url, page = PageUiState.Idle, error = null)
+        val trimmed = url.trim()
+        if (trimmed.isEmpty()) {
+            _capture.update {
+                it.copy(url = "", page = PageUiState.Idle, error = UiError("请输入网址", ErrorKind.PAGE))
+            }
+            return
         }
+        if (!openUrl(trimmed)) {
+            _capture.update {
+                it.copy(url = trimmed, error = UiError("仅支持 http/https 网址", ErrorKind.PAGE))
+            }
+        }
+    }
+
+    /** 校验并开始加载网址；返回是否合法。 */
+    private fun openUrl(raw: String): Boolean {
+        val normalized = ShareText.normalizeUrl(raw) ?: return false
+        captureEpoch++
+        invalidateL2()
+        pendingMarkdown = null
+        pendingHtml = null
+        _capture.update {
+            it.copy(
+                mode = CaptureMode.URL,
+                url = normalized,
+                page = PageUiState.Loading(0),
+                extraction = null,
+                preview = null,
+                isExtracting = false,
+                error = null,
+            )
+        }
+        pageSession.load(normalized)
+        return true
     }
 
     override fun reloadPage() {
-        // T6 接入真实 WebView 后实现。
+        val state = _capture.value
+        if (state.mode != CaptureMode.URL || state.url.isBlank()) return
+        pendingMarkdown = null
+        pendingHtml = null
+        _capture.update {
+            it.copy(page = PageUiState.Loading(0), error = null, extraction = null)
+        }
+        pageSession.reload()
     }
 
-    override fun pageBack(): Boolean = false
+    override fun pageBack(): Boolean {
+        if (_capture.value.mode != CaptureMode.URL) return false
+        return pageSession.goBack()
+    }
 
-    override fun createPageView(context: Context): View? = null
+    override fun createPageView(context: Context): View? = try {
+        pageSession.createView(context)
+    } catch (c: CancellationException) {
+        throw c
+    } catch (t: Throwable) {
+        _capture.update {
+            it.copy(
+                page = PageUiState.Failed("网页视图不可用，请返回后重试"),
+                error = UiError("网页视图不可用，请返回后重试", ErrorKind.PAGE, retryable = true),
+            )
+        }
+        null
+    }
 
     override fun releasePageView() {
-        // T6 接入真实 WebView 后实现。
+        pageSession.release()
+        if (_capture.value.mode == CaptureMode.URL) {
+            _capture.update { it.copy(page = PageUiState.Idle) }
+        }
     }
 
     override fun extractPage() {
+        val state = _capture.value
+        if (state.mode != CaptureMode.URL) {
+            _capture.update {
+                it.copy(error = UiError("请先打开网页", ErrorKind.PAGE))
+            }
+            return
+        }
+        if (state.url.isBlank()) {
+            _capture.update {
+                it.copy(error = UiError("请输入网址", ErrorKind.PAGE))
+            }
+            return
+        }
+        when (val page = state.page) {
+            is PageUiState.NeedsUserAction -> {
+                _capture.update { it.copy(error = UiError(page.reason, ErrorKind.PAGE, retryable = true)) }
+                return
+            }
+            is PageUiState.Failed -> {
+                _capture.update { it.copy(error = UiError(page.message, ErrorKind.PAGE, retryable = true)) }
+                return
+            }
+            else -> Unit
+        }
+        if (state.isExtracting) return
+        val epoch = captureEpoch
+        _capture.update { it.copy(isExtracting = true, error = null) }
+        scope.launch {
+            try {
+                val extraction = pageSession.extract()
+                if (epoch != captureEpoch) return@launch
+                applyPageExtraction(extraction)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: PageExtractionException) {
+                if (epoch == captureEpoch) {
+                    _capture.update {
+                        it.copy(
+                            isExtracting = false,
+                            error = UiError(e.message ?: "无法提取正文", ErrorKind.PAGE, retryable = true),
+                        )
+                    }
+                }
+            } catch (t: Throwable) {
+                if (epoch == captureEpoch) {
+                    _capture.update {
+                        it.copy(
+                            isExtracting = false,
+                            error = UiError("正文提取失败，请稍后重试", ErrorKind.PAGE, retryable = true),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun applyPageExtraction(extraction: PageExtraction) {
+        val url = _capture.value.url
+        val title = extraction.title.trim().ifBlank { ShareText.sourceLabel(url) }
+        val body = stripLeadingTitle(title, extraction.text.ifBlank { extraction.markdown }.trim())
+        if (body.isBlank()) {
+            _capture.update {
+                it.copy(
+                    isExtracting = false,
+                    page = PageUiState.NeedsUserAction("没有提取到正文，请在页面内确认正文可见或改用「粘贴文本」"),
+                    error = UiError("没有提取到正文，请确认页面正文可见", ErrorKind.PAGE, retryable = true),
+                )
+            }
+            return
+        }
+        pendingMarkdown = extraction.markdown.ifBlank { null }
+        pendingHtml = extraction.html
+        val configured = scriptCleaner.isConfigured()
+        val preview = PreviewState(
+            title = title,
+            body = body,
+            charCount = body.length,
+            segmentDrafts = RuleSegmenter.segment(title, body),
+            segmentation = SegmentationSource.RULE,
+            l2Status = if (configured) L2Status.RUNNING else L2Status.NOT_CONFIGURED,
+            l2Error = if (configured) null else NO_LLM_MESSAGE,
+            sourceKind = SourceKind.URL,
+            sourceLabel = ShareText.sourceLabel(url),
+            extractor = extraction.extractor,
+            score = extraction.score,
+            sourceUrl = url,
+            byline = extraction.byline,
+            publishedAt = extraction.publishedAt,
+        )
         _capture.update {
             it.copy(
+                page = PageUiState.Ready,
                 isExtracting = false,
-                error = UiError("正文提取将在后续版本接入", ErrorKind.UNKNOWN),
+                error = null,
+                extraction = ExtractionInfo(
+                    title = title,
+                    extractor = extraction.extractor,
+                    score = extraction.score,
+                    confidence = extraction.confidence,
+                    needsExpand = extraction.needsExpand,
+                    degradedReason = extraction.degradedReason,
+                ),
+                preview = preview,
             )
         }
+        if (configured) startL2(captureEpoch, title, body)
+    }
+
+    /** 有些提取器会把标题也放进正文；避免预览里重复一句标题。 */
+    private fun stripLeadingTitle(title: String, body: String): String {
+        if (title.isBlank() || !body.startsWith(title)) return body
+        val rest = body.substring(title.length)
+        if (rest.isEmpty()) return title
+        if (!rest.first().isWhitespace()) return body
+        return rest.trimStart().ifEmpty { title }
     }
 
     override fun useFullPage() {
@@ -380,7 +569,15 @@ class DefaultReadingService(
             }
             return null
         }
-        val title = preview.title.trim().ifBlank { TEXT_SOURCE_LABEL }
+        val sourceKind = preview.sourceKind
+        val sourceUrl = if (sourceKind == SourceKind.URL) {
+            preview.sourceUrl ?: _capture.value.url.ifBlank { null }
+        } else {
+            null
+        }
+        val title = preview.title.trim().ifBlank {
+            if (sourceKind == SourceKind.URL) ShareText.sourceLabel(sourceUrl.orEmpty()) else TEXT_SOURCE_LABEL
+        }
         val body = preview.body.trim()
         // 保存当前预览里的分段：L2 成功时是 LLM 分段，失败/未配置时是规则分段。
         val drafts = preview.segmentDrafts.ifEmpty { RuleSegmenter.segment(title, body) }
@@ -399,11 +596,12 @@ class DefaultReadingService(
                 val resource = Resource(
                     id = resourceId,
                     title = title,
-                    sourceKind = SourceKind.TEXT,
-                    sourceUrl = null,
-                    byline = null,
-                    publishedAt = null,
-                    extractor = preview.extractor ?: TEXT_EXTRACTOR,
+                    sourceKind = sourceKind,
+                    sourceUrl = sourceUrl,
+                    byline = preview.byline,
+                    publishedAt = preview.publishedAt,
+                    extractor = preview.extractor
+                        ?: if (sourceKind == SourceKind.URL) "l1" else TEXT_EXTRACTOR,
                     snapshotPath = null,
                     currentSegmentIndex = 0,
                     currentPositionMs = 0,
@@ -411,7 +609,14 @@ class DefaultReadingService(
                     createdAt = now,
                     lastOpenedAt = 0,
                 )
-                libraryStore.createResource(resource, body, null, drafts)
+                // 网页快照保存 L1 Markdown（用户可编辑正文不覆盖原始提取），HTML 可选。
+                val snapshotText = if (sourceKind == SourceKind.URL) {
+                    pendingMarkdown ?: body
+                } else {
+                    body
+                }
+                val snapshotHtml = if (sourceKind == SourceKind.URL) pendingHtml else null
+                libraryStore.createResource(resource, snapshotText, snapshotHtml, drafts)
                 if (epoch == captureEpoch) {
                     _capture.update {
                         it.copy(isSaving = false, savedResourceId = resourceId)
@@ -437,7 +642,9 @@ class DefaultReadingService(
     override fun discardCapture() {
         captureEpoch++
         invalidateL2()
-        _capture.value = CaptureState()
+        pendingMarkdown = null
+        pendingHtml = null
+        _capture.value = CaptureState(sessionId = _capture.value.sessionId + 1)
     }
 
     // --- 播放 ---
@@ -1397,13 +1604,11 @@ class DefaultReadingService(
     }
 
     private fun sourceLabelFor(kind: SourceKind, url: String?): String {
-        if (kind == SourceKind.TEXT) return "粘贴文本"
-        val host = runCatching { URI(url.orEmpty()).host }.getOrNull()
-        return host?.removePrefix("www.").orEmpty().ifBlank { "网页" }
+        if (kind == SourceKind.TEXT) return TEXT_SOURCE_LABEL
+        return ShareText.sourceLabel(url.orEmpty())
     }
 
     private companion object {
-        val URL_PATTERN = Regex("""https?://\S+""")
         const val TEXT_SOURCE_LABEL = "粘贴文本"
         const val TEXT_EXTRACTOR = "文本输入"
         const val CHARS_PER_SECOND = 4.5
@@ -1413,4 +1618,12 @@ class DefaultReadingService(
         const val PREVIEW_TEXT = "你好，这是听我读的音色试听。"
         val TITLE_TERMINATORS = charArrayOf('。', '！', '？', '!', '?', '；', ';', '…')
     }
+}
+
+private fun PageSessionState.toUiState(): PageUiState = when (this) {
+    is PageSessionState.Idle -> PageUiState.Idle
+    is PageSessionState.Loading -> PageUiState.Loading(progress)
+    is PageSessionState.Ready -> PageUiState.Ready
+    is PageSessionState.NeedsUserAction -> PageUiState.NeedsUserAction(reason)
+    is PageSessionState.Failed -> PageUiState.Failed(message)
 }

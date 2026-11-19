@@ -75,6 +75,8 @@ class RoomLibraryStore(
             val snapshot = snapshotFile(resource.id)
             snapshot.parentFile?.mkdirs()
             snapshot.writeText(sourceText)
+            val snapshotHtml = File(snapshotRoot, "${resource.id}.html")
+            if (html != null) snapshotHtml.writeText(html)
 
             val trackId = UUID.randomUUID().toString()
             try {
@@ -113,6 +115,7 @@ class RoomLibraryStore(
                 resource.id
             } catch (t: Throwable) {
                 snapshot.delete()
+                snapshotHtml.delete()
                 throw t
             }
         }

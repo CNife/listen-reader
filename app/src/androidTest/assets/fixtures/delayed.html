@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>延迟加载的文章</title>
+  <meta property="og:title" content="延迟加载的文章">
+</head>
+<body>
+<article>
+  <h1>延迟加载的文章</h1>
+  <p>页面打开之后，正文并不是一次性全部出现。有些站点会先渲染骨架，再用脚本把段落塞进正文容器，所以提取之前必须等待 DOM 安静下来。</p>
+  <p>如果提取得太早，用户会拿到一篇残缺的文稿，然后以为是应用出了问题。相比多等半秒，交出一篇可读的正文显然更重要，这也是稳定检测要解决的问题。</p>
+  <p>下面的段落由脚本延迟插入，用来确认提取器会等待它出现。延迟的时长控制在数百毫秒，既不拖慢正常页面，也足以覆盖常见的懒渲染。</p>
+</article>
+<script>
+  setTimeout(function () {
+    var p = document.createElement("p");
+    p.textContent = "延迟出现的正文段落，说明页面在加载完成之后仍会继续更新，提取需要等待 DOM 静默。";
+    document.querySelector("article").appendChild(p);
+  }, 300);
+</script>
+</body>
+</html>

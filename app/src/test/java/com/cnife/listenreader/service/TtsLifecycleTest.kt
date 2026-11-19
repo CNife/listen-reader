@@ -285,6 +285,44 @@ class TtsLifecycleTest {
     }
 
     @Test
+    fun `switching back to a cached track keeps playing without extra progress writes`() = runTest {
+        val store = newStore()
+        val cachedFile = readyClipFile(store, RESOURCE_ID, TRACK_ID, 1)
+        addSegments(
+            store,
+            count = 3,
+            currentIndex = 1,
+            positionMs = 500L,
+            clips = listOf(testClip(TRACK_ID, 1, cachedFile)),
+        )
+        val h = harness(
+            store = store,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 0),
+        )
+        advanceUntilIdle()
+        h.service.openResource(RESOURCE_ID)
+        advanceUntilIdle()
+        h.service.play()
+        advanceUntilIdle()
+        assertTrue(h.service.player.value.isPlaying)
+
+        // 切到新音色会合成新轨；再切回旧音色命中缓存，走 prepare + play 的复用分支。
+        h.service.setVoice(Voices.CIXING)
+        advanceUntilIdle()
+        assertTrue(h.service.player.value.isPlaying)
+
+        h.store.progressWrites.clear()
+        h.service.setVoice(Voices.WENROU)
+        advanceUntilIdle()
+
+        assertTrue(h.service.player.value.isPlaying)
+        assertTrue(
+            "切轨时的内部 prepare 被误判成外部暂停：${h.store.progressWrites}",
+            h.store.progressWrites.isEmpty(),
+        )
+    }
+
+    @Test
     fun `switching model creates a track with the new model and keeps the old track`() = runTest {
         val store = newStore()
         addSegments(store, count = 2)

@@ -111,6 +111,10 @@ data class PlayerState(
     val activeTrack: AudioTrackInfo? = null,
     val follow: Boolean = true,
     val error: UiError? = null,
+    /** 原文 Markdown 快照；读取失败或缺失时为 null。 */
+    val snapshotText: String? = null,
+    /** 快照不可用时的可读原因；快照正常时为 null。 */
+    val snapshotError: String? = null,
 )
 
 data class CaptureState(
@@ -125,6 +129,8 @@ data class CaptureState(
     val error: UiError? = null,
     /** 每次开始/丢弃采集会话自增；UI 用它避免重复导航。 */
     val sessionId: Int = 0,
+    /** 每次（重新）生成预览自增；返回采集页后再次提取仍能导航到预览。 */
+    val previewRevision: Int = 0,
     /** 提取/L3 展开的可读进度；不在提取时为空。 */
     val extractionStage: String? = null,
 )

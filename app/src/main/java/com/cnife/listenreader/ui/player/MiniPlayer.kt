@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.PlayerState
 
-/** 底部常驻播放条：进度、上一句/播放/下一句、倍速、跟随。 */
+/** 底部常驻播放条：进度、上一句/播放/下一句、睡眠定时、倍速、跟随。 */
 @Composable
 fun MiniPlayer(
     state: PlayerState,
@@ -35,7 +35,10 @@ fun MiniPlayer(
     onNext: () -> Unit,
     onSpeedClick: () -> Unit,
     onToggleFollow: () -> Unit,
+    onSleepTimer: (Int?) -> Unit,
     onVoiceClick: () -> Unit,
+    title: String? = null,
+    currentText: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val total = state.totalDurationMs
@@ -53,6 +56,27 @@ fun MiniPlayer(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            if (title != null || currentText != null) {
+                Column {
+                    if (title != null) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            modifier = Modifier.testTag("mini-player-title"),
+                        )
+                    }
+                    if (currentText != null) {
+                        Text(
+                            text = currentText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            modifier = Modifier.testTag("mini-player-current"),
+                        )
+                    }
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -85,6 +109,13 @@ fun MiniPlayer(
                 IconButton(onClick = onNext) {
                     Icon(Icons.Filled.SkipNext, contentDescription = "下一句")
                 }
+                SleepTimerButton(state = state, onSelectMinutes = onSleepTimer)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 TextButton(onClick = onSpeedClick, modifier = Modifier.testTag("player-speed")) {
                     Text("${formatSpeed(state.speed)}×")
                 }

@@ -15,6 +15,7 @@ import com.cnife.listenreader.ui.capture.CaptureScreen
 import com.cnife.listenreader.ui.capture.PreviewScreen
 import com.cnife.listenreader.ui.library.LibraryScreen
 import com.cnife.listenreader.ui.player.PlayerScreen
+import com.cnife.listenreader.ui.player.ReadingScreen
 import com.cnife.listenreader.ui.settings.SettingsScreen
 
 object Routes {
@@ -34,9 +35,10 @@ fun AppNavHost(service: ReadingService) {
     val navController = rememberNavController()
     val capture by service.capture.collectAsStateWithLifecycle()
 
-    // 分享/新建/粘贴文本会开启新的采集会话（sessionId 自增）；提取完成后 preview 出现。
-    // 这里统一导航，页面内不再各自跳转，避免重复入栈。
-    LaunchedEffect(capture.sessionId, capture.preview != null) {
+    // 分享/新建/粘贴文本会开启新的采集会话（sessionId 自增）；每次提取出新预览
+    // （previewRevision 自增）都导航到预览。返回采集页后再次提取也能重新进入预览，
+    // 且不会因返回操作本身重复入栈。
+    LaunchedEffect(capture.sessionId, capture.previewRevision) {
         if (capture.mode == CaptureMode.IDLE) return@LaunchedEffect
         val target = if (capture.preview != null) Routes.PREVIEW else Routes.CAPTURE
         if (navController.currentDestination?.route != target) {
@@ -108,11 +110,10 @@ fun AppNavHost(service: ReadingService) {
             route = Routes.READER,
             arguments = listOf(navArgument("resourceId") { type = NavType.StringType }),
         ) { entry ->
-            PlayerScreen(
+            ReadingScreen(
                 service = service,
                 resourceId = entry.arguments?.getString("resourceId").orEmpty(),
                 onBack = { navController.popBackStack() },
-                onOpenReader = {},
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }

@@ -59,6 +59,7 @@ class FakeReadingService(
         private set
 
     val speedChanges = mutableListOf<Float>()
+    val sleepTimerChanges = mutableListOf<Int?>()
 
     /** 测试连接时设置的状态。 */
     var stepFunTestResult: TestState = TestState.Success("连接成功，已合成试听音频")
@@ -172,6 +173,7 @@ class FakeReadingService(
             ),
             preview = newPreview(title, body),
             sessionId = _capture.value.sessionId + 1,
+            previewRevision = _capture.value.previewRevision + 1,
         )
     }
 
@@ -224,6 +226,7 @@ class FakeReadingService(
                     score = extraction.score,
                     sourceUrl = url,
                 ),
+                previewRevision = state.previewRevision + 1,
             )
         }
     }
@@ -327,7 +330,13 @@ class FakeReadingService(
     }
 
     override fun setSleepTimer(minutes: Int?) {
-        _player.update { it.copy(sleepTimerMinutes = minutes) }
+        sleepTimerChanges += minutes
+        _player.update {
+            it.copy(
+                sleepTimerMinutes = minutes,
+                sleepTimerRemainingMs = minutes?.takeIf { value -> value > 0 }?.let { value -> value * 60_000L },
+            )
+        }
     }
 
     override fun setVoice(voiceId: String) {

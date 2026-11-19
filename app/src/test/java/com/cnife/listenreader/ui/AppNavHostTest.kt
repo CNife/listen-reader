@@ -64,6 +64,19 @@ class AppNavHostTest {
     }
 
     @Test
+    fun emptyUrlCapture_showsPlaceholderInsteadOfWebView() {
+        val service = FakeReadingService()
+        composeRule.setContent { ListenReaderApp(service) }
+
+        composeRule.onNodeWithText("新建").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("capture-url-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("capture-empty-web").assertIsDisplayed()
+        composeRule.onNodeWithText("输入网址开始采集").assertIsDisplayed()
+    }
+
+    @Test
     fun emptyPastedText_showsHint() {
         val service = FakeReadingService()
         composeRule.setContent { ListenReaderApp(service) }

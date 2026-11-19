@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -121,7 +122,11 @@ fun CaptureScreen(
                     HintText("请输入网址")
                 }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    WebViewArea(service, context)
+                    WebViewArea(
+                        service = service,
+                        context = context,
+                        showWebView = state.url.isNotBlank() || state.page !is PageUiState.Idle,
+                    )
                     PageStatusOverlay(state.page, state.isExtracting, state.extractionStage)
                 }
                 state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
@@ -242,11 +247,31 @@ private fun UrlBar(
 }
 
 @Composable
-private fun WebViewArea(service: ReadingService, context: android.content.Context) {
+private fun WebViewArea(
+    service: ReadingService,
+    context: android.content.Context,
+    showWebView: Boolean,
+) {
+    if (!showWebView) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("capture-empty-web"),
+            contentAlignment = androidx.compose.ui.Alignment.Center,
+        ) {
+            Text(
+                text = "输入网址开始采集",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
     var available by remember { mutableStateOf(true) }
     AndroidView(
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .testTag("capture-webview"),
         factory = { ctx ->
             val view = service.createPageView(context)

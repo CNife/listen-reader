@@ -159,6 +159,7 @@ fun ReadingScreen(
                 onNext = service::nextSegment,
                 onSpeedClick = { service.setSpeed(nextSpeed(state.speed)) },
                 onToggleFollow = service::toggleFollow,
+                onSleepTimer = service::setSleepTimer,
                 onVoiceClick = { showVoiceSheet = true },
                 title = state.title,
                 currentText = state.segments.getOrNull(state.currentIndex)?.text,

@@ -106,6 +106,40 @@ class DefaultReadingServiceTest {
     }
 
     @Test
+    fun `save is ignored while a previous save is still running`() = runTest {
+        val harness = createService()
+        advanceUntilIdle()
+
+        harness.service.beginTextCapture("文章标题\n\n正文足够长的句子内容。")
+        val first = harness.service.saveCapture()
+        assertNotNull(first)
+        assertNull(harness.service.saveCapture())
+        advanceUntilIdle()
+
+        val capture = harness.service.capture.value
+        assertFalse(capture.isSaving)
+        assertEquals(first, capture.savedResourceId)
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun `save completion from previous capture does not leak into a new capture`() = runTest {
+        val harness = createService()
+        advanceUntilIdle()
+
+        harness.service.beginTextCapture("旧标题\n\n旧正文足够长的句子内容。")
+        assertNotNull(harness.service.saveCapture())
+        harness.service.beginTextCapture("新标题\n\n新正文足够长的句子内容。")
+        advanceUntilIdle()
+
+        val capture = harness.service.capture.value
+        assertFalse(capture.isSaving)
+        assertNull(capture.savedResourceId)
+        assertEquals("新标题", capture.preview?.title)
+        harness.scope.cancel()
+    }
+
+    @Test
     fun `theme change updates state and persists to settings store`() = runTest {
         val settingsStore = FakeSettingsStore()
         val harness = createService(settingsStore = settingsStore)

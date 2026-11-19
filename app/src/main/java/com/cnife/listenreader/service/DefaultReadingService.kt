@@ -21,6 +21,7 @@ import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
 import java.net.URI
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,6 +60,9 @@ class DefaultReadingService(
     override val settings: StateFlow<SettingsState> = _settings.asStateFlow()
 
     private var allItems: List<LibraryItem> = emptyList()
+
+    /** 每次开始新的采集会话自增，用于丢弃已过期会话的异步保存结果。 */
+    private var captureEpoch = 0
 
     init {
         scope.launch {
@@ -161,6 +165,7 @@ class DefaultReadingService(
     // --- Capture / 预览 ---
 
     override fun beginUrlCapture(url: String?) {
+        captureEpoch++
         _capture.value = CaptureState(
             mode = CaptureMode.URL,
             url = url.orEmpty(),
@@ -169,6 +174,7 @@ class DefaultReadingService(
     }
 
     override fun beginTextCapture(text: String) {
+        captureEpoch++
         val normalized = text.replace("\r\n", "\n").replace('\r', '\n').trim()
         if (normalized.isBlank()) {
             _capture.value = CaptureState(
@@ -266,6 +272,7 @@ class DefaultReadingService(
     }
 
     override fun saveCapture(): String? {
+        if (_capture.value.isSaving) return null
         val preview = _capture.value.preview
         if (preview == null) {
             _capture.update {
@@ -283,6 +290,7 @@ class DefaultReadingService(
             return null
         }
         val resourceId = UUID.randomUUID().toString()
+        val epoch = captureEpoch
         _capture.update { it.copy(isSaving = true, error = null, savedResourceId = null) }
         scope.launch {
             try {
@@ -303,16 +311,22 @@ class DefaultReadingService(
                     lastOpenedAt = 0,
                 )
                 libraryStore.createResource(resource, body, null)
-                _capture.update {
-                    it.copy(isSaving = false, savedResourceId = resourceId)
+                if (epoch == captureEpoch) {
+                    _capture.update {
+                        it.copy(isSaving = false, savedResourceId = resourceId)
+                    }
                 }
+            } catch (c: CancellationException) {
+                throw c
             } catch (t: Throwable) {
-                _capture.update {
-                    it.copy(
-                        isSaving = false,
-                        savedResourceId = null,
-                        error = UiError("保存失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
-                    )
+                if (epoch == captureEpoch) {
+                    _capture.update {
+                        it.copy(
+                            isSaving = false,
+                            savedResourceId = null,
+                            error = UiError("保存失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                        )
+                    }
                 }
             }
         }
@@ -320,6 +334,7 @@ class DefaultReadingService(
     }
 
     override fun discardCapture() {
+        captureEpoch++
         _capture.value = CaptureState()
     }
 

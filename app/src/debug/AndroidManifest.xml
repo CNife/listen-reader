@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 仅 debug/仪器测试：允许 WebView 加载本地 MockWebServer 的 http fixture。 -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

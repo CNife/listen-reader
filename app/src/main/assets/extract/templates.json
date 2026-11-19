@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "name": "通用网页",
+      "hostPattern": ".*",
+      "enabled": true,
+      "titleSelector": [],
+      "contentSelector": [],
+      "removeSelectors": [
+        "[class*='sidebar']",
+        "[class*='related']",
+        "[class*='recommend']",
+        "[class*='newsletter']",
+        "[class*='subscribe']"
+      ],
+      "waitForSelector": []
+    },
+    {
+      "name": "微信公众号",
+      "hostPattern": "^mp\\.weixin\\.qq\\.com$",
+      "enabled": false,
+      "note": "T7 定义公众号标题/正文选择器与正文提权规则",
+      "titleSelector": [],
+      "contentSelector": [],
+      "removeSelectors": [],
+      "waitForSelector": []
+    }
+  ]
+}

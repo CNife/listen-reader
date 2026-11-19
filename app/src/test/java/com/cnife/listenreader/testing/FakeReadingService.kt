@@ -2,6 +2,7 @@ package com.cnife.listenreader.testing
 
 import android.content.Context
 import android.view.View
+import com.cnife.listenreader.capture.ShareText
 import com.cnife.listenreader.core.RuleSegmenter
 import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.model.LibraryFilter
@@ -18,6 +19,7 @@ import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.service.TestState
+import com.cnife.listenreader.service.ports.PageExtraction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -136,7 +138,11 @@ class FakeReadingService(
     }
 
     override fun beginUrlCapture(url: String?) {
-        _capture.value = CaptureState(mode = CaptureMode.URL, url = url.orEmpty())
+        _capture.value = CaptureState(
+            mode = CaptureMode.URL,
+            url = url.orEmpty(),
+            sessionId = _capture.value.sessionId + 1,
+        )
     }
 
     override fun beginTextCapture(text: String) {
@@ -149,6 +155,7 @@ class FakeReadingService(
                     "请先粘贴要朗读的文本",
                     com.cnife.listenreader.core.ErrorKind.UNKNOWN,
                 ),
+                sessionId = _capture.value.sessionId + 1,
             )
             return
         }
@@ -164,11 +171,13 @@ class FakeReadingService(
                 needsExpand = false,
             ),
             preview = newPreview(title, body),
+            sessionId = _capture.value.sessionId + 1,
         )
     }
 
     override fun handleShareIntent(text: String) {
-        if (text.contains("http")) beginUrlCapture(text) else beginTextCapture(text)
+        val url = ShareText.firstUrl(text)
+        if (url != null) beginUrlCapture(url) else beginTextCapture(text)
     }
 
     override fun loadUrl(url: String) {
@@ -183,7 +192,41 @@ class FakeReadingService(
 
     override fun releasePageView() = Unit
 
-    override fun extractPage() = Unit
+    /** 测试可预设一次网页提取结果，驱动 URL -> 预览的导航与 UI。 */
+    var urlExtraction: PageExtraction? = null
+
+    override fun extractPage() {
+        val extraction = urlExtraction ?: return
+        val url = _capture.value.url
+        val title = extraction.title
+        _capture.update { state ->
+            state.copy(
+                isExtracting = false,
+                page = com.cnife.listenreader.service.PageUiState.Ready,
+                extraction = ExtractionInfo(
+                    title = title,
+                    extractor = extraction.extractor,
+                    score = extraction.score,
+                    confidence = extraction.confidence,
+                    needsExpand = extraction.needsExpand,
+                    degradedReason = extraction.degradedReason,
+                ),
+                preview = PreviewState(
+                    title = title,
+                    body = extraction.text,
+                    charCount = extraction.text.length,
+                    segmentDrafts = RuleSegmenter.segment(title, extraction.text),
+                    segmentation = SegmentationSource.RULE,
+                    l2Status = L2Status.NOT_RUN,
+                    sourceKind = SourceKind.URL,
+                    sourceLabel = ShareText.sourceLabel(url),
+                    extractor = extraction.extractor,
+                    score = extraction.score,
+                    sourceUrl = url,
+                ),
+            )
+        }
+    }
 
     override fun useFullPage() = Unit
 

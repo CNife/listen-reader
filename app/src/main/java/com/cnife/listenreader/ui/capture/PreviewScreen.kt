@@ -110,6 +110,15 @@ fun PreviewScreen(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.testTag("preview-meta"),
             )
+            state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
+                Text(
+                    text = "正文可能不完整：${extraction.degradedReason ?: "提取置信度较低"}" +
+                        "（可编辑正文，或稍后重试自动展开）",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("preview-degraded-hint"),
+                )
+            }
             L2StatusSection(
                 preview = preview,
                 onRetryL2 = service::retryL2,
@@ -119,6 +128,7 @@ fun PreviewScreen(
                 text = buildString {
                     append("来源：").append(preview.sourceLabel)
                     preview.extractor?.let { append(" · 提取：").append(it) }
+                    preview.score?.let { append(" · score ").append(String.format("%.2f", it)) }
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

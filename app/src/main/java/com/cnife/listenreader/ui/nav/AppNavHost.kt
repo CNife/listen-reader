@@ -1,11 +1,15 @@
 package com.cnife.listenreader.ui.nav
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.cnife.listenreader.service.CaptureMode
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.ui.capture.CaptureScreen
 import com.cnife.listenreader.ui.capture.PreviewScreen
@@ -28,15 +32,28 @@ object Routes {
 @Composable
 fun AppNavHost(service: ReadingService) {
     val navController = rememberNavController()
+    val capture by service.capture.collectAsStateWithLifecycle()
+
+    // 分享/新建/粘贴文本会开启新的采集会话（sessionId 自增）；提取完成后 preview 出现。
+    // 这里统一导航，页面内不再各自跳转，避免重复入栈。
+    LaunchedEffect(capture.sessionId, capture.preview != null) {
+        if (capture.mode == CaptureMode.IDLE) return@LaunchedEffect
+        val target = if (capture.preview != null) Routes.PREVIEW else Routes.CAPTURE
+        if (navController.currentDestination?.route != target) {
+            navController.navigate(target) {
+                launchSingleTop = true
+                if (target == Routes.PREVIEW) {
+                    popUpTo(Routes.CAPTURE) { inclusive = false }
+                }
+            }
+        }
+    }
 
     NavHost(navController = navController, startDestination = Routes.LIBRARY) {
         composable(Routes.LIBRARY) {
             LibraryScreen(
                 service = service,
-                onNewCapture = {
-                    service.beginUrlCapture()
-                    navController.navigate(Routes.CAPTURE)
-                },
+                onNewCapture = { service.beginUrlCapture() },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenResource = { resourceId ->
                     service.openResource(resourceId)
@@ -47,8 +64,11 @@ fun AppNavHost(service: ReadingService) {
         composable(Routes.CAPTURE) {
             CaptureScreen(
                 service = service,
-                onBack = { navController.popBackStack() },
-                onOpenPreview = { navController.navigate(Routes.PREVIEW) },
+                onBack = {
+                    service.discardCapture()
+                    service.releasePageView()
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.PREVIEW) {

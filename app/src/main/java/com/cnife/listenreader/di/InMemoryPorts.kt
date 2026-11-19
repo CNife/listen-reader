@@ -3,17 +3,10 @@ package com.cnife.listenreader.di
 import android.content.Context
 import android.view.View
 import android.widget.FrameLayout
-import com.cnife.listenreader.model.AudioClip
-import com.cnife.listenreader.model.AudioTrack
-import com.cnife.listenreader.model.LibraryItem
-import com.cnife.listenreader.model.Resource
-import com.cnife.listenreader.model.Segment
 import com.cnife.listenreader.model.ThemeMode
-import com.cnife.listenreader.service.StorageUsage
 import com.cnife.listenreader.service.ports.AppSettings
 import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.ConnectionTestResult
-import com.cnife.listenreader.service.ports.LibraryStore
 import com.cnife.listenreader.service.ports.PageExtraction
 import com.cnife.listenreader.service.ports.PageSession
 import com.cnife.listenreader.service.ports.PageSessionState
@@ -31,69 +24,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * T1 的生产占位端口实现：资料库为空、设置保存在内存中。
- * 后续 ticket 会用真实 Room / DataStore / WebView / TTS / Media3 适配器替换。
+ * T2 期间的生产占位端口：设置保存在内存中（T3 换成 DataStore）。
+ * 资料库已改用 Room（见 AppContainer），其余端口等待后续 ticket 替换。
  */
-class InMemoryLibraryStore(context: Context) : LibraryStore {
-
-    private val audioRoot = File(context.filesDir, "audio")
-    private val snapshotRoot = File(context.filesDir, "sources")
-    private val items = MutableStateFlow<List<LibraryItem>>(emptyList())
-    private var lastOpened: String? = null
-
-    override fun observeItems(): Flow<List<LibraryItem>> = items
-
-    override suspend fun getResource(id: String): Resource? = null
-
-    override suspend fun getSegments(resourceId: String): List<Segment> = emptyList()
-
-    override suspend fun getTracks(resourceId: String): List<AudioTrack> = emptyList()
-
-    override suspend fun getClips(trackId: String): List<AudioClip> = emptyList()
-
-    override suspend fun createResource(resource: Resource, sourceText: String, html: String?): String {
-        throw UnsupportedOperationException("RoomLibraryStore 将在 T2 接入")
-    }
-
-    override suspend fun updateProgress(resourceId: String, segmentIndex: Int, positionMs: Long) = Unit
-
-    override suspend fun markOpened(resourceId: String, at: Long) {
-        lastOpened = resourceId
-    }
-
-    override suspend fun setActiveTrack(resourceId: String, trackId: String?) = Unit
-
-    override suspend fun createTrack(track: AudioTrack) = Unit
-
-    override suspend fun upsertClip(clip: AudioClip) = Unit
-
-    override suspend fun deleteResource(resourceId: String) = Unit
-
-    override suspend fun snapshotText(resourceId: String): String? = null
-
-    override suspend fun readSnapshot(path: String): String? = null
-
-    override fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File =
-        File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
-
-    override fun snapshotFile(resourceId: String): File = File(snapshotRoot, "$resourceId.md")
-
-    override fun fileSize(path: String?): Long =
-        if (path.isNullOrBlank()) 0L else File(path).takeIf { it.exists() }?.length() ?: 0L
-
-    override suspend fun deleteUnusedTracks(): Long = 0L
-
-    override fun lastOpenedResourceId(): String? = lastOpened
-
-    override fun saveLastOpenedResourceId(resourceId: String?) {
-        lastOpened = resourceId
-    }
-
-    override fun totalActiveAudioBytes(): Long = 0L
-
-    override fun computeStorageUsage(): StorageUsage = StorageUsage(0, 0)
-}
-
 class InMemorySettingsStore : SettingsStore {
 
     private val state = MutableStateFlow(AppSettings())

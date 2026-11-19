@@ -36,6 +36,9 @@ class FakeLibraryStore(
     private val items = MutableStateFlow(initialItems)
     private var lastOpened: String? = null
 
+    /** 让行为测试能模拟保存失败。 */
+    var failCreate: Boolean = false
+
     override fun observeItems(): Flow<List<LibraryItem>> = items
 
     override suspend fun getResource(id: String): Resource? = null
@@ -46,8 +49,10 @@ class FakeLibraryStore(
 
     override suspend fun getClips(trackId: String): List<AudioClip> = emptyList()
 
-    override suspend fun createResource(resource: Resource, sourceText: String, html: String?): String =
-        resource.id
+    override suspend fun createResource(resource: Resource, sourceText: String, html: String?): String {
+        if (failCreate) throw IllegalStateException("disk full")
+        return resource.id
+    }
 
     override suspend fun updateProgress(resourceId: String, segmentIndex: Int, positionMs: Long) = Unit
 

@@ -4,15 +4,22 @@ import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.ListenReaderApp
+import com.cnife.listenreader.model.LibraryItem
+import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.CaptureMode
+import com.cnife.listenreader.service.LibraryState
 import com.cnife.listenreader.testing.FakeReadingService
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -47,8 +54,76 @@ class AppNavHostTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("采集").assertIsDisplayed()
-        composeRule.onNodeWithText("内置浏览器与正文提取将在后续版本接入。").assertIsDisplayed()
+        composeRule.onNodeWithText("粘贴文本").assertIsDisplayed()
         assertEquals(CaptureMode.URL, service.capture.value.mode)
+    }
+
+    @Test
+    fun emptyPastedText_showsHint() {
+        val service = FakeReadingService()
+        composeRule.setContent { ListenReaderApp(service) }
+
+        composeRule.onNodeWithText("新建").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("预览").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("请先粘贴要朗读的文本").assertIsDisplayed()
+    }
+
+    @Test
+    fun pastedText_previewEditAndSave_addsToLibrary() {
+        val service = FakeReadingService()
+        composeRule.setContent { ListenReaderApp(service) }
+
+        composeRule.onNodeWithText("新建").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("capture-text-input")
+            .performTextInput("文章标题\n\n第一段足够长的句子。\n\n第二段足够长的句子。")
+        composeRule.onNodeWithText("预览").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("preview-title").assertTextContains("文章标题")
+        composeRule.onNodeWithTag("preview-status").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("preview-status").assertTextContains("规则分段 · LLM 未运行")
+        composeRule.onNodeWithTag("preview-meta").performScrollTo()
+        composeRule.onNodeWithTag("preview-meta").assertTextContains("22 字", substring = true)
+        composeRule.onNodeWithTag("preview-meta").assertTextContains("3 句", substring = true)
+
+        composeRule.onNodeWithTag("preview-body")
+            .performScrollTo()
+            .performTextReplacement("修改后的正文足够长的句子。")
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("preview-meta").assertTextContains("2 句", substring = true)
+
+        composeRule.onNodeWithText("保存").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("文章标题").assertIsDisplayed()
+        composeRule.onNodeWithText("粘贴文本 · 2 句").assertIsDisplayed()
+    }
+
+    @Test
+    fun library_showsItemsWithSourceAndSegmentCount() {
+        val item = LibraryItem(
+            id = "r1",
+            title = "已保存的文章",
+            sourceKind = SourceKind.TEXT,
+            sourceLabel = "粘贴文本",
+            segmentCount = 5,
+            durationMs = 0,
+            hasCachedAudio = false,
+            currentSegmentIndex = 0,
+            currentPositionMs = 0,
+            lastOpenedAt = 0,
+        )
+        val service = FakeReadingService(
+            initialLibrary = LibraryState(isLoading = false, items = listOf(item)),
+        )
+        composeRule.setContent { ListenReaderApp(service) }
+
+        composeRule.onNodeWithText("已保存的文章").assertIsDisplayed()
+        composeRule.onNodeWithText("粘贴文本 · 5 句").assertIsDisplayed()
     }
 
     @Test

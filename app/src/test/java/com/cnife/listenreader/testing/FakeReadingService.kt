@@ -2,12 +2,19 @@ package com.cnife.listenreader.testing
 
 import android.content.Context
 import android.view.View
+import com.cnife.listenreader.core.RuleSegmenter
+import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.model.LibraryFilter
+import com.cnife.listenreader.model.LibraryItem
+import com.cnife.listenreader.model.SegmentationSource
+import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.CaptureMode
 import com.cnife.listenreader.service.CaptureState
+import com.cnife.listenreader.service.ExtractionInfo
 import com.cnife.listenreader.service.LibraryState
 import com.cnife.listenreader.service.PlayerState
+import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +45,8 @@ class FakeReadingService(
     var lastThemeMode: ThemeMode? = null
         private set
 
+    private var savedCount = 0
+
     override fun refreshLibrary() {
         _library.update { it.copy(isLoading = false) }
     }
@@ -51,7 +60,10 @@ class FakeReadingService(
     }
 
     override fun openResource(resourceId: String) {
-        _player.update { it.copy(resourceId = resourceId) }
+        val item = _library.value.items.firstOrNull { it.id == resourceId }
+        _player.update {
+            it.copy(resourceId = resourceId, title = item?.title.orEmpty())
+        }
     }
 
     override fun deleteResource(resourceId: String) = Unit
@@ -61,7 +73,31 @@ class FakeReadingService(
     }
 
     override fun beginTextCapture(text: String) {
-        _capture.value = CaptureState(mode = CaptureMode.TEXT, url = text)
+        val normalized = text.trim()
+        if (normalized.isEmpty()) {
+            _capture.value = CaptureState(
+                mode = CaptureMode.TEXT,
+                url = text,
+                error = com.cnife.listenreader.core.UiError(
+                    "请先粘贴要朗读的文本",
+                    com.cnife.listenreader.core.ErrorKind.UNKNOWN,
+                ),
+            )
+            return
+        }
+        val (title, body) = splitTitle(normalized)
+        _capture.value = CaptureState(
+            mode = CaptureMode.TEXT,
+            url = text,
+            extraction = ExtractionInfo(
+                title = title,
+                extractor = "文本输入",
+                score = 1.0,
+                confidence = 1.0,
+                needsExpand = false,
+            ),
+            preview = newPreview(title, body),
+        )
     }
 
     override fun handleShareIntent(text: String) {
@@ -86,11 +122,60 @@ class FakeReadingService(
 
     override fun retryL2() = Unit
 
-    override fun updatePreviewTitle(title: String) = Unit
+    override fun updatePreviewTitle(title: String) {
+        _capture.update { state ->
+            val preview = state.preview ?: return@update state
+            state.copy(preview = newPreview(title, preview.body))
+        }
+    }
 
-    override fun updatePreviewBody(body: String) = Unit
+    override fun updatePreviewBody(body: String) {
+        _capture.update { state ->
+            val preview = state.preview ?: return@update state
+            state.copy(preview = newPreview(preview.title, body))
+        }
+    }
 
-    override fun saveCapture(): String? = null
+    override fun saveCapture(): String? {
+        val preview = _capture.value.preview ?: return null
+        val resourceId = "fake-resource-${++savedCount}"
+        val item = LibraryItem(
+            id = resourceId,
+            title = preview.title,
+            sourceKind = SourceKind.TEXT,
+            sourceLabel = preview.sourceLabel,
+            segmentCount = preview.segmentDrafts.size,
+            durationMs = 0,
+            hasCachedAudio = false,
+            currentSegmentIndex = 0,
+            currentPositionMs = 0,
+            lastOpenedAt = 0,
+        )
+        _library.update { it.copy(isLoading = false, items = it.items + item) }
+        _capture.update { it.copy(isSaving = false, savedResourceId = resourceId) }
+        return resourceId
+    }
+
+    private fun newPreview(title: String, body: String) = PreviewState(
+        title = title,
+        body = body,
+        charCount = body.length,
+        segmentDrafts = RuleSegmenter.segment(title, body),
+        segmentation = SegmentationSource.RULE,
+        l2Status = L2Status.NOT_RUN,
+        sourceKind = SourceKind.TEXT,
+        sourceLabel = "粘贴文本",
+        extractor = "文本输入",
+        score = 1.0,
+    )
+
+    private fun splitTitle(text: String): Pair<String, String> {
+        val lines = text.lines()
+        val first = lines.firstOrNull { it.isNotBlank() }?.trim() ?: return "粘贴文本" to text
+        val rest = lines.drop(lines.indexOfFirst { it.isNotBlank() } + 1).joinToString("\n").trim()
+        val titleLike = first.length <= 80 && first.last() !in charArrayOf('。', '！', '？', '!', '?', '；', ';', '…')
+        return if (titleLike && rest.isNotEmpty()) first to rest else "粘贴文本" to text
+    }
 
     override fun discardCapture() {
         _capture.value = CaptureState()

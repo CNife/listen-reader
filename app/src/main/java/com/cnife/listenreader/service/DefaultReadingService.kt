@@ -3,9 +3,13 @@ package com.cnife.listenreader.service
 import android.content.Context
 import android.view.View
 import com.cnife.listenreader.core.ErrorKind
+import com.cnife.listenreader.core.RuleSegmenter
 import com.cnife.listenreader.core.UiError
+import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.model.LibraryFilter
 import com.cnife.listenreader.model.LibraryItem
+import com.cnife.listenreader.model.Resource
+import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.ports.LibraryStore
@@ -16,6 +20,7 @@ import com.cnife.listenreader.service.ports.SettingsStore
 import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
 import java.net.URI
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -164,10 +169,41 @@ class DefaultReadingService(
     }
 
     override fun beginTextCapture(text: String) {
+        val normalized = text.replace("\r\n", "\n").replace('\r', '\n').trim()
+        if (normalized.isBlank()) {
+            _capture.value = CaptureState(
+                mode = CaptureMode.TEXT,
+                url = text,
+                page = PageUiState.Idle,
+                error = UiError("请先粘贴要朗读的文本", ErrorKind.UNKNOWN),
+            )
+            return
+        }
+        val (title, body) = splitTextTitle(normalized)
+        val drafts = RuleSegmenter.segment(title, body)
         _capture.value = CaptureState(
             mode = CaptureMode.TEXT,
             url = text,
             page = PageUiState.Idle,
+            extraction = ExtractionInfo(
+                title = title,
+                extractor = TEXT_EXTRACTOR,
+                score = 1.0,
+                confidence = 1.0,
+                needsExpand = false,
+            ),
+            preview = PreviewState(
+                title = title,
+                body = body,
+                charCount = body.length,
+                segmentDrafts = drafts,
+                segmentation = SegmentationSource.RULE,
+                l2Status = L2Status.NOT_RUN,
+                sourceKind = SourceKind.TEXT,
+                sourceLabel = TEXT_SOURCE_LABEL,
+                extractor = TEXT_EXTRACTOR,
+                score = 1.0,
+            ),
         )
     }
 
@@ -218,22 +254,69 @@ class DefaultReadingService(
     override fun updatePreviewTitle(title: String) {
         _capture.update { state ->
             val preview = state.preview ?: return@update state
-            state.copy(preview = preview.copy(title = title))
+            state.copy(preview = rebuildPreview(preview, title = title))
         }
     }
 
     override fun updatePreviewBody(body: String) {
         _capture.update { state ->
             val preview = state.preview ?: return@update state
-            state.copy(preview = preview.copy(body = body, charCount = body.length))
+            state.copy(preview = rebuildPreview(preview, body = body))
         }
     }
 
     override fun saveCapture(): String? {
-        _capture.update {
-            it.copy(error = UiError("保存功能将在后续版本接入", ErrorKind.UNKNOWN))
+        val preview = _capture.value.preview
+        if (preview == null) {
+            _capture.update {
+                it.copy(error = UiError("没有可保存的预览内容", ErrorKind.UNKNOWN))
+            }
+            return null
         }
-        return null
+        val title = preview.title.trim().ifBlank { TEXT_SOURCE_LABEL }
+        val body = preview.body.trim()
+        val drafts = RuleSegmenter.segment(title, body)
+        if (drafts.isEmpty()) {
+            _capture.update {
+                it.copy(error = UiError("正文为空，无法保存", ErrorKind.UNKNOWN))
+            }
+            return null
+        }
+        val resourceId = UUID.randomUUID().toString()
+        _capture.update { it.copy(isSaving = true, error = null, savedResourceId = null) }
+        scope.launch {
+            try {
+                val now = timeProvider.now()
+                val resource = Resource(
+                    id = resourceId,
+                    title = title,
+                    sourceKind = SourceKind.TEXT,
+                    sourceUrl = null,
+                    byline = null,
+                    publishedAt = null,
+                    extractor = preview.extractor ?: TEXT_EXTRACTOR,
+                    snapshotPath = null,
+                    currentSegmentIndex = 0,
+                    currentPositionMs = 0,
+                    activeTrackId = null,
+                    createdAt = now,
+                    lastOpenedAt = 0,
+                )
+                libraryStore.createResource(resource, body, null)
+                _capture.update {
+                    it.copy(isSaving = false, savedResourceId = resourceId)
+                }
+            } catch (t: Throwable) {
+                _capture.update {
+                    it.copy(
+                        isSaving = false,
+                        savedResourceId = null,
+                        error = UiError("保存失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+            }
+        }
+        return resourceId
     }
 
     override fun discardCapture() {
@@ -401,6 +484,31 @@ class DefaultReadingService(
 
     // --- internals ---
 
+    private fun rebuildPreview(
+        preview: PreviewState,
+        title: String = preview.title,
+        body: String = preview.body,
+    ): PreviewState = preview.copy(
+        title = title,
+        body = body,
+        charCount = body.length,
+        segmentDrafts = RuleSegmenter.segment(title, body),
+        segmentation = SegmentationSource.RULE,
+        l2Status = L2Status.NOT_RUN,
+        l2Error = null,
+    )
+
+    /** 首行短且不像正文句子时作为标题，其余保留为正文；否则整段作为正文。 */
+    private fun splitTextTitle(text: String): Pair<String, String> {
+        val lines = text.lines()
+        val firstIndex = lines.indexOfFirst { it.isNotBlank() }
+        if (firstIndex < 0) return TEXT_SOURCE_LABEL to text
+        val first = lines[firstIndex].trim()
+        val rest = lines.drop(firstIndex + 1).joinToString("\n").trim()
+        val titleLike = first.length <= 80 && first.last() !in TITLE_TERMINATORS
+        return if (titleLike && rest.isNotEmpty()) first to rest else TEXT_SOURCE_LABEL to text
+    }
+
     private fun publishLibrary(isLoading: Boolean, error: UiError?) {
         _library.update { state ->
             val visible = allItems
@@ -440,5 +548,8 @@ class DefaultReadingService(
 
     private companion object {
         val URL_PATTERN = Regex("""https?://\S+""")
+        const val TEXT_SOURCE_LABEL = "粘贴文本"
+        const val TEXT_EXTRACTOR = "文本输入"
+        val TITLE_TERMINATORS = charArrayOf('。', '！', '？', '!', '?', '；', ';', '…')
     }
 }

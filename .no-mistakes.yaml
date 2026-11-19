@@ -1,0 +1,2 @@
+# 仓库暂无 CI workflow；零检查应判为通过而非空等。真实 workflow 出现后删除本声明。
+no_ci: true

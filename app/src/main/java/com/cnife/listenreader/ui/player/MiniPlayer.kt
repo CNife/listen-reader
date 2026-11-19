@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.PlayerState
 
 /** 底部常驻播放条：进度、上一句/播放/下一句、倍速、跟随。 */
@@ -85,6 +86,16 @@ fun MiniPlayer(
                 }
                 TextButton(onClick = onSpeedClick, modifier = Modifier.testTag("player-speed")) {
                     Text("${formatSpeed(state.speed)}×")
+                }
+                TextButton(
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier.testTag("player-voice"),
+                ) {
+                    Text(
+                        text = Voices.DISPLAY[state.activeTrack?.voice] ?: "音色",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
                 TextButton(onClick = onToggleFollow, modifier = Modifier.testTag("player-follow")) {
                     Text(if (state.follow) "跟随" else "自由")

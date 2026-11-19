@@ -1,0 +1,34 @@
+package com.cnife.listenreader.service.ports
+
+import com.cnife.listenreader.model.LlmDefaults
+import com.cnife.listenreader.model.ThemeMode
+import com.cnife.listenreader.model.TtsModels
+import com.cnife.listenreader.model.Voices
+import kotlinx.coroutines.flow.Flow
+
+interface SettingsStore {
+    val settings: Flow<AppSettings>
+    suspend fun setThemeMode(mode: ThemeMode)
+    suspend fun setTtsModel(model: String)
+    suspend fun setVoice(voice: String)
+    suspend fun setPrefetchCount(count: Int)
+    suspend fun setPlaybackSpeed(speed: Float)
+    suspend fun setStepFunKey(key: String)
+    suspend fun stepFunKey(): String?
+    suspend fun setLlmConfig(endpoint: String, model: String, key: String?)
+    suspend fun llmEndpoint(): String
+    suspend fun llmModel(): String
+    suspend fun llmKey(): String?
+}
+
+data class AppSettings(
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val ttsModel: String = TtsModels.DEFAULT,
+    val voice: String = Voices.DEFAULT,
+    val prefetchCount: Int = 2,
+    val playbackSpeed: Float = 1.0f,
+    val llmEndpoint: String = LlmDefaults.ENDPOINT,
+    val llmModel: String = LlmDefaults.MODEL,
+    val stepFunKeyConfigured: Boolean = false,
+    val llmKeyConfigured: Boolean = false,
+)

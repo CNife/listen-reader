@@ -71,7 +71,7 @@ class TextCaptureFlowTest {
         assertEquals(CaptureMode.TEXT, service.capture.value.mode)
         assertEquals("我的标题", preview.title)
         assertEquals(SegmentationSource.RULE, preview.segmentation)
-        assertEquals(L2Status.NOT_RUN, preview.l2Status)
+        assertEquals(L2Status.NOT_CONFIGURED, preview.l2Status)
         assertEquals(3, preview.segmentDrafts.size)
 
         service.updatePreviewBody("改过的正文足够长的句子。")
@@ -79,7 +79,7 @@ class TextCaptureFlowTest {
         assertEquals(12, edited.charCount)
         assertEquals(2, edited.segmentDrafts.size)
         assertEquals(SegmentationSource.RULE, edited.segmentation)
-        assertEquals(L2Status.NOT_RUN, edited.l2Status)
+        assertEquals(L2Status.NOT_CONFIGURED, edited.l2Status)
 
         val resourceId = service.saveCapture()!!
         awaitState { service.capture.value.savedResourceId == resourceId }

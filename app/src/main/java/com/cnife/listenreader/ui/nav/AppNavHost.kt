@@ -61,6 +61,7 @@ fun AppNavHost(service: ReadingService) {
                         popUpTo(Routes.LIBRARY) { inclusive = false }
                     }
                 },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(Routes.SETTINGS) {

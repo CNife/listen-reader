@@ -3,12 +3,14 @@ package com.cnife.listenreader.testing
 import android.content.Context
 import android.view.View
 import android.widget.FrameLayout
+import com.cnife.listenreader.core.RuleSegmenter
 import com.cnife.listenreader.model.AudioClip
 import com.cnife.listenreader.model.AudioTrack
 import com.cnife.listenreader.model.ClipStatus
 import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.Segment
+import com.cnife.listenreader.model.SegmentDraft
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.StorageUsage
 import com.cnife.listenreader.service.ports.AppSettings
@@ -26,6 +28,7 @@ import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
 import com.cnife.listenreader.tts.SpeechException
 import java.io.File
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +51,14 @@ class FakeLibraryStore(
     var audioRoot: File = File("build/tmp/audio")
     val progressWrites = mutableListOf<Pair<Int, Long>>()
     val openedCalls = mutableListOf<String>()
+
+    /** 保存时传入的 Segment 草稿，供行为测试断言持久化的是当前预览。 */
+    var savedSegments: List<SegmentDraft> = emptyList()
+        private set
+    var createdResource: Resource? = null
+        private set
+    var createCount: Int = 0
+        private set
 
     fun addResource(
         resource: Resource,
@@ -77,8 +88,16 @@ class FakeLibraryStore(
     override suspend fun getClips(trackId: String): List<AudioClip> =
         clipsByTrack[trackId].orEmpty()
 
-    override suspend fun createResource(resource: Resource, sourceText: String, html: String?): String {
+    override suspend fun createResource(
+        resource: Resource,
+        sourceText: String,
+        html: String?,
+        segments: List<SegmentDraft>,
+    ): String {
         if (failCreate) throw IllegalStateException("disk full")
+        createdResource = resource
+        savedSegments = segments.ifEmpty { RuleSegmenter.segment(resource.title, sourceText) }
+        createCount++
         return resource.id
     }
 
@@ -219,12 +238,24 @@ class FakePageSession : PageSession {
     override fun release() = Unit
 }
 
-class FakeScriptCleaner : ScriptCleaner {
-    override fun isConfigured(): Boolean = false
-    override suspend fun clean(title: String, markdown: String): CleanResult =
-        CleanResult.Failure("not configured")
-    override suspend fun testConnection(): ConnectionTestResult =
-        ConnectionTestResult(false, "not configured")
+class FakeScriptCleaner(
+    var configured: Boolean = false,
+    var result: CleanResult = CleanResult.Failure("not configured", retryable = false),
+    var testResult: ConnectionTestResult = ConnectionTestResult(false, "not configured"),
+    var gate: CompletableDeferred<Unit>? = null,
+) : ScriptCleaner {
+
+    val calls = mutableListOf<Pair<String, String>>()
+
+    override fun isConfigured(): Boolean = configured
+
+    override suspend fun clean(title: String, markdown: String): CleanResult {
+        calls += title to markdown
+        gate?.await()
+        return result
+    }
+
+    override suspend fun testConnection(): ConnectionTestResult = testResult
 }
 
 class FakeSpeechSynthesizer(

@@ -86,8 +86,17 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            LlmSettingsSection(
+                state = state,
+                onSave = service::saveLlmConfig,
+                onTest = service::testLlm,
+                onClearKey = { service.setLlmKey("") },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
             Text(
-                text = "LLM 清洗、预取与存储清理将在后续版本接入。",
+                text = "预取与存储清理将在后续版本接入。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

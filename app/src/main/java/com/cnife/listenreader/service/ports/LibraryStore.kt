@@ -5,6 +5,7 @@ import com.cnife.listenreader.model.AudioTrack
 import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.Segment
+import com.cnife.listenreader.model.SegmentDraft
 import com.cnife.listenreader.service.StorageUsage
 import java.io.File
 import kotlinx.coroutines.flow.Flow
@@ -15,7 +16,17 @@ interface LibraryStore {
     suspend fun getSegments(resourceId: String): List<Segment>
     suspend fun getTracks(resourceId: String): List<AudioTrack>
     suspend fun getClips(trackId: String): List<AudioClip>
-    suspend fun createResource(resource: Resource, sourceText: String, html: String?): String
+    /**
+     * 保存 Resource、Source 快照与初始 AudioTrack。
+     * [segments] 是当前预览得到的 Segment 草稿（L2 成功时是 LLM 分段，否则是规则分段）；
+     * 为空时回退为按 [sourceText] 的规则分段。
+     */
+    suspend fun createResource(
+        resource: Resource,
+        sourceText: String,
+        html: String?,
+        segments: List<SegmentDraft> = emptyList(),
+    ): String
     suspend fun updateProgress(resourceId: String, segmentIndex: Int, positionMs: Long)
     suspend fun markOpened(resourceId: String, at: Long)
     suspend fun setActiveTrack(resourceId: String, trackId: String?)

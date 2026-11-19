@@ -30,6 +30,7 @@ class FakeReadingService(
     initialLibrary: LibraryState = LibraryState(isLoading = false),
     initialSettings: SettingsState = SettingsState(),
     initialPlayer: PlayerState = PlayerState(),
+    initialCapture: CaptureState = CaptureState(),
 ) : ReadingService {
 
     private val _library = MutableStateFlow(initialLibrary)
@@ -38,7 +39,7 @@ class FakeReadingService(
     private val _player = MutableStateFlow(initialPlayer)
     override val player: StateFlow<PlayerState> = _player.asStateFlow()
 
-    private val _capture = MutableStateFlow(CaptureState())
+    private val _capture = MutableStateFlow(initialCapture)
     override val capture: StateFlow<CaptureState> = _capture.asStateFlow()
 
     private val _settings = MutableStateFlow(initialSettings)
@@ -57,6 +58,15 @@ class FakeReadingService(
 
     /** 保存 Key 时记录的明文，便于断言表单传递。 */
     var lastSavedStepFunKey: String? = null
+        private set
+
+    var lastLlmSave: Triple<String, String, String>? = null
+        private set
+
+    var llmKeyCleared: Boolean = false
+        private set
+
+    var retryL2Calls: Int = 0
         private set
 
     private var savedCount = 0
@@ -134,7 +144,9 @@ class FakeReadingService(
 
     override fun useFullPage() = Unit
 
-    override fun retryL2() = Unit
+    override fun retryL2() {
+        retryL2Calls++
+    }
 
     override fun updatePreviewTitle(title: String) {
         _capture.update { state ->
@@ -253,12 +265,18 @@ class FakeReadingService(
     }
 
     override fun saveLlmConfig(endpoint: String, key: String, model: String) {
+        lastLlmSave = Triple(endpoint, key, model)
         _settings.update {
-            it.copy(llmEndpoint = endpoint, llmModel = model, llmKeyConfigured = key.isNotBlank())
+            it.copy(
+                llmEndpoint = endpoint.ifBlank { it.llmEndpoint },
+                llmModel = model.ifBlank { it.llmModel },
+                llmKeyConfigured = key.isNotBlank() || it.llmKeyConfigured,
+            )
         }
     }
 
     override fun setLlmKey(key: String) {
+        llmKeyCleared = key.isBlank()
         _settings.update { it.copy(llmKeyConfigured = key.isNotBlank()) }
     }
 
@@ -276,7 +294,9 @@ class FakeReadingService(
         _settings.update { it.copy(stepFunTest = stepFunTestResult) }
     }
 
-    override fun testLlm() = Unit
+    override fun testLlm() {
+        _settings.update { it.copy(llmTest = TestState.Success("LLM 连接正常")) }
+    }
 
     override fun previewVoice(voiceId: String) = Unit
 

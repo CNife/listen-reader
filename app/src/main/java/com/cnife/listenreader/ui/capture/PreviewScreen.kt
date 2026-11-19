@@ -26,7 +26,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.L2Status
-import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.ReadingService
 
@@ -36,6 +35,7 @@ fun PreviewScreen(
     service: ReadingService,
     onBack: () -> Unit,
     onSaved: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val state by service.capture.collectAsStateWithLifecycle()
 
@@ -110,11 +110,10 @@ fun PreviewScreen(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.testTag("preview-meta"),
             )
-            Text(
-                text = previewStatusLabel(preview),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.testTag("preview-status"),
+            L2StatusSection(
+                preview = preview,
+                onRetryL2 = service::retryL2,
+                onOpenSettings = onOpenSettings,
             )
             Text(
                 text = buildString {
@@ -138,16 +137,16 @@ fun PreviewScreen(
                 enabled = !state.isSaving,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (state.isSaving) "保存中…" else "保存")
+                Text(saveButtonLabel(state.isSaving, preview))
             }
         }
     }
 }
 
-private fun previewStatusLabel(preview: PreviewState): String = when {
-    preview.segmentation == SegmentationSource.L2 && preview.l2Status == L2Status.SUCCEEDED ->
-        "LLM 分段"
-    preview.l2Status == L2Status.FAILED ->
-        "规则分段 · LLM 清洗失败"
-    else -> "规则分段 · LLM 未运行"
+private fun saveButtonLabel(isSaving: Boolean, preview: PreviewState): String = when {
+    isSaving -> "保存中…"
+    preview.l2Status == L2Status.FAILED ||
+        preview.l2Status == L2Status.NOT_CONFIGURED ||
+        preview.l2Status == L2Status.RUNNING -> "保存（规则分段）"
+    else -> "保存"
 }

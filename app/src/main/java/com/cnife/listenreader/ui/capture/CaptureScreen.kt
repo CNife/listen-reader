@@ -375,7 +375,7 @@ private fun TextComposer(
 }
 
 @Composable
-private fun HintText(text: String?, error: Boolean = false, modifier: Modifier = Modifier) {
+private fun HintText(text: String?, modifier: Modifier = Modifier, error: Boolean = false) {
     text?.let {
         Text(
             text = it,

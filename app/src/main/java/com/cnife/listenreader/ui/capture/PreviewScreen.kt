@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.ReadingService
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,7 +143,7 @@ fun PreviewScreen(
                 text = buildString {
                     append("来源：").append(preview.sourceLabel)
                     preview.extractor?.let { append(" · 提取：").append(it) }
-                    preview.score?.let { append(" · score ").append(String.format("%.2f", it)) }
+                    preview.score?.let { append(" · score ").append(String.format(Locale.ROOT, "%.2f", it)) }
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

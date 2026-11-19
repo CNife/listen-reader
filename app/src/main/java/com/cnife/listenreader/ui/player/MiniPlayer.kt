@@ -37,9 +37,9 @@ fun MiniPlayer(
     onToggleFollow: () -> Unit,
     onSleepTimer: (Int?) -> Unit,
     onVoiceClick: () -> Unit,
+    modifier: Modifier = Modifier,
     title: String? = null,
     currentText: String? = null,
-    modifier: Modifier = Modifier,
 ) {
     val total = state.totalDurationMs
     val segmentStart = state.segments

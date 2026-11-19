@@ -90,7 +90,7 @@ fun LibraryScreen(
         } else {
             LibraryContent(
                 state = state,
-                contentModifier = contentModifier,
+                modifier = contentModifier,
                 onNewCapture = onNewCapture,
                 onOpenResource = onOpenResource,
                 onDeleteRequest = { pendingDelete = it },
@@ -115,7 +115,7 @@ fun LibraryScreen(
 @Composable
 private fun LibraryContent(
     state: LibraryState,
-    contentModifier: Modifier,
+    modifier: Modifier,
     onNewCapture: () -> Unit,
     onOpenResource: (String) -> Unit,
     onDeleteRequest: (LibraryItem) -> Unit,
@@ -128,7 +128,7 @@ private fun LibraryContent(
     }
     val filtersActive = state.query.isNotBlank() || state.filter != LibraryFilter.ALL
 
-    Column(modifier = contentModifier) {
+    Column(modifier = modifier) {
         state.continueListening?.let { item ->
             ContinueCard(
                 item = item,

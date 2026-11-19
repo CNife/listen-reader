@@ -35,6 +35,7 @@ fun MiniPlayer(
     onNext: () -> Unit,
     onSpeedClick: () -> Unit,
     onToggleFollow: () -> Unit,
+    onVoiceClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val total = state.totalDurationMs
@@ -88,8 +89,7 @@ fun MiniPlayer(
                     Text("${formatSpeed(state.speed)}×")
                 }
                 TextButton(
-                    onClick = {},
-                    enabled = false,
+                    onClick = onVoiceClick,
                     modifier = Modifier.testTag("player-voice"),
                 ) {
                     Text(
@@ -102,7 +102,7 @@ fun MiniPlayer(
                 }
                 if (state.isPreparing) {
                     Text(
-                        text = "合成中…",
+                        text = "正在合成…",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.testTag("player-preparing"),

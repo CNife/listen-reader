@@ -17,6 +17,7 @@ import com.cnife.listenreader.model.Segment
 import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
+import com.cnife.listenreader.service.ports.AuditionPlayer
 import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.LibraryStore
 import com.cnife.listenreader.service.ports.PageSession
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -57,6 +59,8 @@ class DefaultReadingService(
     private val settingsStore: SettingsStore,
     private val timeProvider: TimeProvider,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    private val auditionPlayer: AuditionPlayer = com.cnife.listenreader.service.ports.NoopAuditionPlayer,
+    private val previewDir: File? = null,
 ) : ReadingService {
 
     private val _library = MutableStateFlow(LibraryState())
@@ -89,6 +93,17 @@ class DefaultReadingService(
     private var endedHandledFor: Int? = null
     private var playbackJob: Job? = null
     private val synthMutex = Mutex()
+
+    /** 串行预取任务；只跑一条，避免并发触发多个合成。 */
+    private var prefetchJob: Job? = null
+
+    /** 正在合成的 Segment，防止预取与手动重试重复请求。 */
+    private val inFlightIndices = mutableSetOf<Int>()
+
+    /** 切换 AudioTrack 时自增，用于丢弃旧轨上已完成但已过期的合成结果。 */
+    private var trackEpoch = 0
+
+    private var auditionJob: Job? = null
 
     /** 每次 L2 运行自增，用于丢弃已过期的清洗结果。 */
     private var l2Epoch = 0
@@ -479,19 +494,96 @@ class DefaultReadingService(
     override fun setVoice(voiceId: String) {
         _settings.update { it.copy(voice = voiceId) }
         scope.launch { runCatching { settingsStore.setVoice(voiceId) } }
+        switchTrack(model = _settings.value.ttsModel, voice = voiceId)
     }
 
     override fun setModel(modelId: String) {
         _settings.update { it.copy(ttsModel = modelId) }
         scope.launch { runCatching { settingsStore.setTtsModel(modelId) } }
+        switchTrack(model = modelId, voice = _settings.value.voice)
+    }
+
+    /**
+     * 为当前 Resource 切到与 [model]/[voice] 匹配的 AudioTrack：已有同配置轨则复用，
+     * 否则新建；旧轨与文件保留，由设置页清理。切轨后从当前 Segment 重新合成，
+     * 并恢复原来的播放位置与播放态。
+     */
+    private fun switchTrack(model: String, voice: String) {
+        val resourceId = _player.value.resourceId ?: return
+        scope.launch {
+            if (_player.value.resourceId != resourceId) return@launch
+            val existing = runCatching { libraryStore.getTracks(resourceId) }
+                .getOrDefault(emptyList())
+                .firstOrNull { it.model == model && it.voice == voice }
+            val target = existing ?: AudioTrack(
+                id = UUID.randomUUID().toString(),
+                resourceId = resourceId,
+                model = model,
+                voice = voice,
+                createdAt = timeProvider.now(),
+            ).also { track -> runCatching { libraryStore.createTrack(track) } }
+            if (activeTrack?.id == target.id) return@launch
+
+            cancelPrefetch()
+            cancelPlaybackJob()
+            trackEpoch++
+            runCatching { libraryStore.setActiveTrack(resourceId, target.id) }
+            activeTrack = target
+            currentClips = runCatching { libraryStore.getClips(target.id) }
+                .getOrDefault(emptyList())
+                .associateBy { it.segmentIndex }
+                .toMutableMap()
+
+            val wasPlaying = wantPlaying
+            val index = _player.value.currentIndex
+            val positionMs = _player.value.positionInSegmentMs
+            endedHandledFor = null
+            _player.update { state ->
+                state.copy(
+                    segments = state.segments.map { segment ->
+                        val clip = currentClips[segment.index]
+                        segment.copy(
+                            status = clip?.status ?: ClipStatus.PENDING,
+                            durationMs = clip?.durationMs ?: 0L,
+                        )
+                    },
+                    activeTrack = AudioTrackInfo(target.id, target.model, target.voice),
+                    error = null,
+                    isPreparing = false,
+                )
+            }
+            refreshTotalDuration()
+
+            val cached = currentClips[index]?.takeIf { it.isReadyFile() }?.filePath
+            if (cached != null) {
+                runCatching {
+                    playbackEngine.setSpeed(_player.value.speed)
+                    playbackEngine.prepare(File(cached), positionMs)
+                }
+                if (wasPlaying) playbackEngine.play()
+                _player.update {
+                    it.copy(isPlaying = wasPlaying, positionInSegmentMs = positionMs)
+                }
+                if (wasPlaying) schedulePrefetch()
+            } else {
+                startEnginePlay(index, positionMs, autoPlay = wasPlaying)
+            }
+        }
     }
 
     override fun retrySegment(index: Int) {
         val track = activeTrack ?: return
+        if (currentClips[index].isReadyFile()) return
         if (index == _player.value.currentIndex) endedHandledFor = null
+        updateSegment(index) { it.copy(status = ClipStatus.PENDING) }
+        val epoch = trackEpoch
         scope.launch {
-            val retried = synthMutex.withLock { synthesizeSegment(index, track) != null }
-            if (retried && index == _player.value.currentIndex && wantPlaying) {
+            val ready = synthMutex.withLock {
+                synthesizeSegment(index, track, foreground = true, epoch = epoch)
+            }
+            if (ready != null && epoch == trackEpoch &&
+                index == _player.value.currentIndex && wantPlaying
+            ) {
                 startEnginePlay(index, 0)
             }
         }
@@ -505,8 +597,8 @@ class DefaultReadingService(
         val state = _player.value
         if (state.resourceId != null) persistProgress(state.currentIndex, state.positionInSegmentMs)
         wantPlaying = false
-        playbackJob?.cancel()
-        playbackJob = null
+        cancelPlaybackJob()
+        cancelPrefetch()
         playbackEngine.pause()
         currentResource = null
         currentSegments = emptyList()
@@ -626,7 +718,45 @@ class DefaultReadingService(
     }
 
     override fun previewVoice(voiceId: String) {
-        _settings.update { it.copy(message = "试听功能将在后续版本接入") }
+        val model = _settings.value.ttsModel
+        if (!_settings.value.stepFunKeyConfigured) {
+            _settings.update {
+                it.copy(
+                    auditionVoice = voiceId,
+                    isAuditioning = false,
+                    auditionError = "尚未配置 StepFun Key，请到设置填写",
+                )
+            }
+            return
+        }
+        _settings.update {
+            it.copy(auditionVoice = voiceId, isAuditioning = true, auditionError = null)
+        }
+        auditionJob?.cancel()
+        auditionJob = scope.launch {
+            try {
+                val directory = previewDir
+                    ?: throw SpeechException(ErrorKind.UNKNOWN, "试听缓存目录不可用")
+                val file = File(directory, "${model}_${voiceId}.mp3")
+                if (!file.isFile || file.length() <= 0L) {
+                    directory.mkdirs()
+                    speechSynthesizer.synthesize(PREVIEW_TEXT, model, voiceId, file)
+                }
+                auditionPlayer.play(file)
+                _settings.update { it.copy(isAuditioning = false, auditionError = null) }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: SpeechException) {
+                val message = if (e.kind == ErrorKind.NETWORK) OFFLINE_MESSAGE else e.message
+                _settings.update {
+                    it.copy(isAuditioning = false, auditionError = message)
+                }
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(isAuditioning = false, auditionError = "试听失败，请稍后重试")
+                }
+            }
+        }
     }
 
     override fun clearOldAudioTracks() {
@@ -653,11 +783,11 @@ class DefaultReadingService(
 
     // --- 播放 internals ---
 
-    private fun startEnginePlay(index: Int, positionMs: Long) {
+    private fun startEnginePlay(index: Int, positionMs: Long, autoPlay: Boolean = true) {
         playbackJob?.cancel()
         playbackJob = scope.launch {
             val ok = try {
-                performPlay(index, positionMs)
+                performPlay(index, positionMs, autoPlay)
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
@@ -673,8 +803,11 @@ class DefaultReadingService(
         }
     }
 
-    private suspend fun performPlay(index: Int, positionMs: Long): Boolean {
-        if (_settings.value.stepFunKeyConfigured.not()) {
+    private suspend fun performPlay(index: Int, positionMs: Long, autoPlay: Boolean): Boolean {
+        endedHandledFor = null
+        val cachedFile = currentClips[index].takeIf { it.isReadyFile() }?.filePath
+        // 已缓存音频直接离线播放，不查 Key、不发起任何合成请求。
+        if (cachedFile == null && _settings.value.stepFunKeyConfigured.not()) {
             _player.update {
                 it.copy(
                     isPreparing = false,
@@ -686,8 +819,11 @@ class DefaultReadingService(
             }
             return false
         }
-        endedHandledFor = null
-        val clip = ensureClip(index) ?: return false
+        val clip = if (cachedFile != null) {
+            currentClips[index]!!
+        } else {
+            ensureClip(index) ?: return false
+        }
         val file = clip.filePath?.let { File(it) }
         if (file == null || !file.isFile) {
             markClipError(index, "音频文件缺失，请重试朗读")
@@ -696,7 +832,13 @@ class DefaultReadingService(
         _player.update { it.copy(isPreparing = false) }
         playbackEngine.prepare(file, positionMs)
         playbackEngine.setSpeed(_player.value.speed)
-        playbackEngine.play()
+        if (autoPlay) {
+            playbackEngine.play()
+            _player.update { it.copy(isPlaying = true) }
+            schedulePrefetch()
+        } else {
+            _player.update { it.copy(isPlaying = false) }
+        }
         return true
     }
 
@@ -709,58 +851,90 @@ class DefaultReadingService(
             if (rechecked.isReadyFile()) {
                 rechecked
             } else {
-                synthesizeSegment(index, track)
+                synthesizeSegment(index, track, foreground = true)
             }
         }
     }
 
-    private suspend fun synthesizeSegment(index: Int, track: AudioTrack): AudioClip? {
+    /**
+     * 合成单个 Segment。串行调用方必须持有 [synthMutex]。
+     * [foreground] 为 false（预取）时失败只标 ERROR，不打断当前播放，也不写全局错误。
+     * [epoch] 与当前 [trackEpoch] 不一致说明已切轨，结果只落旧轨文件/DB，不污染新轨状态。
+     */
+    private suspend fun synthesizeSegment(
+        index: Int,
+        track: AudioTrack,
+        foreground: Boolean,
+        epoch: Int = trackEpoch,
+    ): AudioClip? {
+        if (index in inFlightIndices) return currentClips[index]
+        if (epoch != trackEpoch) return null
         val segment = currentSegments.firstOrNull { it.index == index } ?: return null
-        val file = libraryStore.audioFile(track.resourceId, track.id, index)
-        val pendingClip = AudioClip(
-            id = clipId(track, index),
-            trackId = track.id,
-            segmentIndex = index,
-            filePath = null,
-            durationMs = 0,
-            status = ClipStatus.SYNTHESIZING,
-            error = null,
-        )
-        currentClips[index] = pendingClip
-        runCatching { libraryStore.upsertClip(pendingClip) }
-        updateSegment(index) { it.copy(status = ClipStatus.SYNTHESIZING, durationMs = 0) }
-        _player.update { it.copy(isPreparing = true) }
-
-        return try {
-            val durationMs = speechSynthesizer.synthesize(
-                text = segment.text,
-                model = track.model,
-                voice = track.voice,
-                destination = file,
+        inFlightIndices += index
+        try {
+            val file = libraryStore.audioFile(track.resourceId, track.id, index)
+            val pendingClip = AudioClip(
+                id = clipId(track, index),
+                trackId = track.id,
+                segmentIndex = index,
+                filePath = null,
+                durationMs = 0,
+                status = ClipStatus.SYNTHESIZING,
+                error = null,
             )
-            val ready = pendingClip.copy(
-                filePath = file.absolutePath,
-                durationMs = durationMs,
-                status = ClipStatus.READY,
-            )
-            currentClips[index] = ready
-            libraryStore.upsertClip(ready)
-            updateSegment(index) { it.copy(status = ClipStatus.READY, durationMs = durationMs) }
-            refreshTotalDuration()
-            _player.update { it.copy(isPreparing = false) }
-            ready
-        } catch (c: CancellationException) {
-            throw c
-        } catch (e: SpeechException) {
-            markClipError(index, e.message)
-            _player.update { it.copy(error = UiError(e.message, e.kind, e.retryable)) }
-            null
-        } catch (t: Throwable) {
-            markClipError(index, "合成失败，请重试朗读")
-            _player.update {
-                it.copy(error = UiError("合成失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true))
+            if (epoch == trackEpoch) {
+                currentClips[index] = pendingClip
+                runCatching { libraryStore.upsertClip(pendingClip) }
+                updateSegment(index) { it.copy(status = ClipStatus.SYNTHESIZING, durationMs = 0) }
+                refreshPreparing()
             }
-            null
+
+            return try {
+                val durationMs = speechSynthesizer.synthesize(
+                    text = segment.text,
+                    model = track.model,
+                    voice = track.voice,
+                    destination = file,
+                )
+                val ready = pendingClip.copy(
+                    filePath = file.absolutePath,
+                    durationMs = durationMs,
+                    status = ClipStatus.READY,
+                )
+                runCatching { libraryStore.upsertClip(ready) }
+                if (epoch == trackEpoch) {
+                    currentClips[index] = ready
+                    updateSegment(index) { it.copy(status = ClipStatus.READY, durationMs = durationMs) }
+                    refreshTotalDuration()
+                    refreshPreparing()
+                }
+                ready
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: SpeechException) {
+                val message = if (e.kind == ErrorKind.NETWORK) OFFLINE_MESSAGE else e.message
+                if (epoch == trackEpoch) {
+                    markClipError(index, message)
+                    if (foreground) {
+                        _player.update { it.copy(error = UiError(message, e.kind, e.retryable)) }
+                    }
+                }
+                null
+            } catch (t: Throwable) {
+                if (epoch == trackEpoch) {
+                    markClipError(index, "合成失败，请重试朗读")
+                    if (foreground) {
+                        _player.update {
+                            it.copy(
+                                error = UiError("合成失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                            )
+                        }
+                    }
+                }
+                null
+            }
+        } finally {
+            inFlightIndices -= index
         }
     }
 
@@ -779,7 +953,57 @@ class DefaultReadingService(
         currentClips[index] = failed
         scope.launch { runCatching { libraryStore.upsertClip(failed) } }
         updateSegment(index) { it.copy(status = ClipStatus.ERROR) }
-        _player.update { it.copy(isPreparing = false) }
+        refreshPreparing()
+    }
+
+    /**
+     * 当前段开始播放后，串行合成后续 [AppSettings.prefetchCount] 段。
+     * 跳过已缓存、正在合成与已失败的 Segment；失败只标记该 clip。
+     */
+    private fun schedulePrefetch() {
+        if (!_settings.value.stepFunKeyConfigured) return
+        if (_settings.value.prefetchCount <= 0) return
+        if (activeTrack == null || currentSegments.isEmpty()) return
+        if (prefetchJob?.isActive == true) return
+        prefetchJob = scope.launch {
+            val fromIndex = _player.value.currentIndex
+            val lastIndex = minOf(fromIndex + _settings.value.prefetchCount, currentSegments.lastIndex)
+            for (candidate in fromIndex + 1..lastIndex) {
+                if (!isActive) break
+                val clip = currentClips[candidate]
+                if (clip.isReadyFile()) continue
+                if (clip?.status == ClipStatus.ERROR) continue
+                prefetchOne(candidate)
+            }
+            refreshPreparing()
+        }
+    }
+
+    private suspend fun prefetchOne(index: Int) {
+        val track = activeTrack ?: return
+        synthMutex.withLock {
+            if (index in inFlightIndices) return@withLock
+            val clip = currentClips[index]
+            if (clip.isReadyFile() || clip?.status == ClipStatus.ERROR) return@withLock
+            synthesizeSegment(index, track, foreground = false, epoch = trackEpoch)
+        }
+    }
+
+    private fun cancelPrefetch() {
+        prefetchJob?.cancel()
+        prefetchJob = null
+    }
+
+    /** `isPreparing` 由当前/下一句的合成状态派生，避免预取与前台合成互相覆盖。 */
+    private fun refreshPreparing() {
+        _player.update { state ->
+            val current = state.segments.getOrNull(state.currentIndex)
+            val next = state.segments.getOrNull(state.currentIndex + 1)
+            state.copy(
+                isPreparing = current?.status == ClipStatus.SYNTHESIZING ||
+                    next?.status == ClipStatus.SYNTHESIZING,
+            )
+        }
     }
 
     private fun switchTo(index: Int, autoPlay: Boolean) {
@@ -788,8 +1012,8 @@ class DefaultReadingService(
         val target = index.coerceIn(0, state.segments.lastIndex)
         persistProgress(state.currentIndex, state.positionInSegmentMs)
         endedHandledFor = null
-        playbackJob?.cancel()
-        playbackJob = null
+        cancelPrefetch()
+        cancelPlaybackJob()
         _player.update {
             it.copy(currentIndex = target, positionInSegmentMs = 0, error = null)
         }
@@ -816,8 +1040,11 @@ class DefaultReadingService(
         when (state) {
             PlaybackEngineState.Idle -> Unit
             PlaybackEngineState.Preparing -> _player.update { it.copy(isPreparing = true) }
-            is PlaybackEngineState.Ready -> _player.update {
-                it.copy(positionInSegmentMs = state.positionMs, isPlaying = wantPlaying)
+            is PlaybackEngineState.Ready -> {
+                _player.update {
+                    it.copy(positionInSegmentMs = state.positionMs, isPlaying = wantPlaying)
+                }
+                refreshPreparing()
             }
             is PlaybackEngineState.Ended -> handleEnded(state.durationMs)
             is PlaybackEngineState.Error -> {
@@ -848,6 +1075,7 @@ class DefaultReadingService(
         }
         val next = index + 1
         _player.update { it.copy(currentIndex = next, positionInSegmentMs = 0) }
+        refreshPreparing()
         if (wantPlaying) startEnginePlay(next, 0)
     }
 
@@ -916,6 +1144,8 @@ class DefaultReadingService(
         activeTrack = track
         currentClips = clips
         endedHandledFor = null
+        trackEpoch++
+        cancelPrefetch()
         cancelPlaybackJob()
         wantPlaying = false
 
@@ -1134,6 +1364,8 @@ class DefaultReadingService(
         const val TEXT_EXTRACTOR = "文本输入"
         const val CHARS_PER_SECOND = 4.5
         const val NO_LLM_MESSAGE = "尚未配置 LLM Key，当前使用规则分段；到设置填写后可重新 L2"
+        const val OFFLINE_MESSAGE = "需要联网合成，请联网后重试"
+        const val PREVIEW_TEXT = "你好，这是听我读的音色试听。"
         val TITLE_TERMINATORS = charArrayOf('。', '！', '？', '!', '?', '；', ';', '…')
     }
 }

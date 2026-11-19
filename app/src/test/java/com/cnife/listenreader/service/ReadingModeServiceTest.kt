@@ -33,7 +33,7 @@ class ReadingModeServiceTest {
         val service = DefaultReadingService(
             pageSession = FakePageSession(),
             scriptCleaner = FakeScriptCleaner(),
-            speechSynthesizer = FakeSpeechSynthesizer(configured = true),
+            speechSynthesizer = FakeSpeechSynthesizer(),
             libraryStore = store,
             playbackEngine = FakePlaybackEngine(),
             settingsStore = FakeSettingsStore(AppSettings(stepFunKeyConfigured = true)),

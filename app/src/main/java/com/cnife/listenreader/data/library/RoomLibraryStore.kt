@@ -154,11 +154,11 @@ class RoomLibraryStore(
 
     override suspend fun snapshotText(resourceId: String): String? {
         val path = getResource(resourceId)?.snapshotPath
-        val fromResource = path?.let { readSnapshot(it) }
-        return fromResource ?: readSnapshot(snapshotFile(resourceId).absolutePath)
+        val fromResource = path?.let { readSnapshotFile(it) }
+        return fromResource ?: readSnapshotFile(snapshotFile(resourceId).absolutePath)
     }
 
-    override suspend fun readSnapshot(path: String): String? = withContext(ioDispatcher) {
+    private suspend fun readSnapshotFile(path: String): String? = withContext(ioDispatcher) {
         runCatching {
             val file = resolve(path)
             if (file.isFile) file.readText() else null
@@ -169,12 +169,6 @@ class RoomLibraryStore(
         File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
 
     override fun snapshotFile(resourceId: String): File = File(snapshotRoot, "$resourceId.md")
-
-    override fun fileSize(path: String?): Long {
-        if (path.isNullOrBlank()) return 0L
-        val file = resolve(path)
-        return if (file.isFile) file.length() else 0L
-    }
 
     override suspend fun deleteUnusedTracks(): Long = withContext(ioDispatcher) {
         val active = dao.resources().mapNotNull { it.activeTrackId }.toSet()
@@ -201,11 +195,6 @@ class RoomLibraryStore(
     override fun saveLastOpenedResourceId(resourceId: String?) {
         lastOpened = resourceId
     }
-
-    override fun totalActiveAudioBytes(): Long =
-        activeTracks.entries.sumOf { (resourceId, trackId) ->
-            directorySize(File(audioRoot, "$resourceId/$trackId"))
-        }
 
     override suspend fun computeStorageUsage(): StorageUsage = withContext(ioDispatcher) {
         // 活动轨以 Room 为准，避免进程重启后内存缓存为空而把活动轨误算成旧轨。

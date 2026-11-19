@@ -49,7 +49,7 @@ class PlaybackFlowTest {
 
     private fun TestScope.harness(
         store: FakeLibraryStore = FakeLibraryStore(),
-        synth: FakeSpeechSynthesizer = FakeSpeechSynthesizer(configured = true),
+        synth: FakeSpeechSynthesizer = FakeSpeechSynthesizer(),
         engine: FakePlaybackEngine = FakePlaybackEngine(),
         settings: FakeSettingsStore = FakeSettingsStore(AppSettings(stepFunKeyConfigured = true)),
     ): Harness {
@@ -159,7 +159,6 @@ class PlaybackFlowTest {
             clips = listOf(testClip(TRACK_ID, 0, firstFile)),
         )
         val synth = FakeSpeechSynthesizer(
-            configured = true,
             failure = SpeechException(ErrorKind.AUTH, "StepFun Key 无效或已过期", retryable = false),
         )
         val h = harness(store = store, synth = synth)
@@ -184,7 +183,7 @@ class PlaybackFlowTest {
     fun `play without a StepFun key shows NO_KEY guidance and does not synthesize`() = runTest {
         val store = FakeLibraryStore()
         addThreeSegmentResource(store)
-        val synth = FakeSpeechSynthesizer(configured = false)
+        val synth = FakeSpeechSynthesizer()
         val h = harness(
             store = store,
             synth = synth,
@@ -230,7 +229,7 @@ class PlaybackFlowTest {
     fun `ready-not-playing during a service initiated start is not treated as a user pause`() = runTest {
         val store = FakeLibraryStore()
         addThreeSegmentResource(store)
-        val synth = FakeSpeechSynthesizer(configured = true).apply { synthDelayMs = 5_000L }
+        val synth = FakeSpeechSynthesizer().apply { synthDelayMs = 5_000L }
         val h = harness(store = store, synth = synth)
         advanceUntilIdle()
         h.service.openResource(RESOURCE_ID)
@@ -306,7 +305,6 @@ class PlaybackFlowTest {
         val store = FakeLibraryStore()
         addThreeSegmentResource(store)
         val synth = FakeSpeechSynthesizer(
-            configured = true,
             failure = SpeechException(ErrorKind.SERVER, "StepFun 服务暂时不可用", retryable = true),
         )
         val h = harness(store = store, synth = synth)

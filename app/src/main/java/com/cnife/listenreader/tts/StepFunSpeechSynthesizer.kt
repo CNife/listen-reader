@@ -39,10 +39,6 @@ class StepFunSpeechSynthesizer(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SpeechSynthesizer {
 
-    override fun isConfigured(): Boolean = kotlinx.coroutines.runBlocking(ioDispatcher) {
-        runCatching { settingsStore.stepFunKey() }.getOrNull()?.isNotBlank() == true
-    }
-
     override suspend fun synthesize(
         text: String,
         model: String,

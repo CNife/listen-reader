@@ -80,10 +80,6 @@ class Media3PlaybackEngine(
         launchController { it.pause() }
     }
 
-    override fun seekTo(ms: Long) {
-        launchController { it.seekTo(ms.coerceAtLeast(0)) }
-    }
-
     override fun setSpeed(speed: Float) {
         launchController { it.setPlaybackSpeed(speed.coerceIn(0.5f, 2.0f)) }
     }

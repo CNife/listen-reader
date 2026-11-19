@@ -55,7 +55,7 @@ class TtsLifecycleTest {
 
     private fun TestScope.harness(
         store: FakeLibraryStore,
-        synth: FakeSpeechSynthesizer = FakeSpeechSynthesizer(configured = true),
+        synth: FakeSpeechSynthesizer = FakeSpeechSynthesizer(),
         engine: FakePlaybackEngine = FakePlaybackEngine(),
         appSettings: AppSettings = AppSettings(stepFunKeyConfigured = true),
     ): Harness {
@@ -155,7 +155,7 @@ class TtsLifecycleTest {
     fun `prefetch never runs two syntheses at once`() = runTest {
         val store = newStore()
         addSegments(store, count = 5)
-        val synth = FakeSpeechSynthesizer(configured = true).apply { synthDelayMs = 1_000L }
+        val synth = FakeSpeechSynthesizer().apply { synthDelayMs = 1_000L }
         val h = harness(store = store, synth = synth)
         advanceUntilIdle()
         h.service.openResource(RESOURCE_ID)
@@ -199,7 +199,7 @@ class TtsLifecycleTest {
     fun `prefetch failure marks only that clip and keeps current playback`() = runTest {
         val store = newStore()
         addSegments(store, count = 5)
-        val synth = FakeSpeechSynthesizer(configured = true).apply {
+        val synth = FakeSpeechSynthesizer().apply {
             failureFor = { text ->
                 if (text == segmentText(1)) {
                     SpeechException(ErrorKind.NETWORK, "网络连接失败", retryable = true)
@@ -352,7 +352,7 @@ class TtsLifecycleTest {
         val store = newStore()
         val file = readyClipFile(store, RESOURCE_ID, TRACK_ID, 0)
         addSegments(store, count = 2, clips = listOf(testClip(TRACK_ID, 0, file)))
-        val synth = FakeSpeechSynthesizer(configured = false)
+        val synth = FakeSpeechSynthesizer()
         val h = harness(
             store = store,
             synth = synth,
@@ -377,7 +377,6 @@ class TtsLifecycleTest {
         val store = newStore()
         addSegments(store, count = 2)
         val synth = FakeSpeechSynthesizer(
-            configured = true,
             failure = SpeechException(ErrorKind.NETWORK, "网络连接失败", retryable = true),
         )
         val h = harness(store = store, synth = synth)
@@ -485,7 +484,7 @@ class TtsLifecycleTest {
         addSegments(store, count = 1)
         val h = harness(
             store = store,
-            synth = FakeSpeechSynthesizer(configured = false),
+            synth = FakeSpeechSynthesizer(),
             appSettings = AppSettings(stepFunKeyConfigured = false),
         )
         advanceUntilIdle()

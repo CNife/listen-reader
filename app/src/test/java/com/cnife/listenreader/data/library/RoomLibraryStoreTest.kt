@@ -91,7 +91,6 @@ class RoomLibraryStoreTest {
         assertEquals(tracks[0].id, saved?.activeTrackId)
 
         assertEquals(TEXT_BODY, store.snapshotText(id))
-        assertEquals(TEXT_BODY, store.readSnapshot("sources/$id.md"))
         assertTrue(store.snapshotFile(id).isFile)
     }
 

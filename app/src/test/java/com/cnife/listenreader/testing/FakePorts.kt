@@ -192,8 +192,6 @@ class FakeLibraryStore(
         return snapshots[resourceId]
     }
 
-    override suspend fun readSnapshot(path: String): String? = null
-
     /** 写入某 Resource 的 Markdown 快照，模拟离线可读。 */
     fun setSnapshot(resourceId: String, text: String) {
         snapshots[resourceId] = text
@@ -203,8 +201,6 @@ class FakeLibraryStore(
         File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
 
     override fun snapshotFile(resourceId: String): File = File("build/tmp/sources/$resourceId.md")
-
-    override fun fileSize(path: String?): Long = 0L
 
     val deletedTrackIds = mutableListOf<String>()
 
@@ -228,8 +224,6 @@ class FakeLibraryStore(
     override fun saveLastOpenedResourceId(resourceId: String?) {
         lastOpened = resourceId
     }
-
-    override fun totalActiveAudioBytes(): Long = computeUsage().activeBytes
 
     override suspend fun computeStorageUsage(): StorageUsage = computeUsage()
 
@@ -401,7 +395,6 @@ class FakeScriptCleaner(
 }
 
 class FakeSpeechSynthesizer(
-    var configured: Boolean = false,
     var durationMs: Long = 1_200L,
     var failure: SpeechException? = null,
 ) : SpeechSynthesizer {
@@ -422,8 +415,6 @@ class FakeSpeechSynthesizer(
         private set
     var maxConcurrent: Int = 0
         private set
-
-    override fun isConfigured(): Boolean = configured
 
     override suspend fun synthesize(
         text: String,
@@ -497,11 +488,6 @@ class FakePlaybackEngine : PlaybackEngine {
             isPlaying = false,
             positionMs = current?.positionMs ?: 0,
         )
-    }
-
-    override fun seekTo(ms: Long) {
-        events += "seek:$ms"
-        engineState.value = PlaybackEngineState.Ready(readyDurationMs, false, ms)
     }
 
     override fun setSpeed(speed: Float) {

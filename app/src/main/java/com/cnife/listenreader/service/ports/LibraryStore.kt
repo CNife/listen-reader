@@ -34,13 +34,10 @@ interface LibraryStore {
     suspend fun upsertClip(clip: AudioClip)
     suspend fun deleteResource(resourceId: String)
     suspend fun snapshotText(resourceId: String): String?
-    suspend fun readSnapshot(path: String): String?
     fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File
     fun snapshotFile(resourceId: String): File
-    fun fileSize(path: String?): Long
     suspend fun deleteUnusedTracks(): Long
     suspend fun lastOpenedResourceId(): String?
     fun saveLastOpenedResourceId(resourceId: String?)
-    fun totalActiveAudioBytes(): Long
     suspend fun computeStorageUsage(): StorageUsage
 }

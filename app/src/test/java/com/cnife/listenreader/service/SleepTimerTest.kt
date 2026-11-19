@@ -40,7 +40,7 @@ class SleepTimerTest {
     )
 
     private fun TestScope.harness(
-        synth: FakeSpeechSynthesizer = FakeSpeechSynthesizer(configured = true),
+        synth: FakeSpeechSynthesizer = FakeSpeechSynthesizer(),
         appSettings: AppSettings = AppSettings(stepFunKeyConfigured = true),
     ): Harness {
         val store = FakeLibraryStore()
@@ -183,7 +183,7 @@ class SleepTimerTest {
 
     @Test
     fun `timer firing while a segment is still synthesizing does not start playback`() = runTest {
-        val synth = FakeSpeechSynthesizer(configured = true).apply { synthDelayMs = 120_000L }
+        val synth = FakeSpeechSynthesizer().apply { synthDelayMs = 120_000L }
         val h = harness(
             synth = synth,
             appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 0),

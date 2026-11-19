@@ -8,7 +8,6 @@ interface PlaybackEngine {
     suspend fun prepare(file: File, startPositionMs: Long = 0)
     fun play()
     fun pause()
-    fun seekTo(ms: Long)
     fun setSpeed(speed: Float)
     fun release()
 }

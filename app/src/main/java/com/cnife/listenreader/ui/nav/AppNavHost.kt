@@ -58,6 +58,7 @@ fun AppNavHost(service: ReadingService) {
                 onSaved = {
                     navController.popBackStack(Routes.LIBRARY, inclusive = false)
                 },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(Routes.SETTINGS) {

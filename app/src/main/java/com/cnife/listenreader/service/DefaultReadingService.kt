@@ -8,10 +8,12 @@ import com.cnife.listenreader.core.UiError
 import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.model.LibraryFilter
 import com.cnife.listenreader.model.LibraryItem
+import com.cnife.listenreader.model.LlmDefaults
 import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
+import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.LibraryStore
 import com.cnife.listenreader.service.ports.PageSession
 import com.cnife.listenreader.service.ports.PlaybackEngine
@@ -24,6 +26,7 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,6 +66,13 @@ class DefaultReadingService(
 
     /** 每次开始新的采集会话自增，用于丢弃已过期会话的异步保存结果。 */
     private var captureEpoch = 0
+
+    /** 每次 L2 运行自增，用于丢弃已过期的清洗结果。 */
+    private var l2Epoch = 0
+    private var l2Job: Job? = null
+
+    /** 最近一次 LLM 配置写入，供 testLlm 等待保存完成。 */
+    private var llmConfigSaveJob: Job? = null
 
     init {
         scope.launch {
@@ -166,6 +176,7 @@ class DefaultReadingService(
 
     override fun beginUrlCapture(url: String?) {
         captureEpoch++
+        invalidateL2()
         _capture.value = CaptureState(
             mode = CaptureMode.URL,
             url = url.orEmpty(),
@@ -175,6 +186,7 @@ class DefaultReadingService(
 
     override fun beginTextCapture(text: String) {
         captureEpoch++
+        invalidateL2()
         val normalized = text.replace("\r\n", "\n").replace('\r', '\n').trim()
         if (normalized.isBlank()) {
             _capture.value = CaptureState(
@@ -187,6 +199,7 @@ class DefaultReadingService(
         }
         val (title, body) = splitTextTitle(normalized)
         val drafts = RuleSegmenter.segment(title, body)
+        val configured = scriptCleaner.isConfigured()
         _capture.value = CaptureState(
             mode = CaptureMode.TEXT,
             url = text,
@@ -204,13 +217,17 @@ class DefaultReadingService(
                 charCount = body.length,
                 segmentDrafts = drafts,
                 segmentation = SegmentationSource.RULE,
-                l2Status = L2Status.NOT_RUN,
+                l2Status = if (configured) L2Status.RUNNING else L2Status.NOT_CONFIGURED,
+                l2Error = if (configured) null else NO_LLM_MESSAGE,
                 sourceKind = SourceKind.TEXT,
                 sourceLabel = TEXT_SOURCE_LABEL,
                 extractor = TEXT_EXTRACTOR,
                 score = 1.0,
             ),
         )
+        if (configured) {
+            startL2(captureEpoch, title, body)
+        }
     }
 
     override fun handleShareIntent(text: String) {
@@ -254,10 +271,27 @@ class DefaultReadingService(
     }
 
     override fun retryL2() {
-        // T4 接入 L2 后实现。
+        val preview = _capture.value.preview ?: return
+        invalidateL2()
+        if (!scriptCleaner.isConfigured()) {
+            _capture.update { state ->
+                val current = state.preview ?: return@update state
+                state.copy(
+                    preview = current.copy(
+                        segmentDrafts = RuleSegmenter.segment(current.title, current.body),
+                        segmentation = SegmentationSource.RULE,
+                        l2Status = L2Status.NOT_CONFIGURED,
+                        l2Error = NO_LLM_MESSAGE,
+                    ),
+                )
+            }
+            return
+        }
+        startL2(captureEpoch, preview.title, preview.body)
     }
 
     override fun updatePreviewTitle(title: String) {
+        invalidateL2()
         _capture.update { state ->
             val preview = state.preview ?: return@update state
             state.copy(preview = rebuildPreview(preview, title = title))
@@ -265,6 +299,7 @@ class DefaultReadingService(
     }
 
     override fun updatePreviewBody(body: String) {
+        invalidateL2()
         _capture.update { state ->
             val preview = state.preview ?: return@update state
             state.copy(preview = rebuildPreview(preview, body = body))
@@ -282,7 +317,8 @@ class DefaultReadingService(
         }
         val title = preview.title.trim().ifBlank { TEXT_SOURCE_LABEL }
         val body = preview.body.trim()
-        val drafts = RuleSegmenter.segment(title, body)
+        // 保存当前预览里的分段：L2 成功时是 LLM 分段，失败/未配置时是规则分段。
+        val drafts = preview.segmentDrafts.ifEmpty { RuleSegmenter.segment(title, body) }
         if (drafts.isEmpty()) {
             _capture.update {
                 it.copy(error = UiError("正文为空，无法保存", ErrorKind.UNKNOWN))
@@ -310,7 +346,7 @@ class DefaultReadingService(
                     createdAt = now,
                     lastOpenedAt = 0,
                 )
-                libraryStore.createResource(resource, body, null)
+                libraryStore.createResource(resource, body, null, drafts)
                 if (epoch == captureEpoch) {
                     _capture.update {
                         it.copy(isSaving = false, savedResourceId = resourceId)
@@ -335,6 +371,7 @@ class DefaultReadingService(
 
     override fun discardCapture() {
         captureEpoch++
+        invalidateL2()
         _capture.value = CaptureState()
     }
 
@@ -425,21 +462,37 @@ class DefaultReadingService(
     }
 
     override fun saveLlmConfig(endpoint: String, key: String, model: String) {
+        val normalizedEndpoint = endpoint.trim().ifBlank { LlmDefaults.ENDPOINT }
+        val normalizedModel = model.trim().ifBlank { LlmDefaults.MODEL }
+        val typedKey = key.trim()
         _settings.update {
             it.copy(
-                llmEndpoint = endpoint,
-                llmModel = model,
-                llmKeyConfigured = key.isNotBlank(),
+                llmEndpoint = normalizedEndpoint,
+                llmModel = normalizedModel,
+                llmKeyConfigured = typedKey.isNotEmpty() || it.llmKeyConfigured,
                 message = "已保存 LLM 配置",
             )
         }
-        scope.launch { settingsStore.setLlmConfig(endpoint, model, key.ifBlank { null }) }
+        llmConfigSaveJob = scope.launch {
+            // 留空表示保留已保存的 Key；清除请用 setLlmKey("")。
+            val existingKey = settingsStore.llmKey()
+            val keyToStore = if (typedKey.isNotEmpty()) typedKey else existingKey
+            settingsStore.setLlmConfig(normalizedEndpoint, normalizedModel, keyToStore)
+        }
     }
 
     override fun setLlmKey(key: String) {
         val current = _settings.value
-        _settings.update { it.copy(llmKeyConfigured = key.isNotBlank()) }
-        scope.launch { settingsStore.setLlmConfig(current.llmEndpoint, current.llmModel, key.ifBlank { null }) }
+        val trimmed = key.trim()
+        _settings.update {
+            it.copy(
+                llmKeyConfigured = trimmed.isNotEmpty(),
+                message = if (trimmed.isEmpty()) "已清除 LLM Key" else "已保存 LLM Key",
+            )
+        }
+        llmConfigSaveJob = scope.launch {
+            settingsStore.setLlmConfig(current.llmEndpoint, current.llmModel, trimmed.ifEmpty { null })
+        }
     }
 
     override fun setThemeMode(mode: ThemeMode) {
@@ -465,8 +518,16 @@ class DefaultReadingService(
     override fun testLlm() {
         _settings.update { it.copy(llmTest = TestState.Running) }
         scope.launch {
+            llmConfigSaveJob?.join()
+            val result = scriptCleaner.testConnection()
             _settings.update {
-                it.copy(llmTest = TestState.Failure("LLM 连接测试将在后续版本接入"))
+                it.copy(
+                    llmTest = if (result.ok) {
+                        TestState.Success(result.message)
+                    } else {
+                        TestState.Failure(result.message)
+                    },
+                )
             }
         }
     }
@@ -499,19 +560,92 @@ class DefaultReadingService(
 
     // --- internals ---
 
+    /** 丢弃进行中的 L2 结果，并让已返回的结果失效。 */
+    private fun invalidateL2() {
+        l2Job?.cancel()
+        l2Job = null
+        l2Epoch++
+    }
+
+    /** 异步清洗当前预览；结果只在会话与 L2 纪元都未变时写回。 */
+    private fun startL2(epoch: Int, title: String, body: String) {
+        l2Epoch++
+        val runEpoch = l2Epoch
+        val ruleDrafts = RuleSegmenter.segment(title, body)
+        _capture.update { state ->
+            val preview = state.preview ?: return@update state
+            state.copy(
+                preview = preview.copy(
+                    segmentDrafts = ruleDrafts,
+                    segmentation = SegmentationSource.RULE,
+                    l2Status = L2Status.RUNNING,
+                    l2Error = null,
+                ),
+            )
+        }
+        l2Job = scope.launch {
+            val result = try {
+                scriptCleaner.clean(title, body)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                CleanResult.Failure("L2 清洗失败，请稍后重试", retryable = true)
+            }
+            if (epoch != captureEpoch || runEpoch != l2Epoch) return@launch
+            _capture.update { state ->
+                val preview = state.preview ?: return@update state
+                if (preview.title != title || preview.body != body) return@update state
+                when (result) {
+                    is CleanResult.Success -> {
+                        if (result.segments.isEmpty()) {
+                            state.copy(
+                                preview = preview.copy(
+                                    segmentDrafts = ruleDrafts,
+                                    segmentation = SegmentationSource.RULE,
+                                    l2Status = L2Status.FAILED,
+                                    l2Error = "LLM 没有返回任何分段，当前为规则分段",
+                                ),
+                            )
+                        } else {
+                            state.copy(
+                                preview = preview.copy(
+                                    segmentDrafts = result.segments,
+                                    segmentation = SegmentationSource.L2,
+                                    l2Status = L2Status.SUCCEEDED,
+                                    l2Error = null,
+                                ),
+                            )
+                        }
+                    }
+                    is CleanResult.Failure -> state.copy(
+                        preview = preview.copy(
+                            segmentDrafts = ruleDrafts,
+                            segmentation = SegmentationSource.RULE,
+                            l2Status = L2Status.FAILED,
+                            l2Error = result.message.ifBlank { "L2 清洗失败，当前为规则分段" },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
     private fun rebuildPreview(
         preview: PreviewState,
         title: String = preview.title,
         body: String = preview.body,
-    ): PreviewState = preview.copy(
-        title = title,
-        body = body,
-        charCount = body.length,
-        segmentDrafts = RuleSegmenter.segment(title, body),
-        segmentation = SegmentationSource.RULE,
-        l2Status = L2Status.NOT_RUN,
-        l2Error = null,
-    )
+    ): PreviewState {
+        val unconfigured = preview.l2Status == L2Status.NOT_CONFIGURED
+        return preview.copy(
+            title = title,
+            body = body,
+            charCount = body.length,
+            segmentDrafts = RuleSegmenter.segment(title, body),
+            segmentation = SegmentationSource.RULE,
+            l2Status = if (unconfigured) L2Status.NOT_CONFIGURED else L2Status.NOT_RUN,
+            l2Error = if (unconfigured) NO_LLM_MESSAGE else null,
+        )
+    }
 
     /** 首行短且不像正文句子时作为标题，其余保留为正文；否则整段作为正文。 */
     private fun splitTextTitle(text: String): Pair<String, String> {
@@ -565,6 +699,7 @@ class DefaultReadingService(
         val URL_PATTERN = Regex("""https?://\S+""")
         const val TEXT_SOURCE_LABEL = "粘贴文本"
         const val TEXT_EXTRACTOR = "文本输入"
+        const val NO_LLM_MESSAGE = "尚未配置 LLM Key，当前使用规则分段；到设置填写后可重新 L2"
         val TITLE_TERMINATORS = charArrayOf('。', '！', '？', '!', '?', '；', ';', '…')
     }
 }

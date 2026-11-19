@@ -9,6 +9,8 @@ import com.cnife.listenreader.model.AudioClip
 import com.cnife.listenreader.model.AudioTrack
 import com.cnife.listenreader.model.ClipStatus
 import com.cnife.listenreader.model.Resource
+import com.cnife.listenreader.model.SegmentDraft
+import com.cnife.listenreader.model.SegmentKind
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.Voices
@@ -116,6 +118,22 @@ class RoomLibraryStoreTest {
         val items = store.observeItems().first().associateBy { it.id }
         assertEquals("粘贴文本", items.getValue("text").sourceLabel)
         assertEquals("example.com", items.getValue("url").sourceLabel)
+    }
+
+    @Test
+    fun `createResource persists provided segments instead of rule segmentation`() = runBlocking {
+        val id = "l2"
+        val drafts = listOf(
+            SegmentDraft("LLM 标题", SegmentKind.HEADING),
+            SegmentDraft("LLM 清洗后的段落，足够长。", SegmentKind.PARAGRAPH),
+        )
+
+        store.createResource(resource(id, title = "LLM 标题"), TEXT_BODY, null, drafts)
+
+        val segments = store.getSegments(id)
+        assertEquals(drafts.map { it.text }, segments.map { it.text })
+        assertEquals(drafts.map { it.kind }, segments.map { it.kind })
+        assertEquals(listOf(0, 1), segments.map { it.index })
     }
 
     @Test

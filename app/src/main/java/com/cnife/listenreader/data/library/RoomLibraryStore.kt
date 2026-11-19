@@ -13,6 +13,7 @@ import com.cnife.listenreader.model.AudioTrack
 import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.Segment
+import com.cnife.listenreader.model.SegmentDraft
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.service.StorageUsage
 import com.cnife.listenreader.service.ports.LibraryStore
@@ -63,7 +64,12 @@ class RoomLibraryStore(
     override suspend fun getClips(trackId: String): List<AudioClip> =
         withContext(ioDispatcher) { dao.clips(trackId).map { it.toModel() } }
 
-    override suspend fun createResource(resource: Resource, sourceText: String, html: String?): String =
+    override suspend fun createResource(
+        resource: Resource,
+        sourceText: String,
+        html: String?,
+        segments: List<SegmentDraft>,
+    ): String =
         withContext(ioDispatcher) {
             val snapshot = snapshotFile(resource.id)
             snapshot.parentFile?.mkdirs()
@@ -73,7 +79,7 @@ class RoomLibraryStore(
             try {
                 db.withTransaction {
                     val appSettings = settingsStore.settings.first()
-                    val drafts = RuleSegmenter.segment(resource.title, sourceText)
+                    val drafts = segments.ifEmpty { RuleSegmenter.segment(resource.title, sourceText) }
                     dao.insertResource(
                         resource.toEntity().copy(
                             snapshotPath = snapshot.absolutePath,

@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,6 +52,7 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -75,6 +78,15 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
                 selected = state.themeMode == ThemeMode.DARK,
                 testTag = "theme-DARK",
                 onSelect = { service.setThemeMode(ThemeMode.DARK) },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            LlmSettingsSection(
+                state = state,
+                onSave = service::saveLlmConfig,
+                onTest = service::testLlm,
+                onClearKey = { service.setLlmKey("") },
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))

@@ -5,14 +5,12 @@ import android.view.View
 import android.widget.FrameLayout
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.ports.AppSettings
-import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.ConnectionTestResult
 import com.cnife.listenreader.service.ports.PageExtraction
 import com.cnife.listenreader.service.ports.PageSession
 import com.cnife.listenreader.service.ports.PageSessionState
 import com.cnife.listenreader.service.ports.PlaybackEngine
 import com.cnife.listenreader.service.ports.PlaybackEngineState
-import com.cnife.listenreader.service.ports.ScriptCleaner
 import com.cnife.listenreader.service.ports.SettingsStore
 import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
@@ -111,17 +109,6 @@ class UnavailablePageSession : PageSession {
         confidence = 0.0,
         needsExpand = false,
     )
-}
-
-/** T4 之前的空 L2 清洗器。 */
-class UnconfiguredScriptCleaner : ScriptCleaner {
-    override fun isConfigured(): Boolean = false
-
-    override suspend fun clean(title: String, markdown: String): CleanResult =
-        CleanResult.Failure("L2 清洗将在后续版本接入")
-
-    override suspend fun testConnection(): ConnectionTestResult =
-        ConnectionTestResult(false, "尚未配置 LLM")
 }
 
 /** T3 之前的空 TTS 客户端。 */

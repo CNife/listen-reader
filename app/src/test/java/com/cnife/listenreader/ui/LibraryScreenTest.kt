@@ -2,8 +2,6 @@ package com.cnife.listenreader.ui
 
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.isRoot
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -132,9 +130,6 @@ class LibraryScreenTest {
 
         composeRule.onNodeWithTag("library-delete-r1").performSemanticsAction(SemanticsActions.OnClick)
         composeRule.waitForIdle()
-        println("ROOTCOUNT=" + composeRule.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().size)
-        println("CONFIRMTAGS=" + composeRule.onAllNodesWithTag("delete-confirm", useUnmergedTree = true).fetchSemanticsNodes().size)
-        println("DIALOGTREES=" + composeRule.onAllNodes(androidx.compose.ui.test.hasText("删除这篇内容？", substring = true), useUnmergedTree = true).fetchSemanticsNodes().size)
 
         composeRule.onNodeWithText("删除这篇内容？").assertExists()
         assertTrue(service.deletedIds.isEmpty())

@@ -47,6 +47,9 @@ class FakeLibraryStore(
     /** 让行为测试能模拟保存失败。 */
     var failCreate: Boolean = false
 
+    /** 让行为测试能模拟删除失败。 */
+    var failDelete: Boolean = false
+
     var lastOpened: String? = null
     var audioRoot: File = File("build/tmp/audio")
     val progressWrites = mutableListOf<Pair<Int, Long>>()
@@ -70,6 +73,37 @@ class FakeLibraryStore(
         segmentsByResource[resource.id] = segments
         tracksByResource[resource.id] = tracks.toMutableList()
         clips.forEach { clip -> clipsByTrack.getOrPut(clip.trackId) { mutableListOf() }.add(clip) }
+        upsertItem(resource)
+    }
+
+    /** 与 RoomLibraryStore 一致，把 Resource 映射成资料库列表项。 */
+    private fun upsertItem(resource: Resource) {
+        val segments = segmentsByResource[resource.id].orEmpty()
+        val activeTrackId = resource.activeTrackId
+        val readyCount = activeTrackId?.let { id ->
+            clipsByTrack[id].orEmpty().count { it.status == ClipStatus.READY }
+        } ?: 0
+        val durationMs = activeTrackId?.let { id ->
+            clipsByTrack[id].orEmpty().filter { it.status == ClipStatus.READY }.sumOf { it.durationMs }
+        } ?: 0L
+        val item = LibraryItem(
+            id = resource.id,
+            title = resource.title,
+            sourceKind = resource.sourceKind,
+            sourceLabel = when (resource.sourceKind) {
+                com.cnife.listenreader.model.SourceKind.TEXT -> "粘贴文本"
+                com.cnife.listenreader.model.SourceKind.URL ->
+                    resource.sourceUrl?.removePrefix("https://")?.removePrefix("http://")
+                        ?.substringBefore('/')?.removePrefix("www.").orEmpty()
+            },
+            segmentCount = segments.size,
+            durationMs = durationMs,
+            hasCachedAudio = activeTrackId != null && segments.isNotEmpty() && readyCount >= segments.size,
+            currentSegmentIndex = resource.currentSegmentIndex,
+            currentPositionMs = resource.currentPositionMs,
+            lastOpenedAt = resource.lastOpenedAt,
+        )
+        items.update { current -> current.filterNot { it.id == item.id } + item }
     }
 
     fun clip(trackId: String, segmentIndex: Int): AudioClip? =
@@ -103,13 +137,19 @@ class FakeLibraryStore(
 
     override suspend fun updateProgress(resourceId: String, segmentIndex: Int, positionMs: Long) {
         progressWrites += segmentIndex to positionMs
-        resources[resourceId]?.let { resources[resourceId] = it.copy(currentSegmentIndex = segmentIndex, currentPositionMs = positionMs) }
+        resources[resourceId]?.let {
+            resources[resourceId] = it.copy(currentSegmentIndex = segmentIndex, currentPositionMs = positionMs)
+            upsertItem(resources.getValue(resourceId))
+        }
     }
 
     override suspend fun markOpened(resourceId: String, at: Long) {
         openedCalls += resourceId
         lastOpened = resourceId
-        resources[resourceId]?.let { resources[resourceId] = it.copy(lastOpenedAt = at) }
+        resources[resourceId]?.let {
+            resources[resourceId] = it.copy(lastOpenedAt = at)
+            upsertItem(resources.getValue(resourceId))
+        }
     }
 
     override suspend fun setActiveTrack(resourceId: String, trackId: String?) {
@@ -126,7 +166,14 @@ class FakeLibraryStore(
         list.add(clip)
     }
 
-    override suspend fun deleteResource(resourceId: String) = Unit
+    override suspend fun deleteResource(resourceId: String) {
+        if (failDelete) throw IllegalStateException("delete failed")
+        resources.remove(resourceId)
+        segmentsByResource.remove(resourceId)
+        tracksByResource.remove(resourceId)?.forEach { clipsByTrack.remove(it.id) }
+        if (lastOpened == resourceId) lastOpened = null
+        items.update { current -> current.filterNot { it.id == resourceId } }
+    }
 
     override suspend fun snapshotText(resourceId: String): String? = null
 

@@ -73,6 +73,9 @@ class DefaultReadingService(
 
     private var allItems: List<LibraryItem> = emptyList()
 
+    /** 最近打开的 Resource，来源是持久化的 `lastOpenedResourceId()` 查询结果。 */
+    private var lastOpenedId: String? = null
+
     /** 每次开始新的采集会话自增，用于丢弃已过期会话的异步保存结果。 */
     private var captureEpoch = 0
 
@@ -114,6 +117,7 @@ class DefaultReadingService(
         scope.launch {
             libraryStore.observeItems().collect { items ->
                 allItems = items
+                lastOpenedId = readLastOpenedId()
                 publishLibrary(isLoading = false, error = null)
             }
         }
@@ -135,6 +139,7 @@ class DefaultReadingService(
         scope.launch {
             val items = libraryStore.observeItems().first()
             allItems = items
+            lastOpenedId = readLastOpenedId()
             publishLibrary(isLoading = false, error = null)
         }
     }
@@ -156,17 +161,36 @@ class DefaultReadingService(
                 _library.update {
                     it.copy(error = UiError("找不到该资源", ErrorKind.UNKNOWN))
                 }
+            } else {
+                lastOpenedId = readLastOpenedId()
+                publishLibrary(isLoading = false, error = null)
             }
         }
     }
 
     override fun deleteResource(resourceId: String) {
         scope.launch {
-            libraryStore.deleteResource(resourceId)
-            if (_player.value.resourceId == resourceId) closePlayer()
-            val items = libraryStore.observeItems().first()
-            allItems = items
-            publishLibrary(isLoading = false, error = null)
+            try {
+                if (libraryStore.getResource(resourceId) == null) {
+                    _library.update {
+                        it.copy(error = UiError("该内容已不存在，可能已被删除", ErrorKind.UNKNOWN))
+                    }
+                    return@launch
+                }
+                libraryStore.deleteResource(resourceId)
+                if (_player.value.resourceId == resourceId) closePlayer()
+                allItems = libraryStore.observeItems().first()
+                lastOpenedId = readLastOpenedId()
+                publishLibrary(isLoading = false, error = null)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _library.update {
+                    it.copy(
+                        error = UiError("删除失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+            }
         }
     }
 
@@ -810,6 +834,14 @@ class DefaultReadingService(
         val resourceId = _player.value.resourceId ?: return
         scope.launch {
             runCatching { libraryStore.updateProgress(resourceId, index, positionMs) }
+            allItems = allItems.map { item ->
+                if (item.id == resourceId) {
+                    item.copy(currentSegmentIndex = index, currentPositionMs = positionMs)
+                } else {
+                    item
+                }
+            }
+            publishLibrary(isLoading = false, error = null)
         }
     }
 
@@ -1041,9 +1073,7 @@ class DefaultReadingService(
             val visible = allItems
                 .filter { matchesQuery(it, state.query) }
                 .filter { matchesFilter(it, state.filter) }
-            val continuation = allItems
-                .filter { it.currentSegmentIndex > 0 || it.currentPositionMs > 0 }
-                .maxByOrNull { it.lastOpenedAt }
+            val continuation = lastOpenedId?.let { id -> allItems.firstOrNull { it.id == id } }
             state.copy(
                 isLoading = isLoading,
                 items = visible,
@@ -1052,6 +1082,10 @@ class DefaultReadingService(
             )
         }
     }
+
+    /** 读取持久化的上次打开记录；失败时当作没有记录，不影响资料库展示。 */
+    private fun readLastOpenedId(): String? =
+        runCatching { libraryStore.lastOpenedResourceId() }.getOrNull()
 
     private fun matchesQuery(item: LibraryItem, query: String): Boolean {
         if (query.isBlank()) return true

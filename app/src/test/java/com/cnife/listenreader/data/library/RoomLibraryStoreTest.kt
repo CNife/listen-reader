@@ -176,6 +176,21 @@ class RoomLibraryStoreTest {
         val audioFile = store.audioFile(id, track.id, 0)
         audioFile.parentFile?.mkdirs()
         audioFile.writeText("fake mp3")
+        store.upsertClip(
+            AudioClip(
+                id = "clip-0",
+                trackId = track.id,
+                segmentIndex = 0,
+                filePath = audioFile.absolutePath,
+                durationMs = 1_000,
+                status = ClipStatus.READY,
+                error = null,
+            ),
+        )
+        val htmlSnapshot = File(filesDir, "sources/$id.html").apply {
+            parentFile?.mkdirs()
+            writeText("<html></html>")
+        }
         assertTrue(store.snapshotFile(id).isFile)
 
         store.deleteResource(id)
@@ -183,9 +198,14 @@ class RoomLibraryStoreTest {
         assertNull(store.getResource(id))
         assertTrue(store.getSegments(id).isEmpty())
         assertTrue(store.getTracks(id).isEmpty())
+        assertTrue(store.getClips(track.id).isEmpty())
         assertEquals(0, db.libraryDao().resourceCount())
+        assertEquals(0, db.libraryDao().segmentCount())
+        assertEquals(0, db.libraryDao().trackCount())
+        assertEquals(0, db.libraryDao().clipCount())
         assertFalse(audioFile.exists())
         assertFalse(store.snapshotFile(id).exists())
+        assertFalse(htmlSnapshot.exists())
         assertTrue(store.observeItems().first().isEmpty())
     }
 

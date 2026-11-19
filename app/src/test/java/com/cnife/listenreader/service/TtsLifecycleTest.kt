@@ -8,6 +8,7 @@ import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ports.AppSettings
+import com.cnife.listenreader.service.ports.PlaybackEngineState
 import com.cnife.listenreader.testing.FakeAuditionPlayer
 import com.cnife.listenreader.testing.FakeLibraryStore
 import com.cnife.listenreader.testing.FakePageSession
@@ -112,7 +113,10 @@ class TtsLifecycleTest {
     fun `prefetch synthesizes the next segments in order after playback starts`() = runTest {
         val store = newStore()
         addSegments(store, count = 5)
-        val h = harness(store = store, appSettings = AppSettings(stepFunKeyConfigured = true))
+        val h = harness(
+            store = store,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 2),
+        )
         advanceUntilIdle()
         h.service.openResource(RESOURCE_ID)
         advanceUntilIdle()
@@ -152,11 +156,15 @@ class TtsLifecycleTest {
     }
 
     @Test
-    fun `prefetch never runs two syntheses at once`() = runTest {
+    fun `prefetch runs at most two syntheses at once and uses both slots`() = runTest {
         val store = newStore()
         addSegments(store, count = 5)
         val synth = FakeSpeechSynthesizer().apply { synthDelayMs = 1_000L }
-        val h = harness(store = store, synth = synth)
+        val h = harness(
+            store = store,
+            synth = synth,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 4),
+        )
         advanceUntilIdle()
         h.service.openResource(RESOURCE_ID)
         advanceUntilIdle()
@@ -165,20 +173,80 @@ class TtsLifecycleTest {
         advanceTimeBy(1_000L)
         runCurrent()
 
-        // 当前句已完成，下一句正在合成：此时应显示“正在合成”。
+        // 当前句已完成，两个预取请求同时合成：此时应显示“正在合成”。
         assertTrue(h.service.player.value.isPreparing)
+        assertEquals(2, synth.concurrent)
 
         advanceUntilIdle()
-        assertEquals(1, synth.maxConcurrent)
-        assertEquals(listOf(segmentText(0), segmentText(1), segmentText(2)), synth.calls.map { it.text })
+        assertEquals(2, synth.maxConcurrent)
+        assertEquals(
+            listOf(0, 1, 2, 3, 4),
+            synth.calls.map { call -> call.destination.name.removeSuffix(".mp3").toInt() }.sorted(),
+        )
         assertFalse(h.service.player.value.isPreparing)
+    }
+
+    @Test
+    fun `prefetch window follows the current segment and fills every configured slot`() = runTest {
+        val store = newStore()
+        addSegments(store, count = 6)
+        val h = harness(
+            store = store,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 4),
+        )
+        advanceUntilIdle()
+        h.service.openResource(RESOURCE_ID)
+        advanceUntilIdle()
+        h.service.play()
+        advanceUntilIdle()
+
+        // 当前句 0 加后续 4 句都已合成，第 6 句不在窗口内。
+        assertEquals(
+            listOf(0, 1, 2, 3, 4),
+            h.synth.calls.map { call -> call.destination.name.removeSuffix(".mp3").toInt() }.sorted(),
+        )
+        val player = h.service.player.value
+        assertEquals(ClipStatus.READY, player.segments[4].status)
+        assertEquals(ClipStatus.PENDING, player.segments[5].status)
+    }
+
+    @Test
+    fun `repeated prefetch scheduling does not synthesize an in-flight index twice`() = runTest {
+        val store = newStore()
+        addSegments(store, count = 5)
+        val synth = FakeSpeechSynthesizer().apply { synthDelayMs = 1_000L }
+        val h = harness(
+            store = store,
+            synth = synth,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 2),
+        )
+        advanceUntilIdle()
+        h.service.openResource(RESOURCE_ID)
+        advanceUntilIdle()
+        h.service.play()
+        runCurrent()
+        advanceTimeBy(1_000L)
+        runCurrent()
+
+        // 第 1、2 句的预取正在合成；再次触发窗口计算不应重复请求同一句。
+        h.service.setPrefetchCount(2)
+        h.engine.emit(PlaybackEngineState.Ended(1_200L))
+        runCurrent()
+        advanceUntilIdle()
+
+        val indices = synth.calls.map { call -> call.destination.name.removeSuffix(".mp3").toInt() }
+        assertEquals(indices.distinct(), indices)
+        assertEquals(listOf(0, 1, 2, 3), indices.sorted())
     }
 
     @Test
     fun `already cached segments are not synthesized again`() = runTest {
         val store = newStore()
         addSegments(store, count = 5)
-        val h = harness(store = store)
+        val h = harness(
+            store = store,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 2),
+        )
         advanceUntilIdle()
         h.service.openResource(RESOURCE_ID)
         advanceUntilIdle()
@@ -208,7 +276,11 @@ class TtsLifecycleTest {
                 }
             }
         }
-        val h = harness(store = store, synth = synth)
+        val h = harness(
+            store = store,
+            synth = synth,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 2),
+        )
         advanceUntilIdle()
         h.service.openResource(RESOURCE_ID)
         advanceUntilIdle()

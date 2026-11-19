@@ -109,7 +109,7 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
                 modifier = Modifier.padding(vertical = 8.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(0, 1, 2).forEach { count ->
+                listOf(0, 2, 4, 6, 8).forEach { count ->
                     PrefetchOption(
                         count = count,
                         selected = state.prefetchCount == count,
@@ -118,7 +118,7 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
                 }
             }
             Text(
-                text = "播放当前句时预先合成后面 ${state.prefetchCount} 句，下一句不用等整段合成。",
+                text = "播放当前句时预先合成后面 ${state.prefetchCount} 句，最多并行 2 句。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

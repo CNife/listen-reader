@@ -182,7 +182,7 @@ data class SettingsState(
     val llmEndpoint: String = LlmDefaults.ENDPOINT,
     val llmModel: String = LlmDefaults.MODEL,
     val llmKeyConfigured: Boolean = false,
-    val prefetchCount: Int = 2,
+    val prefetchCount: Int = 6,
     val stepFunTest: TestState = TestState.Idle,
     val llmTest: TestState = TestState.Idle,
     val storage: StorageUsage = StorageUsage(0, 0),

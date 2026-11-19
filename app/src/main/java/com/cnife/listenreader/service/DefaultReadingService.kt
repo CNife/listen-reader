@@ -137,10 +137,19 @@ class DefaultReadingService(
     override fun refreshLibrary() {
         _library.update { it.copy(isLoading = true, error = null) }
         scope.launch {
-            val items = libraryStore.observeItems().first()
-            allItems = items
-            lastOpenedId = readLastOpenedId()
-            publishLibrary(isLoading = false, error = null)
+            try {
+                val items = libraryStore.observeItems().first()
+                allItems = items
+                lastOpenedId = readLastOpenedId()
+                publishLibrary(isLoading = false, error = null)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                publishLibrary(
+                    isLoading = false,
+                    error = UiError("资料库加载失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                )
+            }
         }
     }
 
@@ -170,27 +179,39 @@ class DefaultReadingService(
 
     override fun deleteResource(resourceId: String) {
         scope.launch {
-            try {
-                if (libraryStore.getResource(resourceId) == null) {
-                    _library.update {
-                        it.copy(error = UiError("该内容已不存在，可能已被删除", ErrorKind.UNKNOWN))
-                    }
-                    return@launch
-                }
-                libraryStore.deleteResource(resourceId)
-                if (_player.value.resourceId == resourceId) closePlayer()
-                allItems = libraryStore.observeItems().first()
-                lastOpenedId = readLastOpenedId()
-                publishLibrary(isLoading = false, error = null)
+            val existing = try {
+                libraryStore.getResource(resourceId)
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
-                _library.update {
-                    it.copy(
-                        error = UiError("删除失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
-                    )
-                }
+                reportDeleteFailure()
+                return@launch
             }
+            if (existing == null) {
+                _library.update {
+                    it.copy(error = UiError("该内容已不存在，可能已被删除", ErrorKind.UNKNOWN))
+                }
+                return@launch
+            }
+            try {
+                libraryStore.deleteResource(resourceId)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                reportDeleteFailure()
+                return@launch
+            }
+            if (_player.value.resourceId == resourceId) closePlayer()
+            allItems = runCatching { libraryStore.observeItems().first() }
+                .getOrDefault(allItems.filterNot { it.id == resourceId })
+            lastOpenedId = readLastOpenedId()
+            publishLibrary(isLoading = false, error = null)
+        }
+    }
+
+    private fun reportDeleteFailure() {
+        _library.update {
+            it.copy(error = UiError("删除失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true))
         }
     }
 

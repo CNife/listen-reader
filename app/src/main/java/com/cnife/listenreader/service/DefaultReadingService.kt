@@ -1383,6 +1383,7 @@ class DefaultReadingService(
         } else {
             0
         }
+        val (snapshotText, snapshotError) = loadSnapshot(resourceId)
         _player.value = PlayerState(
             resourceId = resourceId,
             title = resource.title,
@@ -1396,6 +1397,8 @@ class DefaultReadingService(
             isPreparing = false,
             speed = speed,
             activeTrack = track?.let { AudioTrackInfo(it.id, it.model, it.voice) },
+            snapshotText = snapshotText,
+            snapshotError = snapshotError,
         )
         playbackEngine.setSpeed(speed)
 
@@ -1406,6 +1409,17 @@ class DefaultReadingService(
         }
         return true
     }
+
+    /** 读取原文 Markdown 快照；返回 (文本, 不可读原因)，缺失或失败不抛异常。 */
+    private suspend fun loadSnapshot(resourceId: String): Pair<String?, String?> =
+        try {
+            val text = libraryStore.snapshotText(resourceId)
+            if (text.isNullOrBlank()) null to "原文快照不可用" else text to null
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            null to "原文快照读取失败"
+        }
 
     private fun cancelPlaybackJob() {
         playbackJob?.cancel()

@@ -5,6 +5,7 @@ import android.view.View
 import android.widget.FrameLayout
 import com.cnife.listenreader.model.AudioClip
 import com.cnife.listenreader.model.AudioTrack
+import com.cnife.listenreader.model.ClipStatus
 import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.Segment
@@ -23,6 +24,7 @@ import com.cnife.listenreader.service.ports.ScriptCleaner
 import com.cnife.listenreader.service.ports.SettingsStore
 import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
+import com.cnife.listenreader.tts.SpeechException
 import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,37 +36,76 @@ class FakeLibraryStore(
     initialItems: List<LibraryItem> = emptyList(),
 ) : LibraryStore {
     private val items = MutableStateFlow(initialItems)
-    private var lastOpened: String? = null
+    private val resources = mutableMapOf<String, Resource>()
+    private val segmentsByResource = mutableMapOf<String, List<Segment>>()
+    private val tracksByResource = mutableMapOf<String, MutableList<AudioTrack>>()
+    private val clipsByTrack = mutableMapOf<String, MutableList<AudioClip>>()
 
     /** 让行为测试能模拟保存失败。 */
     var failCreate: Boolean = false
 
+    var lastOpened: String? = null
+    var audioRoot: File = File("build/tmp/audio")
+    val progressWrites = mutableListOf<Pair<Int, Long>>()
+    val openedCalls = mutableListOf<String>()
+
+    fun addResource(
+        resource: Resource,
+        segments: List<Segment> = emptyList(),
+        tracks: List<AudioTrack> = emptyList(),
+        clips: List<AudioClip> = emptyList(),
+    ) {
+        resources[resource.id] = resource
+        segmentsByResource[resource.id] = segments
+        tracksByResource[resource.id] = tracks.toMutableList()
+        clips.forEach { clip -> clipsByTrack.getOrPut(clip.trackId) { mutableListOf() }.add(clip) }
+    }
+
+    fun clip(trackId: String, segmentIndex: Int): AudioClip? =
+        clipsByTrack[trackId]?.firstOrNull { it.segmentIndex == segmentIndex }
+
     override fun observeItems(): Flow<List<LibraryItem>> = items
 
-    override suspend fun getResource(id: String): Resource? = null
+    override suspend fun getResource(id: String): Resource? = resources[id]
 
-    override suspend fun getSegments(resourceId: String): List<Segment> = emptyList()
+    override suspend fun getSegments(resourceId: String): List<Segment> =
+        segmentsByResource[resourceId].orEmpty()
 
-    override suspend fun getTracks(resourceId: String): List<AudioTrack> = emptyList()
+    override suspend fun getTracks(resourceId: String): List<AudioTrack> =
+        tracksByResource[resourceId].orEmpty()
 
-    override suspend fun getClips(trackId: String): List<AudioClip> = emptyList()
+    override suspend fun getClips(trackId: String): List<AudioClip> =
+        clipsByTrack[trackId].orEmpty()
 
     override suspend fun createResource(resource: Resource, sourceText: String, html: String?): String {
         if (failCreate) throw IllegalStateException("disk full")
         return resource.id
     }
 
-    override suspend fun updateProgress(resourceId: String, segmentIndex: Int, positionMs: Long) = Unit
-
-    override suspend fun markOpened(resourceId: String, at: Long) {
-        lastOpened = resourceId
+    override suspend fun updateProgress(resourceId: String, segmentIndex: Int, positionMs: Long) {
+        progressWrites += segmentIndex to positionMs
+        resources[resourceId]?.let { resources[resourceId] = it.copy(currentSegmentIndex = segmentIndex, currentPositionMs = positionMs) }
     }
 
-    override suspend fun setActiveTrack(resourceId: String, trackId: String?) = Unit
+    override suspend fun markOpened(resourceId: String, at: Long) {
+        openedCalls += resourceId
+        lastOpened = resourceId
+        resources[resourceId]?.let { resources[resourceId] = it.copy(lastOpenedAt = at) }
+    }
 
-    override suspend fun createTrack(track: AudioTrack) = Unit
+    override suspend fun setActiveTrack(resourceId: String, trackId: String?) {
+        resources[resourceId]?.let { resources[resourceId] = it.copy(activeTrackId = trackId) }
+    }
 
-    override suspend fun upsertClip(clip: AudioClip) = Unit
+    override suspend fun createTrack(track: AudioTrack) {
+        tracksByResource.getOrPut(track.resourceId) { mutableListOf() }.add(track)
+    }
+
+    override suspend fun upsertClip(clip: AudioClip) {
+        val list = clipsByTrack.getOrPut(clip.trackId) { mutableListOf() }
+        list.removeAll { it.id == clip.id || it.segmentIndex == clip.segmentIndex }
+        list.add(clip)
+    }
 
     override suspend fun deleteResource(resourceId: String) = Unit
 
@@ -73,7 +114,7 @@ class FakeLibraryStore(
     override suspend fun readSnapshot(path: String): String? = null
 
     override fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File =
-        File("build/tmp/audio/$resourceId/$trackId/$segmentIndex.mp3")
+        File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
 
     override fun snapshotFile(resourceId: String): File = File("build/tmp/sources/$resourceId.md")
 
@@ -119,7 +160,9 @@ class FakeSettingsStore(
         state.update { it.copy(prefetchCount = count) }
     }
 
-    override suspend fun setPlaybackSpeed(speed: Float) = Unit
+    override suspend fun setPlaybackSpeed(speed: Float) {
+        state.update { it.copy(playbackSpeed = speed) }
+    }
 
     override suspend fun setStepFunKey(key: String) {
         stepFunKey = key.ifBlank { null }
@@ -184,26 +227,114 @@ class FakeScriptCleaner : ScriptCleaner {
         ConnectionTestResult(false, "not configured")
 }
 
-class FakeSpeechSynthesizer : SpeechSynthesizer {
-    override fun isConfigured(): Boolean = false
-    override suspend fun synthesize(text: String, model: String, voice: String, destination: File): Long =
-        0L
-    override suspend fun testConnection(model: String, voice: String): ConnectionTestResult =
-        ConnectionTestResult(false, "not configured")
+class FakeSpeechSynthesizer(
+    var configured: Boolean = false,
+    var durationMs: Long = 1_200L,
+    var failure: SpeechException? = null,
+) : SpeechSynthesizer {
+    data class Call(val text: String, val model: String, val voice: String, val destination: File)
+
+    val calls = mutableListOf<Call>()
+    var testResult: ConnectionTestResult = ConnectionTestResult(false, "not configured")
+    var lastTestModel: String? = null
+    var lastTestVoice: String? = null
+
+    override fun isConfigured(): Boolean = configured
+
+    override suspend fun synthesize(
+        text: String,
+        model: String,
+        voice: String,
+        destination: File,
+    ): Long {
+        calls += Call(text, model, voice, destination)
+        failure?.let { throw it }
+        destination.parentFile?.mkdirs()
+        destination.writeBytes(byteArrayOf(0x49, 0x44, 0x33))
+        return durationMs
+    }
+
+    override suspend fun testConnection(model: String, voice: String): ConnectionTestResult {
+        lastTestModel = model
+        lastTestVoice = voice
+        return testResult
+    }
 }
 
 class FakePlaybackEngine : PlaybackEngine {
     private val engineState = MutableStateFlow<PlaybackEngineState>(PlaybackEngineState.Idle)
     override val state: StateFlow<PlaybackEngineState> = engineState.asStateFlow()
 
-    override suspend fun prepare(file: File, startPositionMs: Long) = Unit
-    override fun play() = Unit
-    override fun pause() = Unit
-    override fun seekTo(ms: Long) = Unit
-    override fun setSpeed(speed: Float) = Unit
-    override fun release() = Unit
+    var preparedFile: File? = null
+    var preparedStartMs: Long = 0L
+    var readyDurationMs: Long = 0L
+    var playbackSpeed: Float = 1.0f
+    val events = mutableListOf<String>()
+
+    override suspend fun prepare(file: File, startPositionMs: Long) {
+        preparedFile = file
+        preparedStartMs = startPositionMs
+        events += "prepare"
+        engineState.value = PlaybackEngineState.Ready(readyDurationMs, false, startPositionMs)
+    }
+
+    override fun play() {
+        events += "play"
+        engineState.value = PlaybackEngineState.Ready(readyDurationMs, true, preparedStartMs)
+    }
+
+    override fun pause() {
+        events += "pause"
+        val current = engineState.value as? PlaybackEngineState.Ready
+        engineState.value = PlaybackEngineState.Ready(
+            durationMs = current?.durationMs ?: readyDurationMs,
+            isPlaying = false,
+            positionMs = current?.positionMs ?: 0,
+        )
+    }
+
+    override fun seekTo(ms: Long) {
+        events += "seek:$ms"
+        engineState.value = PlaybackEngineState.Ready(readyDurationMs, false, ms)
+    }
+
+    override fun setSpeed(speed: Float) {
+        this.playbackSpeed = speed
+    }
+
+    override fun release() {
+        events += "release"
+        engineState.value = PlaybackEngineState.Idle
+    }
+
+    fun emit(state: PlaybackEngineState) {
+        engineState.value = state
+    }
 }
 
 class FixedTimeProvider(private val millis: Long = 1_000L) : TimeProvider {
     override fun now(): Long = millis
 }
+
+fun testSegment(resourceId: String, index: Int, text: String) = Segment(
+    resourceId = resourceId,
+    index = index,
+    text = text,
+    kind = com.cnife.listenreader.model.SegmentKind.PARAGRAPH,
+)
+
+fun testClip(
+    trackId: String,
+    index: Int,
+    file: File,
+    durationMs: Long = 1_000L,
+    status: ClipStatus = ClipStatus.READY,
+) = AudioClip(
+    id = "$trackId-$index",
+    trackId = trackId,
+    segmentIndex = index,
+    filePath = file.absolutePath,
+    durationMs = durationMs,
+    status = status,
+    error = null,
+)

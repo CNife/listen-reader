@@ -192,6 +192,27 @@ class RoomLibraryStoreTest {
         assertFalse(store.getTracks(id).any { it.id == oldTrack.id })
     }
 
+    @Test
+    fun `last opened resource is derived from persisted lastOpenedAt`() = runBlocking {
+        store.createResource(resource("a", createdAt = 1_000), TEXT_BODY, null)
+        store.createResource(resource("b", createdAt = 2_000), TEXT_BODY, null)
+        assertNull(store.lastOpenedResourceId())
+
+        store.markOpened("a", 5_000)
+        assertEquals("a", store.lastOpenedResourceId())
+
+        val freshStore = RoomLibraryStore(
+            db = db,
+            filesDir = filesDir,
+            settingsStore = settingsStore,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+        assertEquals("a", freshStore.lastOpenedResourceId())
+
+        freshStore.deleteResource("a")
+        assertNull(freshStore.lastOpenedResourceId())
+    }
+
     private fun resource(
         id: String,
         title: String = "文章标题",

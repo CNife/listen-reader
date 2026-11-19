@@ -55,8 +55,11 @@ fun AppNavHost(service: ReadingService) {
             PreviewScreen(
                 service = service,
                 onBack = { navController.popBackStack() },
-                onSaved = {
-                    navController.popBackStack(Routes.LIBRARY, inclusive = false)
+                onSaved = { resourceId ->
+                    service.openResource(resourceId)
+                    navController.navigate(Routes.player(resourceId)) {
+                        popUpTo(Routes.LIBRARY) { inclusive = false }
+                    }
                 },
             )
         }
@@ -77,6 +80,7 @@ fun AppNavHost(service: ReadingService) {
                 onOpenReader = { resourceId ->
                     navController.navigate(Routes.reader(resourceId))
                 },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
         composable(
@@ -88,6 +92,7 @@ fun AppNavHost(service: ReadingService) {
                 resourceId = entry.arguments?.getString("resourceId").orEmpty(),
                 onBack = { navController.popBackStack() },
                 onOpenReader = {},
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }
     }

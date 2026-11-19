@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -182,7 +183,14 @@ class RoomLibraryStore(
         freed
     }
 
-    override fun lastOpenedResourceId(): String? = lastOpened
+    override fun lastOpenedResourceId(): String? {
+        lastOpened?.let { return it }
+        val stored = runCatching {
+            runBlocking(ioDispatcher) { dao.lastOpenedResourceId() }
+        }.getOrNull()
+        lastOpened = stored
+        return stored
+    }
 
     override fun saveLastOpenedResourceId(resourceId: String?) {
         lastOpened = resourceId

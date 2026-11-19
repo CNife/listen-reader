@@ -35,14 +35,12 @@ import com.cnife.listenreader.service.ReadingService
 fun PreviewScreen(
     service: ReadingService,
     onBack: () -> Unit,
-    onSaved: () -> Unit,
+    onSaved: (String) -> Unit,
 ) {
     val state by service.capture.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.savedResourceId) {
-        if (state.savedResourceId != null) {
-            onSaved()
-        }
+        state.savedResourceId?.let(onSaved)
     }
 
     Scaffold(

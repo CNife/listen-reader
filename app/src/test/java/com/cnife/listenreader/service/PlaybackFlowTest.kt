@@ -118,7 +118,9 @@ class PlaybackFlowTest {
         h.service.play()
         advanceUntilIdle()
 
-        val call = h.synth.calls.single()
+        // 当前句（index 1）先合成，随后预取 index 2。
+        assertEquals(2, h.synth.calls.size)
+        val call = h.synth.calls.first()
         assertEquals("第二句要朗读的文字。", call.text)
         assertEquals(TtsModels.AUDIO3, call.model)
         assertEquals(Voices.WENROU, call.voice)
@@ -233,11 +235,13 @@ class PlaybackFlowTest {
         advanceUntilIdle()
         h.service.play()
         advanceUntilIdle()
+        // 预取已经缓存了后两句，播放推进时复用缓存。
+        assertEquals(3, h.synth.calls.size)
 
         h.engine.emit(PlaybackEngineState.Ended(1_200L))
         advanceUntilIdle()
         assertEquals(1, h.service.player.value.currentIndex)
-        assertEquals(2, h.synth.calls.size)
+        assertEquals(3, h.synth.calls.size)
         assertTrue(h.service.player.value.isPlaying)
 
         h.engine.emit(PlaybackEngineState.Ended(1_200L))

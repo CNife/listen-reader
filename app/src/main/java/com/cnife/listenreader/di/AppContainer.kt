@@ -9,6 +9,7 @@ import com.cnife.listenreader.data.settings.DataStoreSettingsStore
 import com.cnife.listenreader.l2.LlmScriptCleaner
 import com.cnife.listenreader.l2.OpenAiCompatibleClient
 import com.cnife.listenreader.playback.Media3PlaybackEngine
+import com.cnife.listenreader.playback.MediaPlayerAuditionPlayer
 import com.cnife.listenreader.service.DefaultReadingService
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
@@ -43,6 +44,8 @@ class AppContainer(context: Context) {
         cacheDir = File(appContext.cacheDir, "tts"),
     )
     private val playbackEngine = Media3PlaybackEngine(appContext, appScope)
+    private val auditionPlayer = MediaPlayerAuditionPlayer()
+    private val previewDir = File(appContext.filesDir, "previews")
 
     val readingService: ReadingService = DefaultReadingService(
         pageSession = WebViewPageSession(appContext),
@@ -53,5 +56,7 @@ class AppContainer(context: Context) {
         settingsStore = settingsStore,
         timeProvider = SystemTimeProvider(),
         scope = appScope,
+        auditionPlayer = auditionPlayer,
+        previewDir = previewDir,
     )
 }

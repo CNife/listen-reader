@@ -14,6 +14,7 @@ import com.cnife.listenreader.model.SegmentDraft
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.StorageUsage
 import com.cnife.listenreader.service.ports.AppSettings
+import com.cnife.listenreader.service.ports.AuditionPlayer
 import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.ConnectionTestResult
 import com.cnife.listenreader.service.ports.LibraryStore
@@ -47,6 +48,9 @@ class FakeLibraryStore(
     /** 让行为测试能模拟保存失败。 */
     var failCreate: Boolean = false
 
+    /** 让行为测试能模拟删除失败。 */
+    var failDelete: Boolean = false
+
     var lastOpened: String? = null
     var audioRoot: File = File("build/tmp/audio")
     val progressWrites = mutableListOf<Pair<Int, Long>>()
@@ -74,6 +78,37 @@ class FakeLibraryStore(
         segmentsByResource[resource.id] = segments
         tracksByResource[resource.id] = tracks.toMutableList()
         clips.forEach { clip -> clipsByTrack.getOrPut(clip.trackId) { mutableListOf() }.add(clip) }
+        upsertItem(resource)
+    }
+
+    /** 与 RoomLibraryStore 一致，把 Resource 映射成资料库列表项。 */
+    private fun upsertItem(resource: Resource) {
+        val segments = segmentsByResource[resource.id].orEmpty()
+        val activeTrackId = resource.activeTrackId
+        val readyCount = activeTrackId?.let { id ->
+            clipsByTrack[id].orEmpty().count { it.status == ClipStatus.READY }
+        } ?: 0
+        val durationMs = activeTrackId?.let { id ->
+            clipsByTrack[id].orEmpty().filter { it.status == ClipStatus.READY }.sumOf { it.durationMs }
+        } ?: 0L
+        val item = LibraryItem(
+            id = resource.id,
+            title = resource.title,
+            sourceKind = resource.sourceKind,
+            sourceLabel = when (resource.sourceKind) {
+                com.cnife.listenreader.model.SourceKind.TEXT -> "粘贴文本"
+                com.cnife.listenreader.model.SourceKind.URL ->
+                    resource.sourceUrl?.removePrefix("https://")?.removePrefix("http://")
+                        ?.substringBefore('/')?.removePrefix("www.").orEmpty()
+            },
+            segmentCount = segments.size,
+            durationMs = durationMs,
+            hasCachedAudio = activeTrackId != null && segments.isNotEmpty() && readyCount >= segments.size,
+            currentSegmentIndex = resource.currentSegmentIndex,
+            currentPositionMs = resource.currentPositionMs,
+            lastOpenedAt = resource.lastOpenedAt,
+        )
+        items.update { current -> current.filterNot { it.id == item.id } + item }
     }
 
     fun clip(trackId: String, segmentIndex: Int): AudioClip? =
@@ -109,13 +144,19 @@ class FakeLibraryStore(
 
     override suspend fun updateProgress(resourceId: String, segmentIndex: Int, positionMs: Long) {
         progressWrites += segmentIndex to positionMs
-        resources[resourceId]?.let { resources[resourceId] = it.copy(currentSegmentIndex = segmentIndex, currentPositionMs = positionMs) }
+        resources[resourceId]?.let {
+            resources[resourceId] = it.copy(currentSegmentIndex = segmentIndex, currentPositionMs = positionMs)
+            upsertItem(resources.getValue(resourceId))
+        }
     }
 
     override suspend fun markOpened(resourceId: String, at: Long) {
         openedCalls += resourceId
         lastOpened = resourceId
-        resources[resourceId]?.let { resources[resourceId] = it.copy(lastOpenedAt = at) }
+        resources[resourceId]?.let {
+            resources[resourceId] = it.copy(lastOpenedAt = at)
+            upsertItem(resources.getValue(resourceId))
+        }
     }
 
     override suspend fun setActiveTrack(resourceId: String, trackId: String?) {
@@ -132,7 +173,14 @@ class FakeLibraryStore(
         list.add(clip)
     }
 
-    override suspend fun deleteResource(resourceId: String) = Unit
+    override suspend fun deleteResource(resourceId: String) {
+        if (failDelete) throw IllegalStateException("delete failed")
+        resources.remove(resourceId)
+        segmentsByResource.remove(resourceId)
+        tracksByResource.remove(resourceId)?.forEach { clipsByTrack.remove(it.id) }
+        if (lastOpened == resourceId) lastOpened = null
+        items.update { current -> current.filterNot { it.id == resourceId } }
+    }
 
     override suspend fun snapshotText(resourceId: String): String? = null
 
@@ -145,7 +193,22 @@ class FakeLibraryStore(
 
     override fun fileSize(path: String?): Long = 0L
 
-    override suspend fun deleteUnusedTracks(): Long = 0L
+    val deletedTrackIds = mutableListOf<String>()
+
+    override suspend fun deleteUnusedTracks(): Long {
+        val active = resources.values.mapNotNull { it.activeTrackId }.toSet()
+        val unused = tracksByResource.values.flatten().filter { it.id !in active }
+        var freed = 0L
+        unused.forEach { track ->
+            val directory = File(audioRoot, "${track.resourceId}/${track.id}")
+            freed += directorySize(directory)
+            deletedTrackIds += track.id
+            tracksByResource[track.resourceId]?.removeAll { it.id == track.id }
+            clipsByTrack.remove(track.id)
+            directory.deleteRecursively()
+        }
+        return freed
+    }
 
     override fun lastOpenedResourceId(): String? = lastOpened
 
@@ -153,9 +216,31 @@ class FakeLibraryStore(
         lastOpened = resourceId
     }
 
-    override fun totalActiveAudioBytes(): Long = 0L
+    override fun totalActiveAudioBytes(): Long = computeStorageUsage().activeBytes
 
-    override fun computeStorageUsage(): StorageUsage = StorageUsage(0, 0)
+    override fun computeStorageUsage(): StorageUsage {
+        var activeBytes = 0L
+        var oldBytes = 0L
+        val resourceDirs = audioRoot.listFiles()?.filter { it.isDirectory }.orEmpty()
+        resourceDirs.forEach { resourceDir ->
+            val activeTrackId = resources[resourceDir.name]?.activeTrackId
+            val trackDirs = resourceDir.listFiles()?.filter { it.isDirectory }.orEmpty()
+            trackDirs.forEach { trackDir ->
+                val bytes = directorySize(trackDir)
+                if (trackDir.name == activeTrackId) {
+                    activeBytes += bytes
+                } else {
+                    oldBytes += bytes
+                }
+            }
+        }
+        return StorageUsage(activeBytes, oldBytes)
+    }
+
+    private fun directorySize(dir: File): Long {
+        if (!dir.exists()) return 0L
+        return dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    }
 }
 
 class FakeSettingsStore(
@@ -302,6 +387,17 @@ class FakeSpeechSynthesizer(
     var lastTestModel: String? = null
     var lastTestVoice: String? = null
 
+    /** 按文本注入失败，用于只让某个预取 Segment 失败。 */
+    var failureFor: ((String) -> SpeechException?)? = null
+
+    /** 让合成挂起一段时间，用于观察并发上限与合成中状态。 */
+    var synthDelayMs: Long = 0L
+
+    var concurrent: Int = 0
+        private set
+    var maxConcurrent: Int = 0
+        private set
+
     override fun isConfigured(): Boolean = configured
 
     override suspend fun synthesize(
@@ -311,16 +407,38 @@ class FakeSpeechSynthesizer(
         destination: File,
     ): Long {
         calls += Call(text, model, voice, destination)
-        failure?.let { throw it }
-        destination.parentFile?.mkdirs()
-        destination.writeBytes(byteArrayOf(0x49, 0x44, 0x33))
-        return durationMs
+        concurrent++
+        maxConcurrent = maxOf(maxConcurrent, concurrent)
+        try {
+            if (synthDelayMs > 0L) kotlinx.coroutines.delay(synthDelayMs)
+            failureFor?.invoke(text)?.let { throw it }
+            failure?.let { throw it }
+            destination.parentFile?.mkdirs()
+            destination.writeBytes(byteArrayOf(0x49, 0x44, 0x33))
+            return durationMs
+        } finally {
+            concurrent--
+        }
     }
 
     override suspend fun testConnection(model: String, voice: String): ConnectionTestResult {
         lastTestModel = model
         lastTestVoice = voice
         return testResult
+    }
+}
+
+class FakeAuditionPlayer : AuditionPlayer {
+    val played = mutableListOf<File>()
+    var stops: Int = 0
+        private set
+
+    override fun play(file: File) {
+        played += file
+    }
+
+    override fun stop() {
+        stops++
     }
 }
 

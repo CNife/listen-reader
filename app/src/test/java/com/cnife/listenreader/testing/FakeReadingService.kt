@@ -38,6 +38,11 @@ class FakeReadingService(
     private val _library = MutableStateFlow(initialLibrary)
     override val library: StateFlow<LibraryState> = _library.asStateFlow()
 
+    /** 全部条目，用于在测试替身里按查询/筛选复现列表行为。 */
+    private var allItems: List<LibraryItem> = initialLibrary.items
+
+    val deletedIds = mutableListOf<String>()
+
     private val _player = MutableStateFlow(initialPlayer)
     override val player: StateFlow<PlayerState> = _player.asStateFlow()
 
@@ -71,28 +76,66 @@ class FakeReadingService(
     var retryL2Calls: Int = 0
         private set
 
+    val voiceChanges = mutableListOf<String>()
+    val previewedVoices = mutableListOf<String>()
+    val retriedSegments = mutableListOf<Int>()
+    var clearOldAudioTracksCalls: Int = 0
+        private set
+
+    /** 测试里可预设的存储占用；清理后旧音轨归零。 */
+    var storageUsage: com.cnife.listenreader.service.StorageUsage =
+        com.cnife.listenreader.service.StorageUsage(0, 0)
+
     private var savedCount = 0
 
     override fun refreshLibrary() {
-        _library.update { it.copy(isLoading = false) }
+        _library.update { it.copy(isLoading = false, items = visibleItems(it.query, it.filter)) }
     }
 
     override fun setLibraryQuery(query: String) {
-        _library.update { it.copy(query = query) }
+        _library.update { it.copy(query = query, items = visibleItems(query, it.filter)) }
     }
 
     override fun setLibraryFilter(filter: LibraryFilter) {
-        _library.update { it.copy(filter = filter) }
+        _library.update { it.copy(filter = filter, items = visibleItems(it.query, filter)) }
     }
 
     override fun openResource(resourceId: String) {
-        val item = _library.value.items.firstOrNull { it.id == resourceId }
+        val item = allItems.firstOrNull { it.id == resourceId }
         _player.update {
             it.copy(resourceId = resourceId, title = item?.title.orEmpty())
         }
+        _library.update { it.copy(continueListening = item) }
     }
 
-    override fun deleteResource(resourceId: String) = Unit
+    override fun deleteResource(resourceId: String) {
+        deletedIds += resourceId
+        allItems = allItems.filterNot { it.id == resourceId }
+        _library.update { state ->
+            state.copy(
+                items = visibleItems(state.query, state.filter),
+                continueListening = state.continueListening?.takeIf { it.id != resourceId },
+            )
+        }
+    }
+
+    private fun visibleItems(query: String, filter: LibraryFilter): List<LibraryItem> {
+        val needle = query.trim()
+        return allItems
+            .filter { item ->
+                needle.isEmpty() ||
+                    item.title.contains(needle, ignoreCase = true) ||
+                    item.sourceLabel.contains(needle, ignoreCase = true)
+            }
+            .filter { item ->
+                when (filter) {
+                    LibraryFilter.ALL -> true
+                    LibraryFilter.WEB -> item.sourceKind == SourceKind.URL
+                    LibraryFilter.TEXT -> item.sourceKind == SourceKind.TEXT
+                    LibraryFilter.CACHED -> item.hasCachedAudio
+                }
+            }
+    }
 
     override fun beginUrlCapture(url: String?) {
         _capture.value = CaptureState(
@@ -220,7 +263,10 @@ class FakeReadingService(
             currentPositionMs = 0,
             lastOpenedAt = 0,
         )
-        _library.update { it.copy(isLoading = false, items = it.items + item) }
+        allItems = allItems + item
+        _library.update { state ->
+            state.copy(isLoading = false, items = visibleItems(state.query, state.filter))
+        }
         _capture.update { it.copy(isSaving = false, savedResourceId = resourceId) }
         return resourceId
     }
@@ -285,6 +331,7 @@ class FakeReadingService(
     }
 
     override fun setVoice(voiceId: String) {
+        voiceChanges += voiceId
         _settings.update { it.copy(voice = voiceId) }
     }
 
@@ -292,7 +339,9 @@ class FakeReadingService(
         _settings.update { it.copy(ttsModel = modelId) }
     }
 
-    override fun retrySegment(index: Int) = Unit
+    override fun retrySegment(index: Int) {
+        retriedSegments += index
+    }
 
     override fun toggleFollow() {
         _player.update { it.copy(follow = !it.follow) }
@@ -341,9 +390,22 @@ class FakeReadingService(
         _settings.update { it.copy(llmTest = TestState.Success("LLM 连接正常")) }
     }
 
-    override fun previewVoice(voiceId: String) = Unit
+    override fun previewVoice(voiceId: String) {
+        previewedVoices += voiceId
+        _settings.update { it.copy(auditionVoice = voiceId, isAuditioning = false, auditionError = null) }
+    }
 
-    override fun clearOldAudioTracks() = Unit
+    override fun clearOldAudioTracks() {
+        clearOldAudioTracksCalls++
+        _settings.update {
+            it.copy(
+                storage = com.cnife.listenreader.service.StorageUsage(storageUsage.activeBytes, 0),
+                message = "已清理旧音轨",
+            )
+        }
+    }
 
-    override fun refreshStorageUsage() = Unit
+    override fun refreshStorageUsage() {
+        _settings.update { it.copy(storage = storageUsage) }
+    }
 }

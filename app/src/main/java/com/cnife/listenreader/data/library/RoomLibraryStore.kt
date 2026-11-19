@@ -211,6 +211,14 @@ class RoomLibraryStore(
         }
 
     override fun computeStorageUsage(): StorageUsage {
+        // 活动轨以 Room 为准，避免进程重启后内存缓存为空而把活动轨误算成旧轨。
+        val activePairs = runCatching {
+            runBlocking(ioDispatcher) {
+                dao.resources()
+                    .mapNotNull { row -> row.activeTrackId?.let { trackId -> row.id to trackId } }
+                    .toSet()
+            }
+        }.getOrNull() ?: activeTracks.entries.map { (resourceId, trackId) -> resourceId to trackId }.toSet()
         var activeBytes = 0L
         var oldBytes = 0L
         val resourceDirs = audioRoot.listFiles()?.filter { it.isDirectory }.orEmpty()
@@ -218,7 +226,7 @@ class RoomLibraryStore(
             val trackDirs = resourceDir.listFiles()?.filter { it.isDirectory }.orEmpty()
             trackDirs.forEach { trackDir ->
                 val bytes = directorySize(trackDir)
-                if (activeTracks[resourceDir.name] == trackDir.name) {
+                if ((resourceDir.name to trackDir.name) in activePairs) {
                     activeBytes += bytes
                 } else {
                     oldBytes += bytes

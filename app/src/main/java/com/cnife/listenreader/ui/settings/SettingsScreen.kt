@@ -96,11 +96,50 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             Text(
-                text = "预取与存储清理将在后续版本接入。",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "预取",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(0, 1, 2).forEach { count ->
+                    PrefetchOption(
+                        count = count,
+                        selected = state.prefetchCount == count,
+                        onSelect = { service.setPrefetchCount(count) },
+                    )
+                }
+            }
+            Text(
+                text = "播放当前句时预先合成后面 ${state.prefetchCount} 句，下一句不用等整段合成。",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            StorageSection(service = service)
         }
+    }
+}
+
+@Composable
+private fun PrefetchOption(count: Int, selected: Boolean, onSelect: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .testTag("prefetch-$count")
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onSelect,
+            )
+            .padding(vertical = 4.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Text(
+            text = if (count == 0) "关闭" else "$count 句",
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

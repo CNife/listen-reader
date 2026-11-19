@@ -176,6 +176,21 @@ class RoomLibraryStoreTest {
         val audioFile = store.audioFile(id, track.id, 0)
         audioFile.parentFile?.mkdirs()
         audioFile.writeText("fake mp3")
+        store.upsertClip(
+            AudioClip(
+                id = "clip-0",
+                trackId = track.id,
+                segmentIndex = 0,
+                filePath = audioFile.absolutePath,
+                durationMs = 1_000,
+                status = ClipStatus.READY,
+                error = null,
+            ),
+        )
+        val htmlSnapshot = File(filesDir, "sources/$id.html").apply {
+            parentFile?.mkdirs()
+            writeText("<html></html>")
+        }
         assertTrue(store.snapshotFile(id).isFile)
 
         store.deleteResource(id)
@@ -183,9 +198,14 @@ class RoomLibraryStoreTest {
         assertNull(store.getResource(id))
         assertTrue(store.getSegments(id).isEmpty())
         assertTrue(store.getTracks(id).isEmpty())
+        assertTrue(store.getClips(track.id).isEmpty())
         assertEquals(0, db.libraryDao().resourceCount())
+        assertEquals(0, db.libraryDao().segmentCount())
+        assertEquals(0, db.libraryDao().trackCount())
+        assertEquals(0, db.libraryDao().clipCount())
         assertFalse(audioFile.exists())
         assertFalse(store.snapshotFile(id).exists())
+        assertFalse(htmlSnapshot.exists())
         assertTrue(store.observeItems().first().isEmpty())
     }
 
@@ -256,6 +276,39 @@ class RoomLibraryStoreTest {
         store.createResource(resource(id), TEXT_BODY, null)
 
         assertFalse(File(filesDir, "sources/$id.html").exists())
+    }
+
+    @Test
+    fun `storage usage counts persisted active tracks across store instances`() = runBlocking {
+        val id = "r1"
+        store.createResource(resource(id), TEXT_BODY, null)
+        val oldTrack = store.getTracks(id).single()
+        val newTrack = AudioTrack("track-2", id, TtsModels.AUDIO3, Voices.WENROU, 2_000)
+        store.createTrack(newTrack)
+        store.setActiveTrack(id, newTrack.id)
+
+        val oldFile = store.audioFile(id, oldTrack.id, 0).apply {
+            parentFile?.mkdirs()
+            writeText("old")
+        }
+        val newFile = store.audioFile(id, newTrack.id, 0).apply {
+            parentFile?.mkdirs()
+            writeText("newer audio")
+        }
+
+        val freshStore = RoomLibraryStore(
+            db = db,
+            filesDir = filesDir,
+            settingsStore = settingsStore,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+        val usage = freshStore.computeStorageUsage()
+
+        assertEquals("newer audio".length.toLong(), usage.activeBytes)
+        assertEquals("old".length.toLong(), usage.oldTracksBytes)
+        assertTrue(newFile.isFile)
+        assertTrue(oldFile.isFile)
+
     }
 
     private fun resource(

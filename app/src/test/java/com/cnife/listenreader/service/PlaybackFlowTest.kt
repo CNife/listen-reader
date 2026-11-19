@@ -26,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -223,6 +224,31 @@ class PlaybackFlowTest {
         assertTrue(h.store.progressWrites.contains(0 to 700L))
         assertFalse(h.service.player.value.isPlaying)
         assertTrue(h.engine.events.contains("pause"))
+    }
+
+    @Test
+    fun `ready-not-playing during a service initiated start is not treated as a user pause`() = runTest {
+        val store = FakeLibraryStore()
+        addThreeSegmentResource(store)
+        val synth = FakeSpeechSynthesizer(configured = true).apply { synthDelayMs = 5_000L }
+        val h = harness(store = store, synth = synth)
+        advanceUntilIdle()
+        h.service.openResource(RESOURCE_ID)
+        advanceUntilIdle()
+
+        h.service.play()
+        runCurrent()
+        assertTrue(h.service.player.value.isPreparing)
+        h.store.progressWrites.clear()
+
+        // Media3 在 prepare 完成、play 生效前会先发一次 Ready(isPlaying=false)。
+        h.engine.emit(PlaybackEngineState.Ready(1_200L, false, 0))
+        runCurrent()
+        assertTrue(h.service.player.value.isPlaying)
+        assertTrue(h.store.progressWrites.isEmpty())
+
+        advanceUntilIdle()
+        assertTrue(h.service.player.value.isPlaying)
     }
 
     @Test

@@ -784,6 +784,8 @@ class DefaultReadingService(
 
             val cached = currentClips[index]?.takeIf { it.isReadyFile() }?.filePath
             if (cached != null) {
+                // 切轨时的 prepare 也是服务主动发起的：Ready(isPlaying=false) 不能当成外部暂停。
+                pendingEngineStart = true
                 runCatching {
                     playbackEngine.setSpeed(_player.value.speed)
                     playbackEngine.prepare(File(cached), positionMs)
@@ -1065,11 +1067,13 @@ class DefaultReadingService(
         _player.update { it.copy(isPreparing = false) }
         playbackEngine.prepare(file, positionMs)
         playbackEngine.setSpeed(_player.value.speed)
-        if (autoPlay) {
+        // 合成期间用户手动暂停或睡眠定时到点：不要再把引擎拉起来。
+        if (autoPlay && wantPlaying) {
             playbackEngine.play()
             _player.update { it.copy(isPlaying = true) }
             schedulePrefetch()
         } else {
+            pendingEngineStart = false
             _player.update { it.copy(isPlaying = false) }
         }
         return true

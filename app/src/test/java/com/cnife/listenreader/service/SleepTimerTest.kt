@@ -39,7 +39,10 @@ class SleepTimerTest {
         val store: FakeLibraryStore,
     )
 
-    private fun TestScope.harness(): Harness {
+    private fun TestScope.harness(
+        synth: FakeSpeechSynthesizer = FakeSpeechSynthesizer(configured = true),
+        appSettings: AppSettings = AppSettings(stepFunKeyConfigured = true),
+    ): Harness {
         val store = FakeLibraryStore()
         store.addResource(
             resource = resource(),
@@ -54,10 +57,10 @@ class SleepTimerTest {
         val service = DefaultReadingService(
             pageSession = FakePageSession(),
             scriptCleaner = FakeScriptCleaner(),
-            speechSynthesizer = FakeSpeechSynthesizer(configured = true),
+            speechSynthesizer = synth,
             libraryStore = store,
             playbackEngine = engine,
-            settingsStore = FakeSettingsStore(AppSettings(stepFunKeyConfigured = true)),
+            settingsStore = FakeSettingsStore(appSettings),
             timeProvider = FixedTimeProvider(),
             scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)),
         )
@@ -176,6 +179,34 @@ class SleepTimerTest {
         advanceTimeBy(10 * 60 * 1_000L)
         runCurrent()
         assertEquals(1, h.engine.events.count { it == "pause" })
+    }
+
+    @Test
+    fun `timer firing while a segment is still synthesizing does not start playback`() = runTest {
+        val synth = FakeSpeechSynthesizer(configured = true).apply { synthDelayMs = 120_000L }
+        val h = harness(
+            synth = synth,
+            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 0),
+        )
+        advanceUntilIdle()
+        h.service.openResource(RESOURCE_ID)
+        advanceUntilIdle()
+
+        h.service.setSleepTimer(1)
+        h.service.play()
+        runCurrent()
+        assertTrue(h.service.player.value.isPreparing)
+
+        advanceTimeBy(60_000L)
+        runCurrent()
+        assertFalse(h.service.player.value.isPlaying)
+
+        // 合成在定时器到点后才完成：不能再把引擎拉起来。
+        advanceTimeBy(120_000L)
+        runCurrent()
+        assertFalse(h.service.player.value.isPlaying)
+        assertTrue(h.service.player.value.sleepTimerMinutes == null)
+        assertEquals(0, h.engine.events.count { it == "play" })
     }
 
     @Test

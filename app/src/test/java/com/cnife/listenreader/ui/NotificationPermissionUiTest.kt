@@ -4,9 +4,11 @@ import android.Manifest
 import android.app.Application
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.model.ClipStatus
@@ -62,6 +64,8 @@ class NotificationPermissionUiTest {
         shadowOf(application).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
         setPlayerScreen()
 
+        composeRule.onNodeWithTag("player-lyrics")
+            .performScrollToNode(hasTestTag("notification-permission-hint"))
         composeRule.onNodeWithTag("notification-permission-hint").assertIsDisplayed()
         composeRule.onNodeWithText(NOTIFICATION_PERMISSION_HINT).assertIsDisplayed()
         composeRule.onNodeWithTag("notification-open-settings").assertIsDisplayed()

@@ -36,6 +36,7 @@ fun MiniPlayer(
     onSpeedClick: () -> Unit,
     onToggleFollow: () -> Unit,
     onSleepTimer: (Int?) -> Unit,
+    onVoiceClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val total = state.totalDurationMs
@@ -86,12 +87,17 @@ fun MiniPlayer(
                     Icon(Icons.Filled.SkipNext, contentDescription = "下一句")
                 }
                 SleepTimerButton(state = state, onSelectMinutes = onSleepTimer)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 TextButton(onClick = onSpeedClick, modifier = Modifier.testTag("player-speed")) {
                     Text("${formatSpeed(state.speed)}×")
                 }
                 TextButton(
-                    onClick = {},
-                    enabled = false,
+                    onClick = onVoiceClick,
                     modifier = Modifier.testTag("player-voice"),
                 ) {
                     Text(
@@ -104,7 +110,7 @@ fun MiniPlayer(
                 }
                 if (state.isPreparing) {
                     Text(
-                        text = "合成中…",
+                        text = "正在合成…",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.testTag("player-preparing"),

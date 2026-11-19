@@ -251,6 +251,38 @@ class RoomLibraryStoreTest {
         assertNull(freshStore.lastOpenedResourceId())
     }
 
+    @Test
+    fun `storage usage counts persisted active tracks across store instances`() = runBlocking {
+        val id = "r1"
+        store.createResource(resource(id), TEXT_BODY, null)
+        val oldTrack = store.getTracks(id).single()
+        val newTrack = AudioTrack("track-2", id, TtsModels.AUDIO3, Voices.WENROU, 2_000)
+        store.createTrack(newTrack)
+        store.setActiveTrack(id, newTrack.id)
+
+        val oldFile = store.audioFile(id, oldTrack.id, 0).apply {
+            parentFile?.mkdirs()
+            writeText("old")
+        }
+        val newFile = store.audioFile(id, newTrack.id, 0).apply {
+            parentFile?.mkdirs()
+            writeText("newer audio")
+        }
+
+        val freshStore = RoomLibraryStore(
+            db = db,
+            filesDir = filesDir,
+            settingsStore = settingsStore,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+        val usage = freshStore.computeStorageUsage()
+
+        assertEquals("newer audio".length.toLong(), usage.activeBytes)
+        assertEquals("old".length.toLong(), usage.oldTracksBytes)
+        assertTrue(newFile.isFile)
+        assertTrue(oldFile.isFile)
+    }
+
     private fun resource(
         id: String,
         title: String = "文章标题",

@@ -18,10 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +37,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -63,6 +66,7 @@ fun PlayerScreen(
 ) {
     val state by service.player.collectAsStateWithLifecycle()
     val notificationPermission = rememberNotificationPermission()
+    var showVoiceSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(resourceId) {
         if (resourceId.isNotBlank() && state.resourceId != resourceId) {
@@ -119,6 +123,14 @@ fun PlayerScreen(
                 if (!state.segments.any { it.status == ClipStatus.READY }) {
                     item { NoKeyHint(state, onOpenSettings) }
                 }
+                if (notificationPermission.required && !notificationPermission.granted) {
+                    item {
+                        NotificationPermissionHint(
+                            state = notificationPermission,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
                 item {
                     Row(
                         modifier = Modifier
@@ -141,14 +153,10 @@ fun PlayerScreen(
                         isCurrent = segment.index == state.currentIndex,
                         isPast = segment.index < state.currentIndex,
                         onClick = { service.seekToSegment(segment.index) },
+                        onRetry = { service.retrySegment(segment.index) },
                     )
                 }
             }
-
-            NotificationPermissionHint(
-                state = notificationPermission,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
 
             MiniPlayer(
                 state = state,
@@ -158,6 +166,15 @@ fun PlayerScreen(
                 onSpeedClick = { service.setSpeed(nextSpeed(state.speed)) },
                 onToggleFollow = service::toggleFollow,
                 onSleepTimer = service::setSleepTimer,
+                onVoiceClick = { showVoiceSheet = true },
+            )
+        }
+
+        if (showVoiceSheet) {
+            VoiceSheet(
+                service = service,
+                selectedVoice = state.activeTrack?.voice,
+                onDismiss = { showVoiceSheet = false },
             )
         }
     }
@@ -306,6 +323,7 @@ private fun LyricRow(
     isCurrent: Boolean,
     isPast: Boolean,
     onClick: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     val background = when {
         isCurrent -> MaterialTheme.colorScheme.primaryContainer
@@ -350,12 +368,16 @@ private fun LyricRow(
             color = textColor,
             modifier = Modifier.weight(1f),
         )
-        SegmentStatusIcon(segment, isCurrent)
+        SegmentStatusIcon(segment, isCurrent, onRetry)
     }
 }
 
 @Composable
-private fun SegmentStatusIcon(segment: PlayerSegment, isCurrent: Boolean) {
+private fun SegmentStatusIcon(
+    segment: PlayerSegment,
+    isCurrent: Boolean,
+    onRetry: () -> Unit,
+) {
     when (segment.status) {
         ClipStatus.SYNTHESIZING -> CircularProgressIndicator(
             modifier = Modifier.size(16.dp),
@@ -368,14 +390,17 @@ private fun SegmentStatusIcon(segment: PlayerSegment, isCurrent: Boolean) {
             modifier = Modifier.size(16.dp),
         )
         ClipStatus.ERROR -> Icon(
-            Icons.Filled.ErrorOutline,
-            contentDescription = "合成失败",
+            Icons.Filled.Refresh,
+            contentDescription = "重试这句",
             tint = MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier
+                .size(20.dp)
+                .testTag("player-retry-${segment.index}")
+                .clickable(onClick = onRetry),
         )
         ClipStatus.PENDING -> Icon(
             imageVector = if (isCurrent) Icons.Filled.GraphicEq else Icons.Filled.PlayArrow,
-            contentDescription = null,
+            contentDescription = "待合成",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp),
         )

@@ -116,6 +116,9 @@
   function revealHidden(root, template) {
     if (!root.querySelectorAll) return;
     var selectors = template && template.revealSelectors ? template.revealSelectors : [];
+    // 只在模板显式声明 revealSelectors 时才解除隐藏；通用/纯文本路径保持页面原样，
+    // 避免把页面里本应隐藏的菜单、弹层等内容带进正文。
+    if (!selectors.length) return;
     for (var i = 0; i < selectors.length; i++) {
       try {
         var targets = root.querySelectorAll(selectors[i]);

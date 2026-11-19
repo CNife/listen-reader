@@ -123,6 +123,8 @@ data class CaptureState(
     val isSaving: Boolean = false,
     val savedResourceId: String? = null,
     val error: UiError? = null,
+    /** 每次开始/丢弃采集会话自增；UI 用它避免重复导航。 */
+    val sessionId: Int = 0,
 )
 
 enum class CaptureMode { IDLE, URL, TEXT }
@@ -157,6 +159,9 @@ data class PreviewState(
     val sourceLabel: String,
     val extractor: String? = null,
     val score: Double? = null,
+    val sourceUrl: String? = null,
+    val byline: String? = null,
+    val publishedAt: String? = null,
 )
 
 data class SettingsState(

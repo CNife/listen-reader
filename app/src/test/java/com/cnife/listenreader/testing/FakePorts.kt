@@ -57,6 +57,10 @@ class FakeLibraryStore(
         private set
     var createdResource: Resource? = null
         private set
+    var createdSourceText: String? = null
+        private set
+    var createdHtml: String? = null
+        private set
     var createCount: Int = 0
         private set
 
@@ -96,6 +100,8 @@ class FakeLibraryStore(
     ): String {
         if (failCreate) throw IllegalStateException("disk full")
         createdResource = resource
+        createdSourceText = sourceText
+        createdHtml = html
         savedSegments = segments.ifEmpty { RuleSegmenter.segment(resource.title, sourceText) }
         createCount++
         return resource.id
@@ -209,18 +215,18 @@ class FakePageSession : PageSession {
     override val state: StateFlow<PageSessionState> = pageState.asStateFlow()
 
     var loadedUrl: String? = null
+    var reloadCount: Int = 0
+    var backCalls: Int = 0
+    var releaseCount: Int = 0
+    var canGoBack: Boolean = false
 
-    override fun createView(context: Context): View = FrameLayout(context)
+    /** 页面状态可由行为测试驱动。 */
+    var pageStateValue: PageSessionState
+        get() = pageState.value
+        set(value) { pageState.value = value }
 
-    override fun load(url: String) {
-        loadedUrl = url
-    }
-
-    override fun reload() = Unit
-
-    override fun goBack(): Boolean = false
-
-    override suspend fun extract(): PageExtraction = PageExtraction(
+    /** extract() 返回值；失败场景直接抛异常。 */
+    var extraction: PageExtraction = PageExtraction(
         title = "",
         byline = null,
         publishedAt = null,
@@ -232,10 +238,36 @@ class FakePageSession : PageSession {
         confidence = 0.0,
         needsExpand = false,
     )
+    var extractionError: Throwable? = null
+
+    override fun createView(context: Context): View = FrameLayout(context)
+
+    override fun load(url: String) {
+        loadedUrl = url
+        pageState.value = PageSessionState.Loading(0)
+    }
+
+    override fun reload() {
+        reloadCount++
+        pageState.value = PageSessionState.Loading(0)
+    }
+
+    override fun goBack(): Boolean {
+        backCalls++
+        return canGoBack
+    }
+
+    override suspend fun extract(): PageExtraction {
+        extractionError?.let { throw it }
+        return extraction
+    }
 
     override suspend fun expandAndExtract(): PageExtraction = extract()
 
-    override fun release() = Unit
+    override fun release() {
+        releaseCount++
+        pageState.value = PageSessionState.Idle
+    }
 }
 
 class FakeScriptCleaner(

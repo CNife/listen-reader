@@ -2,6 +2,7 @@ package com.cnife.listenreader.di
 
 import android.content.Context
 import android.util.Log
+import com.cnife.listenreader.capture.webview.WebViewPageSession
 import com.cnife.listenreader.data.db.ListenReaderDatabase
 import com.cnife.listenreader.data.library.RoomLibraryStore
 import com.cnife.listenreader.data.settings.DataStoreSettingsStore
@@ -44,7 +45,7 @@ class AppContainer(context: Context) {
     private val playbackEngine = Media3PlaybackEngine(appContext, appScope)
 
     val readingService: ReadingService = DefaultReadingService(
-        pageSession = UnavailablePageSession(),
+        pageSession = WebViewPageSession(appContext),
         scriptCleaner = scriptCleaner,
         speechSynthesizer = speechSynthesizer,
         libraryStore = libraryStore,

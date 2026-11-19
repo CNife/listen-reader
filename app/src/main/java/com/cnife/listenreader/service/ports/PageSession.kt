@@ -35,4 +35,9 @@ data class PageExtraction(
     val confidence: Double,
     val needsExpand: Boolean,
     val degradedReason: String? = null,
+    /** 提取后正文 HTML，用于离线快照（可选）。 */
+    val html: String? = null,
 )
+
+/** 页面无法提取时的可读原因；由 ReadingService 映射为页面错误。 */
+class PageExtractionException(message: String) : Exception(message)

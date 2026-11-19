@@ -20,6 +20,7 @@ import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.CaptureMode
 import com.cnife.listenreader.service.LibraryState
+import com.cnife.listenreader.service.ports.PageExtraction
 import com.cnife.listenreader.testing.FakeReadingService
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -65,7 +66,9 @@ class AppNavHostTest {
 
         composeRule.onNodeWithText("新建").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("预览").performClick()
+        composeRule.onNodeWithText("粘贴文本").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("capture-preview").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("请先粘贴要朗读的文本").assertIsDisplayed()
@@ -78,9 +81,11 @@ class AppNavHostTest {
 
         composeRule.onNodeWithText("新建").performClick()
         composeRule.waitForIdle()
+        composeRule.onNodeWithText("粘贴文本").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("capture-text-input")
             .performTextInput("文章标题\n\n第一段足够长的句子。\n\n第二段足够长的句子。")
-        composeRule.onNodeWithText("预览").performClick()
+        composeRule.onNodeWithTag("capture-preview").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("preview-title").assertTextContains("文章标题")
@@ -101,6 +106,35 @@ class AppNavHostTest {
 
         composeRule.onNodeWithTag("player-title").assertTextContains("文章标题")
         composeRule.onNodeWithTag("player-hero-play").assertIsDisplayed()
+    }
+
+    @Test
+    fun urlCapture_showsUrlBarAndExtractNavigatesToPreview() {
+        val service = FakeReadingService()
+        service.urlExtraction = PageExtraction(
+            title = "网页标题",
+            byline = null,
+            publishedAt = null,
+            markdown = "# 网页标题\n\n第一段足够长的网页正文。",
+            text = "网页标题\n\n第一段足够长的网页正文。",
+            pageText = "网页标题 第一段足够长的网页正文。",
+            extractor = "readability",
+            score = 0.81,
+            confidence = 0.7,
+            needsExpand = false,
+        )
+        composeRule.setContent { ListenReaderApp(service) }
+
+        composeRule.runOnIdle { service.beginUrlCapture("https://www.example.com/post/1") }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("capture-url-input").assertIsDisplayed()
+        composeRule.onNodeWithTag("capture-extract").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("capture-extract").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("preview-title").assertTextContains("网页标题")
+        composeRule.onNodeWithText("来源：example.com", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test

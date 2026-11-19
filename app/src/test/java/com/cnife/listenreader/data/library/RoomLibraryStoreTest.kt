@@ -231,6 +231,33 @@ class RoomLibraryStoreTest {
         assertNull(freshStore.lastOpenedResourceId())
     }
 
+    @Test
+    fun `createResource writes and deletes the optional html snapshot`() = runBlocking {
+        val id = "url-html"
+        val html = "<article><h1>标题</h1><p>正文</p></article>"
+        store.createResource(
+            resource(id, title = "网页标题", kind = SourceKind.URL, url = "https://example.com/a"),
+            "# 网页标题",
+            html,
+        )
+
+        val htmlFile = File(filesDir, "sources/$id.html")
+        assertTrue(htmlFile.isFile)
+        assertEquals(html, htmlFile.readText())
+
+        store.deleteResource(id)
+        assertFalse(htmlFile.exists())
+        assertFalse(store.snapshotFile(id).exists())
+    }
+
+    @Test
+    fun `createResource without html does not leave an html snapshot`() = runBlocking {
+        val id = "text-only"
+        store.createResource(resource(id), TEXT_BODY, null)
+
+        assertFalse(File(filesDir, "sources/$id.html").exists())
+    }
+
     private fun resource(
         id: String,
         title: String = "文章标题",

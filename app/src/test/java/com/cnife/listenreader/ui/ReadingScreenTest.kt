@@ -12,6 +12,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.cnife.listenreader.core.ErrorKind
+import com.cnife.listenreader.core.UiError
 import com.cnife.listenreader.model.ClipStatus
 import com.cnife.listenreader.model.SegmentKind
 import com.cnife.listenreader.model.SourceKind
@@ -180,6 +182,49 @@ class ReadingScreenTest {
 
         composeRule.onNodeWithTag("mini-player").assertIsDisplayed()
         composeRule.onNodeWithTag("mini-player-title").assertTextContains("测试文章")
+    }
+
+    @Test
+    fun `missing key error offers a settings shortcut in reading mode`() {
+        val service = FakeReadingService(
+            initialPlayer = playerState().copy(
+                error = UiError("还没有配置 StepFun Key，去设置里填一个吧", ErrorKind.NO_KEY),
+            ),
+        )
+        var openedSettings = 0
+        composeRule.setContent {
+            MaterialTheme {
+                ReadingScreen(
+                    service = service,
+                    resourceId = "r1",
+                    onBack = {},
+                    onOpenSettings = { openedSettings++ },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("reader-error").assertIsDisplayed()
+        composeRule.onNodeWithText("还没有配置 StepFun Key，去设置里填一个吧").assertIsDisplayed()
+        composeRule.onNodeWithText("去设置").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, openedSettings)
+    }
+
+    @Test
+    fun `retryable error in reading mode retries the current segment`() {
+        val service = FakeReadingService(
+            initialPlayer = playerState().copy(
+                error = UiError("这一句合成失败", ErrorKind.SERVER, retryable = true),
+            ),
+        )
+        setReadingScreen(service)
+
+        composeRule.onNodeWithTag("reader-error").assertIsDisplayed()
+        composeRule.onNodeWithText("重试这句").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(listOf(1), service.retriedSegments)
     }
 
     @Test

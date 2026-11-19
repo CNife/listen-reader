@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +50,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cnife.listenreader.core.ErrorKind
 import com.cnife.listenreader.model.SegmentKind
 import com.cnife.listenreader.service.PlayerSegment
 import com.cnife.listenreader.service.PlayerState
@@ -152,6 +154,8 @@ fun ReadingScreen(
                 }
             }
 
+            ReaderErrorBanner(state = state, service = service, onOpenSettings = onOpenSettings)
+
             MiniPlayer(
                 state = state,
                 onPlayPause = service::togglePlay,
@@ -172,6 +176,43 @@ fun ReadingScreen(
                 selectedVoice = state.activeTrack?.voice,
                 onDismiss = { showVoiceSheet = false },
             )
+        }
+    }
+}
+
+/**
+ * 阅读模式没有 A 模式那样的错误卡片；播放失败（例如未配置 StepFun Key）必须在这里可见，
+ * 并给出「去设置」/「重试这句」两个出口，否则 B 模式会静默失败。
+ */
+@Composable
+private fun ReaderErrorBanner(
+    state: PlayerState,
+    service: ReadingService,
+    onOpenSettings: () -> Unit,
+) {
+    val error = state.error ?: return
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .testTag("reader-error"),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = error.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            if (error.kind == ErrorKind.NO_KEY) {
+                TextButton(onClick = onOpenSettings) { Text("去设置") }
+            } else {
+                TextButton(onClick = { service.retrySegment(state.currentIndex) }) { Text("重试这句") }
+            }
         }
     }
 }

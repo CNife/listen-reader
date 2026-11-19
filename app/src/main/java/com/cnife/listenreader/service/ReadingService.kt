@@ -131,6 +131,8 @@ data class CaptureState(
     val sessionId: Int = 0,
     /** 每次（重新）生成预览自增；返回采集页后再次提取仍能导航到预览。 */
     val previewRevision: Int = 0,
+    /** 提取/L3 展开的可读进度；不在提取时为空。 */
+    val extractionStage: String? = null,
 )
 
 enum class CaptureMode { IDLE, URL, TEXT }
@@ -151,6 +153,8 @@ data class ExtractionInfo(
     val needsExpand: Boolean,
     val usedFullPage: Boolean = false,
     val degradedReason: String? = null,
+    /** L3 规则展开实际点击的轮数（0 表示没有展开动作）。 */
+    val expandRounds: Int = 0,
 )
 
 data class PreviewState(

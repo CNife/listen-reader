@@ -122,14 +122,30 @@ fun CaptureScreen(
                 }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     WebViewArea(service, context)
-                    PageStatusOverlay(state.page, state.isExtracting)
+                    PageStatusOverlay(state.page, state.isExtracting, state.extractionStage)
                 }
                 state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
-                    HintText(
-                        text = extraction.degradedReason
-                            ?: "正文可能不完整，可编辑预览或稍后重试展开",
-                        modifier = Modifier.testTag("capture-degraded-hint"),
-                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        HintText(
+                            text = buildString {
+                                if (extraction.expandRounds > 0) {
+                                    append("已自动展开 ").append(extraction.expandRounds).append(" 轮；")
+                                }
+                                append(extraction.degradedReason ?: "正文可能不完整，可编辑预览或稍后重试展开")
+                            },
+                            modifier = Modifier.testTag("capture-degraded-hint"),
+                        )
+                        if (!extraction.usedFullPage) {
+                            TextButton(
+                                onClick = { service.useFullPage() },
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .testTag("capture-use-full-page"),
+                            ) {
+                                Text("使用页面全文")
+                            }
+                        }
+                    }
                 }
                 state.error?.let { error ->
                     Text(
@@ -255,7 +271,7 @@ private fun WebViewArea(service: ReadingService, context: android.content.Contex
 }
 
 @Composable
-private fun PageStatusOverlay(page: PageUiState, isExtracting: Boolean) {
+private fun PageStatusOverlay(page: PageUiState, isExtracting: Boolean, stage: String?) {
     when (page) {
         is PageUiState.Loading -> Surface(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
@@ -281,7 +297,7 @@ private fun PageStatusOverlay(page: PageUiState, isExtracting: Boolean) {
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                text = "正在提取正文…",
+                text = stage ?: "正在提取正文…",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 6.dp)

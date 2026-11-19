@@ -126,6 +126,9 @@ class DefaultReadingService(
     private var pendingMarkdown: String? = null
     private var pendingHtml: String? = null
 
+    /** 最近一次提取拿到的页面全文，供「使用页面全文」兜底。 */
+    private var pendingPageText: String? = null
+
     init {
         scope.launch {
             settingsStore.settings.collect { appSettings ->
@@ -258,6 +261,7 @@ class DefaultReadingService(
         invalidateL2()
         pendingMarkdown = null
         pendingHtml = null
+        pendingPageText = null
         val requested = url?.trim().orEmpty()
         _capture.value = CaptureState(
             mode = CaptureMode.URL,
@@ -277,6 +281,7 @@ class DefaultReadingService(
         invalidateL2()
         pendingMarkdown = null
         pendingHtml = null
+        pendingPageText = null
         val sessionId = _capture.value.sessionId + 1
         val normalized = text.replace("\r\n", "\n").replace('\r', '\n').trim()
         if (normalized.isBlank()) {
@@ -352,6 +357,7 @@ class DefaultReadingService(
         invalidateL2()
         pendingMarkdown = null
         pendingHtml = null
+        pendingPageText = null
         _capture.update {
             it.copy(
                 mode = CaptureMode.URL,
@@ -372,6 +378,7 @@ class DefaultReadingService(
         if (state.mode != CaptureMode.URL || state.url.isBlank()) return
         pendingMarkdown = null
         pendingHtml = null
+        pendingPageText = null
         _capture.update {
             it.copy(page = PageUiState.Loading(0), error = null, extraction = null)
         }
@@ -431,10 +438,22 @@ class DefaultReadingService(
         }
         if (state.isExtracting) return
         val epoch = captureEpoch
-        _capture.update { it.copy(isExtracting = true, error = null) }
+        _capture.update {
+            it.copy(isExtracting = true, error = null, extractionStage = "正在提取正文…")
+        }
         scope.launch {
+            val progressJob = launch {
+                pageSession.expandProgress.collect { message ->
+                    if (message != null) {
+                        _capture.update { current ->
+                            if (current.isExtracting) current.copy(extractionStage = message) else current
+                        }
+                    }
+                }
+            }
             try {
-                val extraction = pageSession.extract()
+                // expandAndExtract 内部先跑 L1；只有 needsExpand 时才做 L3 规则展开。
+                val extraction = pageSession.expandAndExtract()
                 if (epoch != captureEpoch) return@launch
                 applyPageExtraction(extraction)
             } catch (c: CancellationException) {
@@ -444,6 +463,7 @@ class DefaultReadingService(
                     _capture.update {
                         it.copy(
                             isExtracting = false,
+                            extractionStage = null,
                             error = UiError(e.message ?: "无法提取正文", ErrorKind.PAGE, retryable = true),
                         )
                     }
@@ -453,10 +473,13 @@ class DefaultReadingService(
                     _capture.update {
                         it.copy(
                             isExtracting = false,
+                            extractionStage = null,
                             error = UiError("正文提取失败，请稍后重试", ErrorKind.PAGE, retryable = true),
                         )
                     }
                 }
+            } finally {
+                progressJob.cancel()
             }
         }
     }
@@ -469,6 +492,7 @@ class DefaultReadingService(
             _capture.update {
                 it.copy(
                     isExtracting = false,
+                    extractionStage = null,
                     page = PageUiState.NeedsUserAction("没有提取到正文，请在页面内确认正文可见或改用「粘贴文本」"),
                     error = UiError("没有提取到正文，请确认页面正文可见", ErrorKind.PAGE, retryable = true),
                 )
@@ -477,6 +501,7 @@ class DefaultReadingService(
         }
         pendingMarkdown = extraction.markdown.ifBlank { null }
         pendingHtml = extraction.html
+        pendingPageText = extraction.pageText.trim().ifBlank { null }
         val configured = scriptCleaner.isConfigured()
         val preview = PreviewState(
             title = title,
@@ -498,6 +523,7 @@ class DefaultReadingService(
             it.copy(
                 page = PageUiState.Ready,
                 isExtracting = false,
+                extractionStage = null,
                 error = null,
                 extraction = ExtractionInfo(
                     title = title,
@@ -506,6 +532,7 @@ class DefaultReadingService(
                     confidence = extraction.confidence,
                     needsExpand = extraction.needsExpand,
                     degradedReason = extraction.degradedReason,
+                    expandRounds = extraction.expandRounds,
                 ),
                 preview = preview,
                 previewRevision = it.previewRevision + 1,
@@ -524,7 +551,64 @@ class DefaultReadingService(
     }
 
     override fun useFullPage() {
-        // T7 接入 L3「使用页面全文」后实现。
+        val state = _capture.value
+        if (state.mode != CaptureMode.URL) return
+        if (state.isExtracting) return
+        val pageText = pendingPageText?.trim().orEmpty()
+        if (pageText.isBlank()) {
+            _capture.update {
+                it.copy(error = UiError("还没有可用的页面全文，请先提取正文", ErrorKind.PAGE, retryable = true))
+            }
+            return
+        }
+        val title = state.extraction?.title?.trim().takeUnless { it.isNullOrBlank() }
+            ?: ShareText.sourceLabel(state.url)
+        val body = stripLeadingTitle(title, pageText)
+        if (body.isBlank()) {
+            _capture.update {
+                it.copy(error = UiError("页面全文为空，请在页面内确认正文可见", ErrorKind.PAGE, retryable = true))
+            }
+            return
+        }
+        invalidateL2()
+        val configured = scriptCleaner.isConfigured()
+        val previous = state.preview
+        val preview = PreviewState(
+            title = title,
+            body = body,
+            charCount = body.length,
+            segmentDrafts = RuleSegmenter.segment(title, body),
+            segmentation = SegmentationSource.RULE,
+            l2Status = if (configured) L2Status.RUNNING else L2Status.NOT_CONFIGURED,
+            l2Error = if (configured) null else NO_LLM_MESSAGE,
+            sourceKind = SourceKind.URL,
+            sourceLabel = ShareText.sourceLabel(state.url),
+            extractor = "page-text",
+            score = null,
+            sourceUrl = state.url,
+            byline = previous?.byline,
+            publishedAt = previous?.publishedAt,
+        )
+        _capture.update {
+            it.copy(
+                isExtracting = false,
+                extractionStage = null,
+                error = null,
+                extraction = ExtractionInfo(
+                    title = title,
+                    extractor = "page-text",
+                    score = 0.3,
+                    confidence = 0.3,
+                    needsExpand = true,
+                    usedFullPage = true,
+                    degradedReason = "已使用页面全文，可能包含导航、页脚或推荐内容",
+                    expandRounds = state.extraction?.expandRounds ?: 0,
+                ),
+                preview = preview,
+                previewRevision = it.previewRevision + 1,
+            )
+        }
+        if (configured) startL2(captureEpoch, title, body)
     }
 
     override fun retryL2() {
@@ -647,6 +731,7 @@ class DefaultReadingService(
         invalidateL2()
         pendingMarkdown = null
         pendingHtml = null
+        pendingPageText = null
         _capture.value = CaptureState(sessionId = _capture.value.sessionId + 1)
     }
 

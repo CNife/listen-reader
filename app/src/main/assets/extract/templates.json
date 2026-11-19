@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "templates": [
     {
       "name": "通用网页",
@@ -19,12 +19,56 @@
     {
       "name": "微信公众号",
       "hostPattern": "^mp\\.weixin\\.qq\\.com$",
-      "enabled": false,
-      "note": "T7 定义公众号标题/正文选择器与正文提权规则",
-      "titleSelector": [],
-      "contentSelector": [],
-      "removeSelectors": [],
-      "waitForSelector": []
+      "urlPattern": "mp\\.weixin\\.qq\\.com/s/",
+      "enabled": true,
+      "note": "标题/正文选择器与正文提权规则；公众号正文初始 visibility:hidden/opacity:0，图片走 data-src 懒加载。",
+      "titleSelector": [
+        "#activity_name",
+        "#activity-name",
+        "#js_title_inner",
+        "h1.rich_media_title"
+      ],
+      "contentSelector": [
+        "#js_content"
+      ],
+      "revealSelectors": [
+        "#js_content",
+        ".rich_media_content"
+      ],
+      "lazyImageAttrs": [
+        "data-src",
+        "data-original",
+        "data-actualsrc",
+        "_src",
+        "data-lazy-src",
+        "data-url"
+      ],
+      "removeSelectors": [
+        "#js_pc_qr_code",
+        "#js_article_bottom_bar",
+        "#js_sponsor_ad_area",
+        "#js_pc_audio",
+        ".qr_code_pc",
+        ".weui-desktop-qrcheck",
+        ".rich_media_tool",
+        ".rich_media_meta_list",
+        ".rich_media_area_extra",
+        ".reward_area",
+        ".appmsg_card_context",
+        "mp-common-profile",
+        "mp-common-miniprogram",
+        "mp-common-mpaudio",
+        "mp-common-videosnap",
+        "[data-ad]",
+        "[class*='qrcode']",
+        "[class*='qr_code']",
+        "[class*='follow']",
+        "[class*='subscribe']",
+        "[class*='advert']"
+      ],
+      "waitForSelector": [
+        "#js_content"
+      ]
     }
   ]
 }

@@ -112,12 +112,26 @@ fun PreviewScreen(
             )
             state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
                 Text(
-                    text = "正文可能不完整：${extraction.degradedReason ?: "提取置信度较低"}" +
-                        "（可编辑正文，或稍后重试自动展开）",
+                    text = if (extraction.usedFullPage) {
+                        "已使用页面全文，可编辑正文后保存。"
+                    } else {
+                        "正文可能不完整：${extraction.degradedReason ?: "提取置信度较低"}" +
+                            "（可编辑正文，或使用页面全文）"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.testTag("preview-degraded-hint"),
                 )
+                if (!extraction.usedFullPage) {
+                    Button(
+                        onClick = { service.useFullPage() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("preview-use-full-page"),
+                    ) {
+                        Text("使用页面全文")
+                    }
+                }
             }
             L2StatusSection(
                 preview = preview,

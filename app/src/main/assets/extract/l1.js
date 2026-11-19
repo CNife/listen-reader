@@ -35,7 +35,7 @@
   ];
 
   var PROMO_CLASS_RE = /(advert|sponsor|promo|qrcode|qr-code|copyright|related|recommend|share|social|comment|newsletter|subscribe)/i;
-  var COPYRIGHT_RE = /(版权所有|版权归|©|Copyright\s|All rights reserved|转载请注明|转载请|扫码关注|关注公众号|长按识别)/i;
+  var COPYRIGHT_RE = /(版权所有|版权归|©|Copyright\s|All rights reserved|转载请注明|转载请|扫码关注|关注公众号|关注我们|微信扫一扫|长按识别|点击上方蓝字|分享到朋友圈|点个在看)/i;
   var QR_ALT_RE = /(二维码|扫码|qr\s*code)/i;
   var LAZY_IMAGE_ATTRS = ["data-src", "data-original", "data-actualsrc", "_src", "data-lazy-src", "data-url"];
 
@@ -98,14 +98,54 @@
     for (var i = 0; i < NOISE_TAGS.length; i++) removeSelectorAll(root, NOISE_TAGS[i]);
   }
 
-  function liftLazyImages(root) {
+  /**
+   * 公众号正文初始带 visibility:hidden / opacity:0（部分模板用 display:none），
+   * 页面脚本正常情况下会解除，但注入的提取不能依赖它。只在提取副本上操作，
+   * 不改动用户正在看的页面。
+   */
+  function revealElement(el) {
+    if (!el || !el.style) return;
+    var visibility = el.style.getPropertyValue("visibility");
+    if (visibility && visibility.trim().toLowerCase() === "hidden") el.style.removeProperty("visibility");
+    var opacity = el.style.getPropertyValue("opacity");
+    if (opacity && parseFloat(opacity) === 0) el.style.removeProperty("opacity");
+    var display = el.style.getPropertyValue("display");
+    if (display && display.trim().toLowerCase() === "none") el.style.removeProperty("display");
+  }
+
+  function revealHidden(root, template) {
+    if (!root.querySelectorAll) return;
+    var selectors = template && template.revealSelectors ? template.revealSelectors : [];
+    for (var i = 0; i < selectors.length; i++) {
+      try {
+        var targets = root.querySelectorAll(selectors[i]);
+        for (var j = 0; j < targets.length; j++) revealElement(targets[j]);
+      } catch (e) {
+        /* ignore invalid selectors from templates */
+      }
+    }
+    var all = root.querySelectorAll("*");
+    for (var k = 0; k < all.length; k++) revealElement(all[k]);
+  }
+
+  function lazyImageAttrs(template) {
+    var attrs = LAZY_IMAGE_ATTRS.slice();
+    var extra = template && template.lazyImageAttrs ? template.lazyImageAttrs : [];
+    for (var i = 0; i < extra.length; i++) {
+      if (attrs.indexOf(extra[i]) < 0) attrs.push(extra[i]);
+    }
+    return attrs;
+  }
+
+  function liftLazyImages(root, template) {
+    var attrs = lazyImageAttrs(template);
     var images = root.querySelectorAll("img");
     for (var i = 0; i < images.length; i++) {
       var img = images[i];
       var current = img.getAttribute("src") || "";
       var candidate = "";
-      for (var j = 0; j < LAZY_IMAGE_ATTRS.length; j++) {
-        var value = img.getAttribute(LAZY_IMAGE_ATTRS[j]);
+      for (var j = 0; j < attrs.length; j++) {
+        var value = img.getAttribute(attrs[j]);
         if (value && value.replace(/\s/g, "")) {
           candidate = value;
           break;
@@ -171,11 +211,12 @@
   }
 
   function cleanContainer(holder, template) {
+    revealHidden(holder, template);
     removeNoiseTags(holder);
     applyRemoveSelectors(holder, NOISE_SELECTORS);
     if (template) applyRemoveSelectors(holder, template.removeSelectors);
     removePromoElements(holder);
-    liftLazyImages(holder);
+    liftLazyImages(holder, template);
     removeCopyrightTail(holder);
     // Drop empty wrappers left behind by the removals (keep images/headings).
     var empty = holder.querySelectorAll("div, section, span, p");
@@ -272,18 +313,23 @@
     return pickMeta(doc, "author") || pickMeta(doc, "article:author");
   }
 
+  function patternMatches(pattern, value) {
+    if (!pattern || !value) return false;
+    try {
+      return new RegExp(pattern, "i").test(value);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function matchTemplate(templates, host, href) {
     var matched = null;
     for (var i = 0; i < templates.length; i++) {
       var template = templates[i];
-      if (!template || template.enabled === false || !template.hostPattern) continue;
+      if (!template || template.enabled === false) continue;
       if (template.name === "通用网页") continue;
-      try {
-        if (new RegExp(template.hostPattern, "i").test(host) || new RegExp(template.hostPattern, "i").test(href)) {
-          matched = template;
-        }
-      } catch (e) {
-        /* ignore invalid pattern */
+      if (patternMatches(template.hostPattern, host) || patternMatches(template.urlPattern, href)) {
+        matched = template;
       }
     }
     return matched;
@@ -306,7 +352,7 @@
     var holder = doc.createElement("div");
     holder.appendChild(content.cloneNode(true));
     cleanContainer(holder, template);
-    liftLazyImages(holder);
+    liftLazyImages(holder, template);
     var text = textOf(holder);
     if (text.length < 120) return null;
     return {
@@ -409,6 +455,13 @@
   }
 
   function inlineMarkdown(node) {
+    // 直接作为块级子元素的 <img>（公众号常见 section > img）也要输出 Markdown。
+    if (node.nodeType === 1 && node.tagName.toLowerCase() === "img") {
+      var ownSrc = node.getAttribute("src") || "";
+      var ownAlt = normalizeInline(node.getAttribute("alt") || "");
+      if (!ownSrc || ownSrc.indexOf("data:image") === 0) return "";
+      return "![" + ownAlt.replace(/[\[\]]/g, "") + "](" + ownSrc + ")";
+    }
     var out = "";
     for (var i = 0; i < node.childNodes.length; i++) {
       var child = node.childNodes[i];
@@ -637,7 +690,6 @@
     var doc = document;
     var work = doc.cloneNode(true);
     var pageText = normalizeBodyText(textOf(doc.body));
-    liftLazyImages(work);
     normalizeSections(work);
 
     var templateList = opts.templates && opts.templates.templates ? opts.templates.templates : (opts.templates || []);
@@ -646,6 +698,7 @@
     for (var i = 0; i < templateList.length; i++) {
       if (templateList[i] && templateList[i].name === "通用网页") genericTemplate = templateList[i];
     }
+    liftLazyImages(work, template);
     applyRemoveSelectors(work, genericTemplate ? genericTemplate.removeSelectors : null);
 
     if (template) {

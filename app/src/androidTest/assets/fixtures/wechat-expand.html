@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>折叠的公众号文章</title>
+</head>
+<body>
+<div id="page-content">
+  <h1 id="activity_name">折叠的公众号文章</h1>
+  <div id="js_content">
+    <section><p>这是一篇初始只显示开头的公众号文章。导语很短，正文被折叠在下方按钮后面，需要点击按钮才能看到后面的正文。为了触发 L3，导语长度要超过模板的最小正文阈值，但又低于质量闸门的三百字要求，这样提取器才会认为正文可能被折叠。</p></section>
+    <a id="js_expand" href="javascript:;" onclick="expandOnce()">展开全文</a>
+    <a id="hidden_expand" style="display: none" href="javascript:;" onclick="markHidden()">展开全文</a>
+    <form action="/submit" method="post" onsubmit="return false;">
+      <input type="text" name="account">
+      <button type="submit">登录后阅读</button>
+    </form>
+    <div id="ad_block"><a href="https://example.com/app" onclick="markAd()">下载 App 了解更多</a></div>
+  </div>
+  <div id="js_article_bottom_bar">底部工具栏</div>
+</div>
+<script>
+  function markHidden() {
+    var p = document.createElement('p');
+    p.textContent = 'HIDDEN_MARKER 隐藏按钮不应被点击。';
+    document.getElementById('js_content').appendChild(p);
+  }
+  function markAd() {
+    var p = document.createElement('p');
+    p.textContent = 'AD_MARKER 广告链接不应被点击。';
+    document.getElementById('js_content').appendChild(p);
+  }
+  function expandOnce() {
+    var link = document.getElementById('js_expand');
+    if (link) link.parentNode.removeChild(link);
+    var hidden = document.getElementById('hidden_expand');
+    if (hidden) hidden.parentNode.removeChild(hidden);
+    var section = document.createElement('section');
+    section.innerHTML = '<p>MARKER 展开后的正文第一段：把页面里折叠的内容全部展开之后，提取器重新运行，正文长度超过了质量闸门，预览就能拿到完整文章。' +
+      '这段文字故意写得足够长，用来验证点击之后会重新提取，而不是继续使用点击之前的短正文。' +
+      '展开动作只允许发生在当前页面内，既不登录也不提交任何表单，页面上的登录按钮和广告链接都必须被忽略。</p>' +
+      '<p>展开后的第二段继续补充内容，确保文本密度和句子结构都稳定。滚动页面还会触发懒加载图片，提取时应当提升 data-src 到 src。' +
+      '如果第二次提取仍然不满足质量闸门，应用会保留降级提示，并允许用户选择「使用页面全文」或手动编辑正文。</p>' +
+      '<p>第三段用来把正文推过三百字的质量闸门，同时保持段落、标题和图片结构都能被 Markdown 提取出来。朗读时这些段落会被切成适合听觉的短句。</p>' +
+      '<img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" data-src="https://example.com/expanded.jpg" alt="展开后的配图">';
+    document.getElementById('js_content').appendChild(section);
+  }
+</script>
+</body>
+</html>

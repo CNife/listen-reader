@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>连续展开的公众号文章</title>
+</head>
+<body>
+<div id="page-content">
+  <h1 id="activity_name">连续展开的公众号文章</h1>
+  <div id="js_content">
+    <section><p>这篇公众号文章的正文分成多层折叠。第一层按钮是「继续阅读」，点击之后会露出第二层「展开全文」；再点击第二层才会继续追加内容。测试要确认 L3 最多只点击两轮，第三层「显示更多」绝不能被点击。导语本身超过模板最小阈值，但总长度仍然低于质量闸门要求的三百字，所以第一次提取会把正文标记为可能被折叠。</p></section>
+    <a id="layer1" href="javascript:;" onclick="openLayer1()">继续阅读</a>
+  </div>
+  <div id="js_article_bottom_bar">底部工具栏</div>
+</div>
+<script>
+  function appendParagraph(text) {
+    var section = document.createElement('section');
+    var p = document.createElement('p');
+    p.textContent = text;
+    section.appendChild(p);
+    document.getElementById('js_content').appendChild(section);
+  }
+  function openLayer1() {
+    var link = document.getElementById('layer1');
+    if (link) link.parentNode.removeChild(link);
+    appendParagraph('LAYER1 第一轮展开的正文内容。这里补充足够多的文字，让正文继续增长，但页面里仍然保留着第二层折叠按钮。');
+    var next = document.createElement('a');
+    next.id = 'layer2';
+    next.href = 'javascript:;';
+    next.textContent = '展开全文';
+    next.onclick = openLayer2;
+    document.getElementById('js_content').appendChild(next);
+  }
+  function openLayer2() {
+    var link = document.getElementById('layer2');
+    if (link) link.parentNode.removeChild(link);
+    appendParagraph('LAYER2 第二轮展开的正文内容。到这里 L3 已经点击了两轮，必须停手，不能再点第三层按钮。');
+    var third = document.createElement('a');
+    third.id = 'layer3';
+    third.href = 'javascript:;';
+    third.textContent = '显示更多';
+    third.onclick = function () {
+      appendParagraph('LAYER3 第三轮不应该发生。');
+    };
+    document.getElementById('js_content').appendChild(third);
+  }
+</script>
+</body>
+</html>

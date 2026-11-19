@@ -338,6 +338,11 @@ class FakePageSession : PageSession {
     )
     var extractionError: Throwable? = null
 
+    /** expandAndExtract 的返回值；为空时退回 [extraction]。 */
+    var expandedExtraction: PageExtraction? = null
+    var expandCalls: Int = 0
+    var expandError: Throwable? = null
+
     override fun createView(context: Context): View = FrameLayout(context)
 
     override fun load(url: String) {
@@ -360,7 +365,12 @@ class FakePageSession : PageSession {
         return extraction
     }
 
-    override suspend fun expandAndExtract(): PageExtraction = extract()
+    override suspend fun expandAndExtract(): PageExtraction {
+        expandCalls++
+        expandError?.let { throw it }
+        expandedExtraction?.let { return it }
+        return extract()
+    }
 
     override fun release() {
         releaseCount++

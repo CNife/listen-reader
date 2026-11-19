@@ -29,13 +29,14 @@ import kotlinx.coroutines.flow.update
 class FakeReadingService(
     initialLibrary: LibraryState = LibraryState(isLoading = false),
     initialSettings: SettingsState = SettingsState(),
+    initialPlayer: PlayerState = PlayerState(),
     initialCapture: CaptureState = CaptureState(),
 ) : ReadingService {
 
     private val _library = MutableStateFlow(initialLibrary)
     override val library: StateFlow<LibraryState> = _library.asStateFlow()
 
-    private val _player = MutableStateFlow(PlayerState())
+    private val _player = MutableStateFlow(initialPlayer)
     override val player: StateFlow<PlayerState> = _player.asStateFlow()
 
     private val _capture = MutableStateFlow(initialCapture)
@@ -45,6 +46,18 @@ class FakeReadingService(
     override val settings: StateFlow<SettingsState> = _settings.asStateFlow()
 
     var lastThemeMode: ThemeMode? = null
+        private set
+
+    var lastSeekIndex: Int? = null
+        private set
+
+    val speedChanges = mutableListOf<Float>()
+
+    /** 测试连接时设置的状态。 */
+    var stepFunTestResult: TestState = TestState.Success("连接成功，已合成试听音频")
+
+    /** 保存 Key 时记录的明文，便于断言表单传递。 */
+    var lastSavedStepFunKey: String? = null
         private set
 
     var lastLlmSave: Triple<String, String, String>? = null
@@ -215,10 +228,12 @@ class FakeReadingService(
     }
 
     override fun seekToSegment(index: Int) {
-        _player.update { it.copy(currentIndex = index) }
+        lastSeekIndex = index
+        _player.update { it.copy(currentIndex = index, positionInSegmentMs = 0) }
     }
 
     override fun setSpeed(speed: Float) {
+        speedChanges += speed
         _player.update { it.copy(speed = speed) }
     }
 
@@ -245,6 +260,7 @@ class FakeReadingService(
     }
 
     override fun saveStepFunKey(key: String) {
+        lastSavedStepFunKey = key
         _settings.update { it.copy(stepFunKeyConfigured = key.isNotBlank()) }
     }
 
@@ -273,7 +289,10 @@ class FakeReadingService(
         _settings.update { it.copy(prefetchCount = count) }
     }
 
-    override fun testStepFun() = Unit
+    override fun testStepFun() {
+        _settings.update { it.copy(stepFunTest = TestState.Running) }
+        _settings.update { it.copy(stepFunTest = stepFunTestResult) }
+    }
 
     override fun testLlm() {
         _settings.update { it.copy(llmTest = TestState.Success("LLM 连接正常")) }

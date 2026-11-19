@@ -4,10 +4,14 @@ import android.content.Context
 import android.util.Log
 import com.cnife.listenreader.data.db.ListenReaderDatabase
 import com.cnife.listenreader.data.library.RoomLibraryStore
+import com.cnife.listenreader.data.settings.DataStoreSettingsStore
 import com.cnife.listenreader.l2.LlmScriptCleaner
 import com.cnife.listenreader.l2.OpenAiCompatibleClient
+import com.cnife.listenreader.playback.Media3PlaybackEngine
 import com.cnife.listenreader.service.DefaultReadingService
 import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,7 +25,7 @@ class AppContainer(context: Context) {
     private val l2Log: (String) -> Unit = { line -> Log.d("L2", line) }
     private val l2Client = OpenAiCompatibleClient(logger = l2Log)
     private val database = ListenReaderDatabase.build(appContext)
-    private val settingsStore = InMemorySettingsStore()
+    private val settingsStore = DataStoreSettingsStore.create(appContext)
     private val scriptCleaner = LlmScriptCleaner(
         settingsStore = settingsStore,
         client = l2Client,
@@ -33,13 +37,18 @@ class AppContainer(context: Context) {
         filesDir = appContext.filesDir,
         settingsStore = settingsStore,
     )
+    private val speechSynthesizer = StepFunSpeechSynthesizer(
+        settingsStore = settingsStore,
+        cacheDir = File(appContext.cacheDir, "tts"),
+    )
+    private val playbackEngine = Media3PlaybackEngine(appContext, appScope)
 
     val readingService: ReadingService = DefaultReadingService(
         pageSession = UnavailablePageSession(),
         scriptCleaner = scriptCleaner,
-        speechSynthesizer = UnconfiguredSpeechSynthesizer(),
+        speechSynthesizer = speechSynthesizer,
         libraryStore = libraryStore,
-        playbackEngine = NoopPlaybackEngine(),
+        playbackEngine = playbackEngine,
         settingsStore = settingsStore,
         timeProvider = SystemTimeProvider(),
         scope = appScope,

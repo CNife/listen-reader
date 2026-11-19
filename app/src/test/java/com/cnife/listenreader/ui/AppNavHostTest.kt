@@ -72,7 +72,7 @@ class AppNavHostTest {
     }
 
     @Test
-    fun pastedText_previewEditAndSave_addsToLibrary() {
+    fun pastedText_previewEditAndSave_opensPlayer() {
         val service = FakeReadingService()
         composeRule.setContent { ListenReaderApp(service) }
 
@@ -99,8 +99,8 @@ class AppNavHostTest {
         composeRule.onNodeWithText("保存").performScrollTo().performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("文章标题").assertIsDisplayed()
-        composeRule.onNodeWithText("粘贴文本 · 2 句").assertIsDisplayed()
+        composeRule.onNodeWithTag("player-title").assertTextContains("文章标题")
+        composeRule.onNodeWithTag("player-hero-play").assertIsDisplayed()
     }
 
     @Test

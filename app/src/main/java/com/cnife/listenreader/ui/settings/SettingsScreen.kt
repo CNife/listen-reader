@@ -82,6 +82,10 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            StepFunSettingsSection(service = service)
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
             LlmSettingsSection(
                 state = state,
                 onSave = service::saveLlmConfig,
@@ -92,11 +96,7 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             Text(
-                text = "朗读",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = "StepFun Key、模型、音色与预取设置将在后续版本接入。",
+                text = "预取与存储清理将在后续版本接入。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

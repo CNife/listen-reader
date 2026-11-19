@@ -84,6 +84,16 @@ interface LibraryDao {
     @Query("SELECT COUNT(*) FROM segments")
     suspend fun segmentCount(): Int
 
+    @Query(
+        """
+        SELECT id FROM resources
+        WHERE lastOpenedAt > 0
+        ORDER BY lastOpenedAt DESC, createdAt DESC
+        LIMIT 1
+        """
+    )
+    suspend fun lastOpenedResourceId(): String?
+
     @Query("SELECT COUNT(*) FROM audio_tracks")
     suspend fun trackCount(): Int
 

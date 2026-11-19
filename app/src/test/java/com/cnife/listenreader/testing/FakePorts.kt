@@ -51,6 +51,11 @@ class FakeLibraryStore(
     /** 让行为测试能模拟删除失败。 */
     var failDelete: Boolean = false
 
+    /** 让行为测试能模拟快照读取失败。 */
+    var failSnapshot: Boolean = false
+
+    private val snapshots = mutableMapOf<String, String>()
+
     var lastOpened: String? = null
     var audioRoot: File = File("build/tmp/audio")
     val progressWrites = mutableListOf<Pair<Int, Long>>()
@@ -182,9 +187,17 @@ class FakeLibraryStore(
         items.update { current -> current.filterNot { it.id == resourceId } }
     }
 
-    override suspend fun snapshotText(resourceId: String): String? = null
+    override suspend fun snapshotText(resourceId: String): String? {
+        if (failSnapshot) throw IllegalStateException("snapshot unreadable")
+        return snapshots[resourceId]
+    }
 
     override suspend fun readSnapshot(path: String): String? = null
+
+    /** 写入某 Resource 的 Markdown 快照，模拟离线可读。 */
+    fun setSnapshot(resourceId: String, text: String) {
+        snapshots[resourceId] = text
+    }
 
     override fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File =
         File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")

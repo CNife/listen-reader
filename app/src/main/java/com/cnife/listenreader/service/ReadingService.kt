@@ -111,6 +111,10 @@ data class PlayerState(
     val activeTrack: AudioTrackInfo? = null,
     val follow: Boolean = true,
     val error: UiError? = null,
+    /** 原文 Markdown 快照；读取失败或缺失时为 null。 */
+    val snapshotText: String? = null,
+    /** 快照不可用时的可读原因；快照正常时为 null。 */
+    val snapshotError: String? = null,
 )
 
 data class CaptureState(

@@ -15,6 +15,7 @@ import com.cnife.listenreader.ui.capture.CaptureScreen
 import com.cnife.listenreader.ui.capture.PreviewScreen
 import com.cnife.listenreader.ui.library.LibraryScreen
 import com.cnife.listenreader.ui.player.PlayerScreen
+import com.cnife.listenreader.ui.player.ReadingScreen
 import com.cnife.listenreader.ui.settings.SettingsScreen
 
 object Routes {
@@ -109,11 +110,10 @@ fun AppNavHost(service: ReadingService) {
             route = Routes.READER,
             arguments = listOf(navArgument("resourceId") { type = NavType.StringType }),
         ) { entry ->
-            PlayerScreen(
+            ReadingScreen(
                 service = service,
                 resourceId = entry.arguments?.getString("resourceId").orEmpty(),
                 onBack = { navController.popBackStack() },
-                onOpenReader = {},
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }

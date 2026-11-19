@@ -37,6 +37,8 @@ fun MiniPlayer(
     onToggleFollow: () -> Unit,
     onSleepTimer: (Int?) -> Unit,
     onVoiceClick: () -> Unit,
+    title: String? = null,
+    currentText: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val total = state.totalDurationMs
@@ -54,6 +56,27 @@ fun MiniPlayer(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            if (title != null || currentText != null) {
+                Column {
+                    if (title != null) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            modifier = Modifier.testTag("mini-player-title"),
+                        )
+                    }
+                    if (currentText != null) {
+                        Text(
+                            text = currentText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            modifier = Modifier.testTag("mini-player-current"),
+                        )
+                    }
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

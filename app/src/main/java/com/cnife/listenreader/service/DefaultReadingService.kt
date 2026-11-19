@@ -39,6 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -96,6 +97,12 @@ class DefaultReadingService(
     private var endedHandledFor: Int? = null
     private var playbackJob: Job? = null
     private val synthMutex = Mutex()
+
+    /** 睡眠定时倒计时；到点暂停并清空。 */
+    private var sleepTimerJob: Job? = null
+
+    /** 服务主动 prepare/play 期间，引擎的瞬时暂停不算用户从通知栏暂停。 */
+    private var pendingEngineStart = false
 
     /** 串行预取任务；只跑一条，避免并发触发多个合成。 */
     private var prefetchJob: Job? = null
@@ -655,6 +662,7 @@ class DefaultReadingService(
 
     override fun pause() {
         wantPlaying = false
+        pendingEngineStart = false
         _player.update { it.copy(isPlaying = false) }
         playbackEngine.pause()
         val state = _player.value
@@ -691,13 +699,23 @@ class DefaultReadingService(
     }
 
     override fun setSleepTimer(minutes: Int?) {
-        // T8 接入睡眠定时后生效。
-        val normalized = minutes?.takeIf { it > 0 }
-        _player.update {
-            it.copy(
-                sleepTimerMinutes = normalized,
-                sleepTimerRemainingMs = normalized?.let { value -> value * 60_000L },
-            )
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        val totalMs = minutes?.takeIf { it > 0 }?.let { it * 60_000L }
+        if (totalMs == null) {
+            _player.update { it.copy(sleepTimerMinutes = null, sleepTimerRemainingMs = null) }
+            return
+        }
+        _player.update { it.copy(sleepTimerMinutes = minutes, sleepTimerRemainingMs = totalMs) }
+        sleepTimerJob = scope.launch {
+            var remainingMs = totalMs
+            while (remainingMs > 0) {
+                delay(SLEEP_TIMER_TICK_MS)
+                remainingMs -= SLEEP_TIMER_TICK_MS
+                _player.update { it.copy(sleepTimerRemainingMs = remainingMs.coerceAtLeast(0)) }
+            }
+            pause()
+            _player.update { it.copy(sleepTimerMinutes = null, sleepTimerRemainingMs = null) }
         }
     }
 
@@ -807,6 +825,9 @@ class DefaultReadingService(
         val state = _player.value
         if (state.resourceId != null) persistProgress(state.currentIndex, state.positionInSegmentMs)
         wantPlaying = false
+        pendingEngineStart = false
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
         cancelPlaybackJob()
         cancelPrefetch()
         playbackEngine.pause()
@@ -995,6 +1016,7 @@ class DefaultReadingService(
 
     private fun startEnginePlay(index: Int, positionMs: Long, autoPlay: Boolean = true) {
         playbackJob?.cancel()
+        pendingEngineStart = true
         playbackJob = scope.launch {
             val ok = try {
                 performPlay(index, positionMs, autoPlay)
@@ -1008,6 +1030,7 @@ class DefaultReadingService(
             }
             if (!ok) {
                 wantPlaying = false
+                pendingEngineStart = false
                 _player.update { it.copy(isPlaying = false, isPreparing = false) }
             }
         }
@@ -1236,6 +1259,7 @@ class DefaultReadingService(
             val clip = currentClips[target]
             val path = clip?.takeIf { it.isReadyFile() }?.filePath
             if (path != null) {
+                pendingEngineStart = true
                 scope.launch {
                     runCatching {
                         playbackEngine.setSpeed(_player.value.speed)
@@ -1251,14 +1275,30 @@ class DefaultReadingService(
             PlaybackEngineState.Idle -> Unit
             PlaybackEngineState.Preparing -> _player.update { it.copy(isPreparing = true) }
             is PlaybackEngineState.Ready -> {
+                val wasPendingStart = pendingEngineStart
+                if (state.isPlaying || !wantPlaying) pendingEngineStart = false
+                // 通知栏 / 锁屏暂停会直接改引擎状态；同步回用户意图与 UI。
+                if ((!wasPendingStart || state.isPlaying) && state.isPlaying != wantPlaying) {
+                    wantPlaying = state.isPlaying
+                    if (!state.isPlaying) {
+                        persistProgress(_player.value.currentIndex, state.positionMs)
+                    }
+                }
                 _player.update {
-                    it.copy(positionInSegmentMs = state.positionMs, isPlaying = wantPlaying)
+                    it.copy(
+                        positionInSegmentMs = state.positionMs,
+                        isPlaying = if (pendingEngineStart) wantPlaying else state.isPlaying,
+                    )
                 }
                 refreshPreparing()
             }
-            is PlaybackEngineState.Ended -> handleEnded(state.durationMs)
+            is PlaybackEngineState.Ended -> {
+                pendingEngineStart = false
+                handleEnded(state.durationMs)
+            }
             is PlaybackEngineState.Error -> {
                 wantPlaying = false
+                pendingEngineStart = false
                 _player.update {
                     it.copy(
                         isPlaying = false,
@@ -1366,6 +1406,7 @@ class DefaultReadingService(
 
         val appSettings = settingsStore.settings.first()
         val speed = appSettings.playbackSpeed.coerceIn(0.5f, 2.0f)
+        val previousTimer = _player.value
         val segmentStates = segments.map { segment ->
             val clip = clips[segment.index]
             PlayerSegment(
@@ -1398,6 +1439,8 @@ class DefaultReadingService(
             isPlaying = false,
             isPreparing = false,
             speed = speed,
+            sleepTimerMinutes = previousTimer.sleepTimerMinutes,
+            sleepTimerRemainingMs = previousTimer.sleepTimerRemainingMs,
             activeTrack = track?.let { AudioTrackInfo(it.id, it.model, it.voice) },
         )
         playbackEngine.setSpeed(speed)
@@ -1413,6 +1456,7 @@ class DefaultReadingService(
     private fun cancelPlaybackJob() {
         playbackJob?.cancel()
         playbackJob = null
+        pendingEngineStart = false
     }
 
     private suspend fun createInitialTrack(resourceId: String): AudioTrack? {
@@ -1571,6 +1615,7 @@ class DefaultReadingService(
         const val TEXT_SOURCE_LABEL = "粘贴文本"
         const val TEXT_EXTRACTOR = "文本输入"
         const val CHARS_PER_SECOND = 4.5
+        const val SLEEP_TIMER_TICK_MS = 1_000L
         const val NO_LLM_MESSAGE = "尚未配置 LLM Key，当前使用规则分段；到设置填写后可重新 L2"
         const val OFFLINE_MESSAGE = "需要联网合成，请联网后重试"
         const val PREVIEW_TEXT = "你好，这是听我读的音色试听。"

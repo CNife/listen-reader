@@ -65,6 +65,7 @@ fun PlayerScreen(
     onOpenSettings: () -> Unit,
 ) {
     val state by service.player.collectAsStateWithLifecycle()
+    val notificationPermission = rememberNotificationPermission()
     var showVoiceSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(resourceId) {
@@ -122,6 +123,14 @@ fun PlayerScreen(
                 if (!state.segments.any { it.status == ClipStatus.READY }) {
                     item { NoKeyHint(state, onOpenSettings) }
                 }
+                if (notificationPermission.required && !notificationPermission.granted) {
+                    item {
+                        NotificationPermissionHint(
+                            state = notificationPermission,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
                 item {
                     Row(
                         modifier = Modifier
@@ -156,6 +165,7 @@ fun PlayerScreen(
                 onNext = service::nextSegment,
                 onSpeedClick = { service.setSpeed(nextSpeed(state.speed)) },
                 onToggleFollow = service::toggleFollow,
+                onSleepTimer = service::setSleepTimer,
                 onVoiceClick = { showVoiceSheet = true },
             )
         }

@@ -64,12 +64,15 @@ class DataStoreSettingsStore(
         keyStore.decrypt(dataStore.data.first()[Keys.STEPFUN_KEY])
 
     override suspend fun setLlmConfig(endpoint: String, model: String, key: String?) {
-        val encrypted = key?.takeIf { it.isNotBlank() }?.let { keyStore.encrypt(it.trim()) }
+        val trimmed = key?.takeIf { it.isNotBlank() }?.trim()
+        val encrypted = trimmed?.let { keyStore.encrypt(it) }
+        if (trimmed != null && encrypted == null) {
+            throw IllegalStateException("无法加密 LLM Key")
+        }
         dataStore.edit { prefs ->
             prefs[Keys.LLM_ENDPOINT] = endpoint
             prefs[Keys.LLM_MODEL] = model
-            if (key.isNullOrBlank() || encrypted == null) prefs.remove(Keys.LLM_KEY)
-            else prefs[Keys.LLM_KEY] = encrypted
+            if (encrypted == null) prefs.remove(Keys.LLM_KEY) else prefs[Keys.LLM_KEY] = encrypted
         }
     }
 

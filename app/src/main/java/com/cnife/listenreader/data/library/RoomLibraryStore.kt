@@ -27,7 +27,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -192,11 +191,9 @@ class RoomLibraryStore(
         freed
     }
 
-    override fun lastOpenedResourceId(): String? {
+    override suspend fun lastOpenedResourceId(): String? {
         lastOpened?.let { return it }
-        val stored = runCatching {
-            runBlocking(ioDispatcher) { dao.lastOpenedResourceId() }
-        }.getOrNull()
+        val stored = runCatching { dao.lastOpenedResourceId() }.getOrNull()
         lastOpened = stored
         return stored
     }
@@ -210,14 +207,12 @@ class RoomLibraryStore(
             directorySize(File(audioRoot, "$resourceId/$trackId"))
         }
 
-    override fun computeStorageUsage(): StorageUsage {
+    override suspend fun computeStorageUsage(): StorageUsage = withContext(ioDispatcher) {
         // 活动轨以 Room 为准，避免进程重启后内存缓存为空而把活动轨误算成旧轨。
         val activePairs = runCatching {
-            runBlocking(ioDispatcher) {
-                dao.resources()
-                    .mapNotNull { row -> row.activeTrackId?.let { trackId -> row.id to trackId } }
-                    .toSet()
-            }
+            dao.resources()
+                .mapNotNull { row -> row.activeTrackId?.let { trackId -> row.id to trackId } }
+                .toSet()
         }.getOrNull() ?: activeTracks.entries.map { (resourceId, trackId) -> resourceId to trackId }.toSet()
         var activeBytes = 0L
         var oldBytes = 0L
@@ -233,7 +228,7 @@ class RoomLibraryStore(
                 }
             }
         }
-        return StorageUsage(activeBytes, oldBytes)
+        StorageUsage(activeBytes, oldBytes)
     }
 
     private fun resolve(path: String): File {

@@ -223,15 +223,17 @@ class FakeLibraryStore(
         return freed
     }
 
-    override fun lastOpenedResourceId(): String? = lastOpened
+    override suspend fun lastOpenedResourceId(): String? = lastOpened
 
     override fun saveLastOpenedResourceId(resourceId: String?) {
         lastOpened = resourceId
     }
 
-    override fun totalActiveAudioBytes(): Long = computeStorageUsage().activeBytes
+    override fun totalActiveAudioBytes(): Long = computeUsage().activeBytes
 
-    override fun computeStorageUsage(): StorageUsage {
+    override suspend fun computeStorageUsage(): StorageUsage = computeUsage()
+
+    private fun computeUsage(): StorageUsage {
         var activeBytes = 0L
         var oldBytes = 0L
         val resourceDirs = audioRoot.listFiles()?.filter { it.isDirectory }.orEmpty()

@@ -39,8 +39,8 @@ interface LibraryStore {
     fun snapshotFile(resourceId: String): File
     fun fileSize(path: String?): Long
     suspend fun deleteUnusedTracks(): Long
-    fun lastOpenedResourceId(): String?
+    suspend fun lastOpenedResourceId(): String?
     fun saveLastOpenedResourceId(resourceId: String?)
     fun totalActiveAudioBytes(): Long
-    fun computeStorageUsage(): StorageUsage
+    suspend fun computeStorageUsage(): StorageUsage
 }

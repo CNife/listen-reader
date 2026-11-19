@@ -525,6 +525,7 @@ class DefaultReadingService(
                 isExtracting = false,
                 extractionStage = null,
                 error = null,
+                savedResourceId = null,
                 extraction = ExtractionInfo(
                     title = title,
                     extractor = extraction.extractor,
@@ -594,6 +595,7 @@ class DefaultReadingService(
                 isExtracting = false,
                 extractionStage = null,
                 error = null,
+                savedResourceId = null,
                 extraction = ExtractionInfo(
                     title = title,
                     extractor = "page-text",
@@ -780,7 +782,7 @@ class DefaultReadingService(
         val clamped = speed.coerceIn(0.5f, 2.0f)
         _player.update { it.copy(speed = clamped) }
         playbackEngine.setSpeed(clamped)
-        scope.launch { runCatching { settingsStore.setPlaybackSpeed(clamped) } }
+        persistSettings { settingsStore.setPlaybackSpeed(clamped) }
     }
 
     override fun setSleepTimer(minutes: Int?) {
@@ -806,13 +808,13 @@ class DefaultReadingService(
 
     override fun setVoice(voiceId: String) {
         _settings.update { it.copy(voice = voiceId) }
-        scope.launch { runCatching { settingsStore.setVoice(voiceId) } }
+        persistSettings { settingsStore.setVoice(voiceId) }
         switchTrack(model = _settings.value.ttsModel, voice = voiceId)
     }
 
     override fun setModel(modelId: String) {
         _settings.update { it.copy(ttsModel = modelId) }
-        scope.launch { runCatching { settingsStore.setTtsModel(modelId) } }
+        persistSettings { settingsStore.setTtsModel(modelId) }
         switchTrack(model = modelId, voice = _settings.value.voice)
     }
 
@@ -955,6 +957,7 @@ class DefaultReadingService(
         val normalizedEndpoint = endpoint.trim().ifBlank { LlmDefaults.ENDPOINT }
         val normalizedModel = model.trim().ifBlank { LlmDefaults.MODEL }
         val typedKey = key.trim()
+        val previousKeyConfigured = _settings.value.llmKeyConfigured
         _settings.update {
             it.copy(
                 llmEndpoint = normalizedEndpoint,
@@ -964,10 +967,22 @@ class DefaultReadingService(
             )
         }
         llmConfigSaveJob = scope.launch {
-            // 留空表示保留已保存的 Key；清除请用 setLlmKey("")。
-            val existingKey = settingsStore.llmKey()
-            val keyToStore = if (typedKey.isNotEmpty()) typedKey else existingKey
-            settingsStore.setLlmConfig(normalizedEndpoint, normalizedModel, keyToStore)
+            try {
+                // 留空表示保留已保存的 Key；清除请用 setLlmKey("")。
+                val existingKey = settingsStore.llmKey()
+                val keyToStore = if (typedKey.isNotEmpty()) typedKey else existingKey
+                settingsStore.setLlmConfig(normalizedEndpoint, normalizedModel, keyToStore)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(
+                        llmKeyConfigured = previousKeyConfigured,
+                        message = null,
+                        error = UiError("无法保存 LLM 配置，请重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+            }
         }
     }
 
@@ -981,19 +996,48 @@ class DefaultReadingService(
             )
         }
         llmConfigSaveJob = scope.launch {
-            settingsStore.setLlmConfig(current.llmEndpoint, current.llmModel, trimmed.ifEmpty { null })
+            try {
+                settingsStore.setLlmConfig(current.llmEndpoint, current.llmModel, trimmed.ifEmpty { null })
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(
+                        llmKeyConfigured = current.llmKeyConfigured,
+                        message = null,
+                        error = UiError("无法保存 LLM Key，请重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+            }
         }
     }
 
     override fun setThemeMode(mode: ThemeMode) {
         _settings.update { it.copy(themeMode = mode) }
-        scope.launch { settingsStore.setThemeMode(mode) }
+        persistSettings { settingsStore.setThemeMode(mode) }
     }
 
     override fun setPrefetchCount(count: Int) {
         val normalized = count.coerceIn(0, 2)
         _settings.update { it.copy(prefetchCount = normalized) }
-        scope.launch { settingsStore.setPrefetchCount(normalized) }
+        persistSettings { settingsStore.setPrefetchCount(normalized) }
+    }
+
+    /** 设置持久化失败不崩溃，统一写入 [SettingsState.error]。 */
+    private fun persistSettings(block: suspend () -> Unit) {
+        scope.launch {
+            try {
+                block()
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(
+                        error = UiError("设置保存失败，请重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+            }
+        }
     }
 
     override fun testStepFun() {
@@ -1080,22 +1124,43 @@ class DefaultReadingService(
     override fun clearOldAudioTracks() {
         _settings.update { it.copy(isClearing = true) }
         scope.launch {
-            val freed = libraryStore.deleteUnusedTracks()
-            val usage = libraryStore.computeStorageUsage()
-            _settings.update {
-                it.copy(
-                    isClearing = false,
-                    storage = usage,
-                    message = if (freed > 0) "已清理 ${freed / 1024} KB" else "没有可清理的旧音轨",
-                )
+            try {
+                val freed = libraryStore.deleteUnusedTracks()
+                val usage = libraryStore.computeStorageUsage()
+                _settings.update {
+                    it.copy(
+                        isClearing = false,
+                        storage = usage,
+                        message = if (freed > 0) "已清理 ${freed / 1024} KB" else "没有可清理的旧音轨",
+                    )
+                }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(
+                        isClearing = false,
+                        error = UiError("清理失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
             }
         }
     }
 
     override fun refreshStorageUsage() {
         scope.launch {
-            val usage = libraryStore.computeStorageUsage()
-            _settings.update { it.copy(storage = usage) }
+            try {
+                val usage = libraryStore.computeStorageUsage()
+                _settings.update { it.copy(storage = usage) }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(
+                        error = UiError("存储统计失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+            }
         }
     }
 
@@ -1692,7 +1757,7 @@ class DefaultReadingService(
     }
 
     /** 读取持久化的上次打开记录；失败时当作没有记录，不影响资料库展示。 */
-    private fun readLastOpenedId(): String? =
+    private suspend fun readLastOpenedId(): String? =
         runCatching { libraryStore.lastOpenedResourceId() }.getOrNull()
 
     private fun matchesQuery(item: LibraryItem, query: String): Boolean {

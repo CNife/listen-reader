@@ -166,7 +166,7 @@ class DefaultReadingService(
         scope.launch {
             val resourceId = runCatching { libraryStore.lastOpenedResourceId() }.getOrNull()
             if (resourceId != null && _player.value.resourceId == null) {
-                loadResource(resourceId, markOpened = false)
+                runCatching { loadResource(resourceId, markOpened = false) }
             }
         }
     }
@@ -204,7 +204,18 @@ class DefaultReadingService(
 
     override fun openResource(resourceId: String) {
         scope.launch {
-            val loaded = loadResource(resourceId, markOpened = true)
+            val loaded = try {
+                loadResource(resourceId, markOpened = true)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _library.update {
+                    it.copy(
+                        error = UiError("打开失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+                return@launch
+            }
             if (!loaded) {
                 _library.update {
                     it.copy(error = UiError("找不到该资源", ErrorKind.UNKNOWN))
@@ -964,6 +975,7 @@ class DefaultReadingService(
                 llmModel = normalizedModel,
                 llmKeyConfigured = typedKey.isNotEmpty() || it.llmKeyConfigured,
                 message = "已保存 LLM 配置",
+                error = null,
             )
         }
         llmConfigSaveJob = scope.launch {
@@ -993,6 +1005,7 @@ class DefaultReadingService(
             it.copy(
                 llmKeyConfigured = trimmed.isNotEmpty(),
                 message = if (trimmed.isEmpty()) "已清除 LLM Key" else "已保存 LLM Key",
+                error = null,
             )
         }
         llmConfigSaveJob = scope.launch {
@@ -1028,6 +1041,7 @@ class DefaultReadingService(
         scope.launch {
             try {
                 block()
+                _settings.update { it.copy(error = null) }
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
@@ -1122,7 +1136,7 @@ class DefaultReadingService(
     }
 
     override fun clearOldAudioTracks() {
-        _settings.update { it.copy(isClearing = true) }
+        _settings.update { it.copy(isClearing = true, error = null) }
         scope.launch {
             try {
                 val freed = libraryStore.deleteUnusedTracks()

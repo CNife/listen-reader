@@ -56,6 +56,14 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            state.error?.let { error ->
+                Text(
+                    text = error.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("settings-error"),
+                )
+            }
             Text(
                 text = "外观",
                 style = MaterialTheme.typography.titleMedium,

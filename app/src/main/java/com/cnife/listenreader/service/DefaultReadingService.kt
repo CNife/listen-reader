@@ -285,6 +285,7 @@ class DefaultReadingService(
         val (title, body) = splitTextTitle(normalized)
         val drafts = RuleSegmenter.segment(title, body)
         val configured = scriptCleaner.isConfigured()
+        val revision = _capture.value.previewRevision + 1
         _capture.value = CaptureState(
             mode = CaptureMode.TEXT,
             url = text,
@@ -310,6 +311,7 @@ class DefaultReadingService(
                 score = 1.0,
             ),
             sessionId = sessionId,
+            previewRevision = revision,
         )
         if (configured) {
             startL2(captureEpoch, title, body)
@@ -499,6 +501,7 @@ class DefaultReadingService(
                     degradedReason = extraction.degradedReason,
                 ),
                 preview = preview,
+                previewRevision = it.previewRevision + 1,
             )
         }
         if (configured) startL2(captureEpoch, title, body)

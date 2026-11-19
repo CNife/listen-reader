@@ -138,6 +138,39 @@ class AppNavHostTest {
     }
 
     @Test
+    fun urlCapture_reExtractingAfterBackReturnsToPreview() {
+        val service = FakeReadingService()
+        service.urlExtraction = PageExtraction(
+            title = "网页标题",
+            byline = null,
+            publishedAt = null,
+            markdown = "# 网页标题\n\n第一段足够长的网页正文。",
+            text = "网页标题\n\n第一段足够长的网页正文。",
+            pageText = "网页标题 第一段足够长的网页正文。",
+            extractor = "readability",
+            score = 0.81,
+            confidence = 0.7,
+            needsExpand = false,
+        )
+        composeRule.setContent { ListenReaderApp(service) }
+
+        composeRule.runOnIdle { service.beginUrlCapture("https://www.example.com/post/1") }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("capture-extract").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("preview-title").assertTextContains("网页标题")
+
+        // 从预览返回采集页编辑后再提取，仍应回到预览而不是停在采集页。
+        composeRule.onNodeWithContentDescription("返回").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("capture-extract").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("capture-extract").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("preview-title").assertTextContains("网页标题")
+    }
+
+    @Test
     fun library_showsItemsWithSourceAndSegmentCount() {
         val item = LibraryItem(
             id = "r1",

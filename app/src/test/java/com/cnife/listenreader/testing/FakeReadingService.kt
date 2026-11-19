@@ -172,6 +172,7 @@ class FakeReadingService(
             ),
             preview = newPreview(title, body),
             sessionId = _capture.value.sessionId + 1,
+            previewRevision = _capture.value.previewRevision + 1,
         )
     }
 
@@ -224,6 +225,7 @@ class FakeReadingService(
                     score = extraction.score,
                     sourceUrl = url,
                 ),
+                previewRevision = state.previewRevision + 1,
             )
         }
     }

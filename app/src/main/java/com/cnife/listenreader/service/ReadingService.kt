@@ -125,6 +125,8 @@ data class CaptureState(
     val error: UiError? = null,
     /** 每次开始/丢弃采集会话自增；UI 用它避免重复导航。 */
     val sessionId: Int = 0,
+    /** 每次（重新）生成预览自增；返回采集页后再次提取仍能导航到预览。 */
+    val previewRevision: Int = 0,
 )
 
 enum class CaptureMode { IDLE, URL, TEXT }

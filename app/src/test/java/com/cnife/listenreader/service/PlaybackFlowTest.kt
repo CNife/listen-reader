@@ -342,6 +342,7 @@ class PlaybackFlowTest {
 
         assertEquals(1, h.service.player.value.currentIndex)
         assertTrue(h.store.progressWrites.contains(0 to 300L))
+        assertTrue(h.store.progressWrites.contains(1 to 0L))
         assertEquals(secondFile.absolutePath, h.engine.preparedFile?.absolutePath)
         assertEquals(0L, h.engine.preparedStartMs)
     }

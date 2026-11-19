@@ -13,9 +13,11 @@ class MediaMetadataDurationTest {
 
     @Test
     fun fixtureMp3DurationIsPositive() {
-        val context = InstrumentationRegistry.getInstrumentation().context
-        val file = File(context.cacheDir, "audio-fixture.mp3")
-        context.assets.open("audio-fixture.mp3").use { input ->
+        val testContext = InstrumentationRegistry.getInstrumentation().context
+        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val cacheDir = targetContext.cacheDir.apply { mkdirs() }
+        val file = File(cacheDir, "audio-fixture.mp3")
+        testContext.assets.open("audio-fixture.mp3").use { input ->
             file.outputStream().use { output -> input.copyTo(output) }
         }
 

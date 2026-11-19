@@ -748,6 +748,7 @@ class DefaultReadingService(
         _player.update {
             it.copy(currentIndex = target, positionInSegmentMs = 0, error = null)
         }
+        persistProgress(target, 0)
         wantPlaying = autoPlay
         if (autoPlay) {
             _player.update { it.copy(isPlaying = true) }

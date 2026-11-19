@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.data.db.ListenReaderDatabase
 import com.cnife.listenreader.data.library.RoomLibraryStore
 import com.cnife.listenreader.model.L2Status
+import com.cnife.listenreader.model.SegmentKind
 import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.testing.FakePageSession
 import com.cnife.listenreader.testing.FakePlaybackEngine
@@ -123,6 +124,51 @@ class TextCaptureFlowTest {
         val saved = store.getResource(id)!!
         assertTrue(saved.lastOpenedAt > 0)
         assertEquals(id, store.observeItems().first().single { it.id == id }.id)
+
+        scope.cancel()
+    }
+
+    @Test
+    fun `title-less pasted text is spoken without the paste placeholder`() = runBlocking {
+        val settings = FakeSettingsStore()
+        val store = newStore(settings)
+        val scope = newScope()
+        val service = newService(store, settings, scope)
+        awaitState { !service.library.value.isLoading }
+
+        service.beginTextCapture("第一句是足够长的句子内容。\n\n第二句也是足够长的句子内容。")
+
+        val preview = service.capture.value.preview!!
+        // 展示用的标题仍回退到占位文案。
+        assertEquals("粘贴文本", preview.title)
+        assertTrue(preview.segmentDrafts.none { it.text == "粘贴文本" })
+        assertEquals("第一句是足够长的句子内容。", preview.segmentDrafts.first().text)
+
+        val id = service.saveCapture()!!
+        awaitState { service.capture.value.savedResourceId == id }
+
+        assertEquals("粘贴文本", store.getResource(id)!!.title)
+        val saved = store.getSegments(id)
+        assertTrue(saved.none { it.text == "粘贴文本" })
+        assertEquals("第一句是足够长的句子内容。", saved.first().text)
+
+        scope.cancel()
+    }
+
+    @Test
+    fun `title-like first line still yields a heading segment`() = runBlocking {
+        val settings = FakeSettingsStore()
+        val store = newStore(settings)
+        val scope = newScope()
+        val service = newService(store, settings, scope)
+        awaitState { !service.library.value.isLoading }
+
+        service.beginTextCapture("我的标题\n\n第一段足够长的句子内容。")
+
+        val preview = service.capture.value.preview!!
+        assertEquals("我的标题", preview.title)
+        assertEquals("我的标题", preview.segmentDrafts.first().text)
+        assertEquals(SegmentKind.HEADING, preview.segmentDrafts.first().kind)
 
         scope.cancel()
     }

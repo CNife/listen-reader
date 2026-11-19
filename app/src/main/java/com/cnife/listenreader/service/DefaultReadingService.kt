@@ -306,7 +306,7 @@ class DefaultReadingService(
             return
         }
         val (title, body) = splitTextTitle(normalized)
-        val drafts = RuleSegmenter.segment(title, body)
+        val drafts = RuleSegmenter.segment(speechTitle(title), body)
         val configured = scriptCleaner.isConfigured()
         val revision = _capture.value.previewRevision + 1
         _capture.value = CaptureState(
@@ -632,7 +632,7 @@ class DefaultReadingService(
                 val current = state.preview ?: return@update state
                 state.copy(
                     preview = current.copy(
-                        segmentDrafts = RuleSegmenter.segment(current.title, current.body),
+                        segmentDrafts = RuleSegmenter.segment(speechTitle(current.title), current.body),
                         segmentation = SegmentationSource.RULE,
                         l2Status = L2Status.NOT_CONFIGURED,
                         l2Error = NO_LLM_MESSAGE,
@@ -680,7 +680,7 @@ class DefaultReadingService(
         }
         val body = preview.body.trim()
         // 保存当前预览里的分段：L2 成功时是 LLM 分段，失败/未配置时是规则分段。
-        val drafts = preview.segmentDrafts.ifEmpty { RuleSegmenter.segment(title, body) }
+        val drafts = preview.segmentDrafts.ifEmpty { RuleSegmenter.segment(speechTitle(title), body) }
         if (drafts.isEmpty()) {
             _capture.update {
                 it.copy(error = UiError("正文为空，无法保存", ErrorKind.UNKNOWN))
@@ -1668,7 +1668,8 @@ class DefaultReadingService(
     private fun startL2(epoch: Int, title: String, body: String) {
         l2Epoch++
         val runEpoch = l2Epoch
-        val ruleDrafts = RuleSegmenter.segment(title, body)
+        val cleanTitle = speechTitle(title)
+        val ruleDrafts = RuleSegmenter.segment(cleanTitle, body)
         _capture.update { state ->
             val preview = state.preview ?: return@update state
             state.copy(
@@ -1682,7 +1683,7 @@ class DefaultReadingService(
         }
         l2Job = scope.launch {
             val result = try {
-                scriptCleaner.clean(title, body)
+                scriptCleaner.clean(cleanTitle, body)
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
@@ -1737,12 +1738,16 @@ class DefaultReadingService(
             title = title,
             body = body,
             charCount = body.length,
-            segmentDrafts = RuleSegmenter.segment(title, body),
+            segmentDrafts = RuleSegmenter.segment(speechTitle(title), body),
             segmentation = SegmentationSource.RULE,
             l2Status = if (unconfigured) L2Status.NOT_CONFIGURED else L2Status.NOT_RUN,
             l2Error = if (unconfigured) NO_LLM_MESSAGE else null,
         )
     }
+
+    /** 朗读/L2 使用的标题：粘贴文本的占位标题只是展示信息，不该被念出来。 */
+    private fun speechTitle(title: String): String =
+        title.trim().takeUnless { it == TEXT_SOURCE_LABEL } ?: ""
 
     /** 首行短且不像正文句子时作为标题，其余保留为正文；否则整段作为正文。 */
     private fun splitTextTitle(text: String): Pair<String, String> {

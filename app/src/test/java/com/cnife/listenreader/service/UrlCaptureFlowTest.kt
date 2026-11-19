@@ -214,6 +214,94 @@ class UrlCaptureFlowTest {
     }
 
     @Test
+    fun `short page is expanded through l3 before preview`() = runTest {
+        val harness = createService()
+        harness.page.extraction = articleExtraction().copy(
+            text = "太短的正文。",
+            markdown = "太短的正文。",
+            needsExpand = true,
+            degradedReason = "正文过短（6 字）",
+        )
+        harness.page.expandedExtraction = articleExtraction().copy(
+            text = "一篇文章\n\n" + "展开后的完整正文段落。".repeat(20),
+            markdown = "# 一篇文章\n\n" + "展开后的完整正文段落。".repeat(20),
+            needsExpand = false,
+            expandRounds = 1,
+        )
+
+        harness.service.beginUrlCapture("https://example.com/short")
+        advanceUntilIdle()
+        harness.service.extractPage()
+        advanceUntilIdle()
+
+        val state = harness.service.capture.value
+        assertEquals(1, harness.page.expandCalls)
+        assertFalse(state.isExtracting)
+        assertNull(state.extractionStage)
+        assertFalse(state.extraction!!.needsExpand)
+        assertEquals(1, state.extraction!!.expandRounds)
+        assertTrue(state.preview!!.body.contains("展开后的完整正文段落"))
+
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun `still degraded extraction offers page text fallback that is editable and saveable`() = runTest {
+        val harness = createService()
+        harness.page.extraction = articleExtraction().copy(
+            text = "太短的正文。",
+            markdown = "太短的正文。",
+            pageText = "页面全文第一段，包含导航和页脚。\n页面全文第二段，仍然可以朗读。",
+            needsExpand = true,
+            degradedReason = "正文过短（6 字）",
+        )
+
+        harness.service.beginUrlCapture("https://example.com/short")
+        advanceUntilIdle()
+        harness.service.extractPage()
+        advanceUntilIdle()
+        assertTrue(harness.service.capture.value.extraction!!.needsExpand)
+
+        harness.service.useFullPage()
+        advanceUntilIdle()
+
+        val state = harness.service.capture.value
+        val info = state.extraction!!
+        assertTrue(info.usedFullPage)
+        assertTrue(info.needsExpand)
+        assertEquals("page-text", info.extractor)
+        val preview = state.preview!!
+        assertTrue(preview.body.contains("页面全文第一段"))
+        assertEquals(preview.body.length, preview.charCount)
+        assertTrue(preview.segmentDrafts.isNotEmpty())
+
+        harness.service.updatePreviewBody("编辑后的页面全文。")
+        assertEquals("编辑后的页面全文。", harness.service.capture.value.preview!!.body)
+
+        val saved = harness.service.saveCapture()
+        advanceUntilIdle()
+        assertEquals(saved, harness.service.capture.value.savedResourceId)
+        assertTrue(harness.store.savedSegments.any { it.text.contains("编辑后的页面全文。") })
+
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun `use full page before extraction reports readable error`() = runTest {
+        val harness = createService()
+        harness.service.beginUrlCapture("https://example.com/post")
+        advanceUntilIdle()
+
+        harness.service.useFullPage()
+        advanceUntilIdle()
+
+        assertNull(harness.service.capture.value.preview)
+        assertTrue(harness.service.capture.value.error!!.message.contains("页面全文"))
+
+        harness.scope.cancel()
+    }
+
+    @Test
     fun `share intent routes urls to page capture and other text to text capture`() = runTest {
         val harness = createService()
 

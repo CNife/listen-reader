@@ -33,7 +33,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -58,6 +60,9 @@ class WebViewPageSession(
 
     private val _state = MutableStateFlow<PageSessionState>(PageSessionState.Idle)
     override val state: StateFlow<PageSessionState> = _state.asStateFlow()
+
+    private val _expandProgress = MutableStateFlow<String?>(null)
+    override val expandProgress: StateFlow<String?> = _expandProgress.asStateFlow()
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var webView: WebView? = null
@@ -110,7 +115,40 @@ class WebViewPageSession(
         return true
     }
 
-    override suspend fun extract(): PageExtraction = withContext(Dispatchers.Main.immediate) {
+    override suspend fun extract(): PageExtraction = runL1()
+
+    /**
+     * 先跑 L1；needsExpand 时只点击可见的展开类元素，每轮点击后滚动触发懒加载、
+     * 等待 DOM 静默再重新 L1，最多 [MAX_EXPAND_ROUNDS] 轮。没有安全候选就停手。
+     */
+    override suspend fun expandAndExtract(): PageExtraction = withContext(Dispatchers.Main.immediate) {
+        var extraction = runL1()
+        if (!extraction.needsExpand) return@withContext extraction
+
+        var rounds = 0
+        val clickedKeys = mutableSetOf<String>()
+        try {
+            while (rounds < MAX_EXPAND_ROUNDS) {
+                val candidates = collectL3Candidates()
+                val picked = L3Rules.pick(candidates, clickedKeys)
+                if (picked == null) break
+
+                rounds++
+                clickedKeys += picked.key
+                _expandProgress.value = "正在展开全文…（第 $rounds 轮）"
+                if (!clickL3Candidate(picked.index)) break
+                scrollForLazyContent()
+                awaitDomQuiet()
+                extraction = runL1().copy(expandRounds = rounds)
+                if (!extraction.needsExpand) break
+            }
+        } finally {
+            _expandProgress.value = null
+        }
+        extraction.copy(expandRounds = rounds)
+    }
+
+    private suspend fun runL1(): PageExtraction = withContext(Dispatchers.Main.immediate) {
         val view = webView ?: throw PageExtractionException("网页视图尚未创建，请重新打开采集页")
         awaitSettled()
         ensureBundle(view)
@@ -120,8 +158,48 @@ class WebViewPageSession(
         parseExtraction(raw)
     }
 
-    /** T6 只做 L1；T7 在这里接入 L3（规则展开）后重新提取。 */
-    override suspend fun expandAndExtract(): PageExtraction = extract()
+    private suspend fun collectL3Candidates(): List<L3Candidate> {
+        val phrases = Json.encodeToString(
+            JsonArray.serializer(),
+            JsonArray(L3Rules.PHRASES.map { JsonPrimitive(it) }),
+        )
+        val raw = withTimeoutOrNull(EVALUATE_TIMEOUT_MS) {
+            evaluate("(window.__listenReaderL3Collect && window.__listenReaderL3Collect('$phrases'))")
+        } ?: return emptyList()
+        val payload = decodeJsValue(raw, ListSerializer(L3CandidatePayload.serializer())) ?: return emptyList()
+        return payload.mapIndexed { index, item -> item.toCandidate(index) }
+    }
+
+    private suspend fun clickL3Candidate(index: Int): Boolean {
+        val raw = withTimeoutOrNull(EVALUATE_TIMEOUT_MS) {
+            evaluate("(window.__listenReaderL3Click && window.__listenReaderL3Click($index))")
+        }
+        return raw?.trim()?.trim('"') == "true"
+    }
+
+    private suspend fun scrollForLazyContent() {
+        withTimeoutOrNull(EVALUATE_TIMEOUT_MS) {
+            evaluate("(window.__listenReaderL3ScrollThrough && window.__listenReaderL3ScrollThrough())")
+        }
+    }
+
+    /** 依赖页内 MutationObserver 的静默标记；超时后按当前 DOM 继续。 */
+    private suspend fun awaitDomQuiet() {
+        val startedAt = SystemClock.uptimeMillis()
+        var quietPolls = 0
+        while (SystemClock.uptimeMillis() - startedAt < L3_QUIET_TIMEOUT_MS) {
+            val raw = withTimeoutOrNull(EVALUATE_TIMEOUT_MS) {
+                evaluate("(window.__listenReaderL3Quiet && window.__listenReaderL3Quiet())")
+            }
+            if (raw?.trim()?.trim('"') == "true") {
+                quietPolls++
+                if (quietPolls >= 2) return
+            } else {
+                quietPolls = 0
+            }
+            delay(L3_POLL_INTERVAL_MS)
+        }
+    }
 
     override fun release() {
         stabilizeJob?.cancel()
@@ -318,7 +396,8 @@ class WebViewPageSession(
     private suspend fun assetsScript(): String = withContext(Dispatchers.IO) {
         val readability = appContext.assets.open("extract/readability.js").bufferedReader().use { it.readText() }
         val l1 = appContext.assets.open("extract/l1.js").bufferedReader().use { it.readText() }
-        readability + "\n" + l1
+        val l3 = appContext.assets.open("extract/l3.js").bufferedReader().use { it.readText() }
+        readability + "\n" + l1 + "\n" + l3
     }
 
     private suspend fun optionsLiteral(): String {
@@ -418,6 +497,9 @@ class WebViewPageSession(
         const val SETTLE_TIMEOUT_MS = 12_000L
         const val EVALUATE_TIMEOUT_MS = 5_000L
         const val LOGIN_FORM_MARKER = "__login_form__"
+        const val MAX_EXPAND_ROUNDS = 2
+        const val L3_QUIET_TIMEOUT_MS = 3_000L
+        const val L3_POLL_INTERVAL_MS = 100L
 
         val json = Json { ignoreUnknownKeys = true }
 
@@ -443,6 +525,34 @@ class WebViewPageSession(
                 "return JSON.stringify({textLength:text.length,iframes:document.querySelectorAll('iframe').length,hit:hit});" +
                 "})()"
     }
+}
+
+@Serializable
+private data class L3CandidatePayload(
+    val tag: String = "",
+    val text: String = "",
+    val visible: Boolean = false,
+    val inForm: Boolean = false,
+    val href: String? = null,
+    val type: String? = null,
+    val submit: Boolean = false,
+    val leaf: Boolean = false,
+    val rectWidth: Double = 0.0,
+    val rectHeight: Double = 0.0,
+) {
+    fun toCandidate(index: Int): L3Candidate = L3Candidate(
+        index = index,
+        tag = tag,
+        text = text,
+        visible = visible,
+        inForm = inForm,
+        href = href,
+        type = type,
+        submit = submit,
+        leaf = leaf,
+        rectWidth = rectWidth,
+        rectHeight = rectHeight,
+    )
 }
 
 @Serializable

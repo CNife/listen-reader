@@ -125,6 +125,8 @@ data class CaptureState(
     val error: UiError? = null,
     /** 每次开始/丢弃采集会话自增；UI 用它避免重复导航。 */
     val sessionId: Int = 0,
+    /** 提取/L3 展开的可读进度；不在提取时为空。 */
+    val extractionStage: String? = null,
 )
 
 enum class CaptureMode { IDLE, URL, TEXT }
@@ -145,6 +147,8 @@ data class ExtractionInfo(
     val needsExpand: Boolean,
     val usedFullPage: Boolean = false,
     val degradedReason: String? = null,
+    /** L3 规则展开实际点击的轮数（0 表示没有展开动作）。 */
+    val expandRounds: Int = 0,
 )
 
 data class PreviewState(

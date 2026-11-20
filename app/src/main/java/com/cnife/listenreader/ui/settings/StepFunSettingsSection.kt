@@ -282,35 +282,3 @@ internal fun StepFunSettingsContent(
         )
     }
 }
-
-@Composable
-private fun TestStatus(test: TestState, testTag: String) {
-    when (test) {
-        TestState.Idle -> Unit
-        TestState.Running -> Text(
-            text = "正在测试连接…",
-            style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag(testTag),
-        )
-        is TestState.Success -> Text(
-            text = test.message,
-            style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag(testTag),
-        )
-        is TestState.Failure -> Column {
-            Text(
-                text = "测试失败",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = Ink,
-            )
-            Text(
-                text = test.message,
-                style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
-                modifier = Modifier.testTag(testTag),
-            )
-        }
-    }
-}

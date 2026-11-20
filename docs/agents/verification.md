@@ -132,7 +132,7 @@ $ADB --es cmd clear_state
 hs use                  # 选择设备
 hs ui                   # 列可点节点
 hs see                  # 截图（多模态可直接看）
-hs tap "新建"           # 按文字点击
+hs tap "添加内容"     # 按文字点击
 hs logs --follow
 ```
 

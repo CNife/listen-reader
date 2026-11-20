@@ -20,11 +20,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.service.TestState
 import com.cnife.listenreader.ui.components.PageHeader
 import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.components.TextTabs
 import com.cnife.listenreader.ui.theme.Ink
+import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Paper
 
 @Composable
@@ -141,4 +143,36 @@ internal fun SectionDivider() {
     Spacer(Modifier.height(20.dp))
     RuleLine(Modifier.padding(horizontal = 20.dp))
     Spacer(Modifier.height(20.dp))
+}
+
+@Composable
+internal fun TestStatus(test: TestState, testTag: String) {
+    when (test) {
+        TestState.Idle -> Unit
+        TestState.Running -> Text(
+            text = "正在测试连接…",
+            style = MaterialTheme.typography.bodySmall,
+            color = Ink2,
+            modifier = Modifier.testTag(testTag),
+        )
+        is TestState.Success -> Text(
+            text = test.message,
+            style = MaterialTheme.typography.bodySmall,
+            color = Ink2,
+            modifier = Modifier.testTag(testTag),
+        )
+        is TestState.Failure -> Column {
+            Text(
+                text = "测试失败",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = Ink,
+            )
+            Text(
+                text = test.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink2,
+                modifier = Modifier.testTag(testTag),
+            )
+        }
+    }
 }

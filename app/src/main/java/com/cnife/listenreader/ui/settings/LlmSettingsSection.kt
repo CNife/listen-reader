@@ -14,15 +14,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.service.SettingsState
-import com.cnife.listenreader.service.TestState
 import com.cnife.listenreader.ui.components.LrTextField
-import com.cnife.listenreader.ui.components.PrimaryAction
 import com.cnife.listenreader.ui.components.QuietAction
-import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 
 /**
@@ -82,7 +78,7 @@ fun LlmSettingsSection(
             testTag = "llm-key",
         )
 
-        PrimaryAction(
+        QuietAction(
             text = "保存并测试",
             onClick = {
                 onSave(endpoint, key, model)
@@ -111,38 +107,6 @@ fun LlmSettingsSection(
             }
         }
 
-        TestStatus(state.llmTest)
-    }
-}
-
-@Composable
-private fun TestStatus(test: TestState) {
-    when (test) {
-        TestState.Idle -> Unit
-        TestState.Running -> Text(
-            text = "正在测试连接…",
-            style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag("llm-test-status"),
-        )
-        is TestState.Success -> Text(
-            text = test.message,
-            style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag("llm-test-status"),
-        )
-        is TestState.Failure -> Column {
-            Text(
-                text = "测试失败",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = Ink,
-            )
-            Text(
-                text = test.message,
-                style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
-                modifier = Modifier.testTag("llm-test-status"),
-            )
-        }
+        TestStatus(state.llmTest, testTag = "llm-test-status")
     }
 }

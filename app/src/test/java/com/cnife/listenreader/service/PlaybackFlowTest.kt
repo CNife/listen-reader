@@ -123,7 +123,7 @@ class PlaybackFlowTest {
         assertEquals(2, h.synth.calls.size)
         val call = h.synth.calls.first()
         assertEquals("第二句要朗读的文字。", call.text)
-        assertEquals(TtsModels.AUDIO3, call.model)
+        assertEquals(TtsModels.MINI, call.model)
         assertEquals(Voices.WENROU, call.voice)
         assertEquals(store.audioFile(RESOURCE_ID, TRACK_ID, 1), call.destination)
         assertTrue(call.destination.isFile)
@@ -394,7 +394,7 @@ class PlaybackFlowTest {
     private fun track() = AudioTrack(
         id = TRACK_ID,
         resourceId = RESOURCE_ID,
-        model = TtsModels.AUDIO3,
+        model = TtsModels.MINI,
         voice = Voices.WENROU,
         createdAt = 1L,
     )

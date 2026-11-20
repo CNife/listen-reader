@@ -34,8 +34,8 @@ class StepFunSpeechSynthesizer(
     private val settingsStore: SettingsStore,
     private val cacheDir: File,
     @Volatile var baseUrl: String = StepFunDefaults.BASE_URL,
-    private val httpClient: OkHttpClient = defaultClient(),
-    private val retryDelaysMs: List<Long> = DEFAULT_RETRY_DELAYS,
+    private val httpClient: OkHttpClient = defaultTtsHttpClient(),
+    private val retryDelaysMs: List<Long> = DEFAULT_TTS_RETRY_DELAYS,
     private val sleep: suspend (Long) -> Unit = { delay(it) },
     private val durationReader: (File) -> Long = ::readDurationMs,
     private val log: (String) -> Unit = { message -> Log.i(TAG, message) },
@@ -88,7 +88,7 @@ class StepFunSpeechSynthesizer(
                             retryable = true,
                         )
                     }
-                    writeAtomically(destination, bytes)
+                    writeAudioAtomically(destination, bytes)
                     log("synthesize ok: ${bytes.size} bytes")
                     return@withContext durationReader(destination)
                 }
@@ -97,7 +97,7 @@ class StepFunSpeechSynthesizer(
             } catch (e: SpeechException) {
                 if (!e.retryable || attempt >= MAX_ATTEMPTS) throw e
                 log("synthesize retry ${attempt + 1} after HTTP/response error")
-                sleep(nextDelay(attempt))
+                sleep(nextBackoffDelay(retryDelaysMs, attempt))
             } catch (e: IOException) {
                 if (attempt >= MAX_ATTEMPTS) {
                     throw SpeechException(
@@ -108,7 +108,7 @@ class StepFunSpeechSynthesizer(
                     )
                 }
                 log("synthesize retry ${attempt + 1} after IO error")
-                sleep(nextDelay(attempt))
+                sleep(nextBackoffDelay(retryDelaysMs, attempt))
             }
         }
         throw SpeechException(ErrorKind.NETWORK, "网络连接失败，请检查网络后重试", retryable = true)
@@ -121,7 +121,7 @@ class StepFunSpeechSynthesizer(
                 return ConnectionTestResult(false, "本地缓存目录不可写")
             }
         return try {
-            val durationMs = synthesize(TEST_PHRASE, model, voice, file)
+            val durationMs = synthesize(TTS_TEST_PHRASE, model, voice, file)
             val readable = if (durationMs > 0) "（${"%.1f".format(durationMs / 1000.0)} 秒）" else ""
             ConnectionTestResult(true, "连接成功，已合成试听音频$readable")
         } catch (c: CancellationException) {
@@ -132,19 +132,6 @@ class StepFunSpeechSynthesizer(
             ConnectionTestResult(false, "连接失败，请稍后重试")
         } finally {
             file.delete()
-        }
-    }
-
-    private fun nextDelay(attempt: Int): Long =
-        retryDelaysMs.getOrElse(attempt - 1) { retryDelaysMs.lastOrNull() ?: 1_000L }
-
-    private fun writeAtomically(destination: File, bytes: ByteArray) {
-        destination.parentFile?.mkdirs()
-        val temp = File(destination.parentFile, destination.name + TEMP_SUFFIX)
-        temp.writeBytes(bytes)
-        if (!temp.renameTo(destination)) {
-            temp.delete()
-            throw SpeechException(ErrorKind.UNKNOWN, "音频文件写入失败，请重试", retryable = true)
         }
     }
 
@@ -165,16 +152,30 @@ class StepFunSpeechSynthesizer(
         const val MAX_INPUT_CHARS = 1000
         const val MAX_RETRIES = 2
         const val MAX_ATTEMPTS = MAX_RETRIES + 1
-        const val TEMP_SUFFIX = ".tmp"
-        const val TEST_PHRASE = "你好，这是听我读的音色试听。"
-        val DEFAULT_RETRY_DELAYS = listOf(1_000L, 2_000L)
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+    }
+}
 
-        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
+internal const val TTS_TEST_PHRASE = "你好，这是听我读的音色试听。"
+internal const val TTS_TEMP_SUFFIX = ".tmp"
+internal val DEFAULT_TTS_RETRY_DELAYS = listOf(1_000L, 2_000L)
+
+internal fun defaultTtsHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    .connectTimeout(10, TimeUnit.SECONDS)
+    .readTimeout(60, TimeUnit.SECONDS)
+    .writeTimeout(30, TimeUnit.SECONDS)
+    .build()
+
+internal fun nextBackoffDelay(retryDelaysMs: List<Long>, attempt: Int): Long =
+    retryDelaysMs.getOrElse(attempt - 1) { retryDelaysMs.lastOrNull() ?: 1_000L }
+
+internal fun writeAudioAtomically(destination: File, bytes: ByteArray) {
+    destination.parentFile?.mkdirs()
+    val temp = File(destination.parentFile, destination.name + TTS_TEMP_SUFFIX)
+    temp.writeBytes(bytes)
+    if (!temp.renameTo(destination)) {
+        temp.delete()
+        throw SpeechException(ErrorKind.UNKNOWN, "音频文件写入失败，请重试", retryable = true)
     }
 }
 

@@ -54,7 +54,7 @@ class PlayerScreenTest {
         positionInSegmentMs = 300L,
         totalDurationMs = 3_400L,
         isPlaying = false,
-        activeTrack = AudioTrackInfo("t1", TtsModels.AUDIO3, Voices.WENROU),
+        activeTrack = AudioTrackInfo("t1", TtsModels.MINI, Voices.WENROU),
     )
 
     private fun setPlayerScreen(

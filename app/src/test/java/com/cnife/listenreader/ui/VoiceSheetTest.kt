@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.Voices
@@ -47,14 +48,30 @@ class VoiceSheetTest {
     }
 
     @Test
-    fun `all voices render with the current one selected`() {
+    fun `step-tts-mini voices render with the current one selected and support scrolling to all 27 voices`() {
         setContent(state = SettingsState(ttsModel = TtsModels.MINI))
 
+        assertEquals(27, Voices.entriesForModel(TtsModels.MINI).size)
         composeRule.onNodeWithText("温柔女声（当前）").assertIsDisplayed()
         composeRule.onNodeWithText("磁性男声").assertIsDisplayed()
         composeRule.onNodeWithText("元气少女").assertIsDisplayed()
         composeRule.onNodeWithText("邻家姐姐").assertIsDisplayed()
         composeRule.onNodeWithText("当前模型：${TtsModels.MINI}").assertIsDisplayed()
+        composeRule.onNodeWithTag("voice-option-zhixingjiejie").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `qwen-audio-3-0-tts-flash renders all 12 official system voices`() {
+        setContent(
+            state = SettingsState(ttsModel = TtsModels.QWEN_FLASH, voice = Voices.LONGANHUAN),
+            selectedVoice = Voices.LONGANHUAN,
+        )
+
+        assertEquals(12, Voices.entriesForModel(TtsModels.QWEN_FLASH).size)
+        composeRule.onNodeWithText("当前模型：${TtsModels.QWEN_FLASH}").assertIsDisplayed()
+        composeRule.onNodeWithText("龙安风悦").assertIsDisplayed()
+        composeRule.onNodeWithText("龙安欢（当前）").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("voice-option-${Voices.LOONGJOHN}").performScrollTo().assertIsDisplayed()
     }
 
     @Test

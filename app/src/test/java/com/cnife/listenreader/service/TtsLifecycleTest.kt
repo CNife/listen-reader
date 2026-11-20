@@ -395,25 +395,28 @@ class TtsLifecycleTest {
     }
 
     @Test
-    fun `switching model creates a track with the new model and keeps the old track`() = runTest {
+    fun `switching model creates a track with the new model and normalizes voice`() = runTest {
         val store = newStore()
         addSegments(store, count = 2)
         val h = harness(
             store = store,
-            appSettings = AppSettings(stepFunKeyConfigured = true, prefetchCount = 0),
+            appSettings = AppSettings(stepFunKeyConfigured = true, qwenKeyConfigured = true, prefetchCount = 0),
         )
         advanceUntilIdle()
         h.service.openResource(RESOURCE_ID)
         advanceUntilIdle()
 
-        h.service.setModel(TtsModels.MINI)
+        h.service.setModel(TtsModels.QWEN_FLASH)
         advanceUntilIdle()
 
-        assertEquals(TtsModels.MINI, h.settings.current.ttsModel)
-        assertEquals(TtsModels.MINI, h.service.player.value.activeTrack?.model)
+        assertEquals(TtsModels.QWEN_FLASH, h.settings.current.ttsModel)
+        assertEquals(Voices.LONGANHUAN, h.settings.current.voice)
+        assertEquals(TtsModels.QWEN_FLASH, h.service.player.value.activeTrack?.model)
+        assertEquals(Voices.LONGANHUAN, h.service.player.value.activeTrack?.voice)
         assertEquals(2, h.store.getTracks(RESOURCE_ID).size)
         assertEquals(1, h.synth.calls.size)
-        assertEquals(TtsModels.MINI, h.synth.calls.single().model)
+        assertEquals(TtsModels.QWEN_FLASH, h.synth.calls.single().model)
+        assertEquals(Voices.LONGANHUAN, h.synth.calls.single().voice)
         assertTrue(h.store.getTracks(RESOURCE_ID).any { it.id == TRACK_ID })
     }
 
@@ -475,8 +478,8 @@ class TtsLifecycleTest {
     @Test
     fun `clearing old tracks removes only inactive audio and updates usage`() = runTest {
         val store = newStore()
-        val oldTrack = AudioTrack(OLD_TRACK_ID, RESOURCE_ID, TtsModels.AUDIO3, Voices.WENROU, 1L)
-        val activeTrack = AudioTrack(TRACK_ID, RESOURCE_ID, TtsModels.AUDIO3, Voices.CIXING, 2L)
+        val oldTrack = AudioTrack(OLD_TRACK_ID, RESOURCE_ID, TtsModels.MINI, Voices.WENROU, 1L)
+        val activeTrack = AudioTrack(TRACK_ID, RESOURCE_ID, TtsModels.MINI, Voices.CIXING, 2L)
         addSegments(
             store,
             count = 2,
@@ -488,7 +491,7 @@ class TtsLifecycleTest {
             count = 1,
             resourceId = OTHER_RESOURCE_ID,
             activeTrackId = OTHER_TRACK_ID,
-            tracks = listOf(AudioTrack(OTHER_TRACK_ID, OTHER_RESOURCE_ID, TtsModels.AUDIO3, Voices.LINJIA, 3L)),
+            tracks = listOf(AudioTrack(OTHER_TRACK_ID, OTHER_RESOURCE_ID, TtsModels.MINI, Voices.LINJIA, 3L)),
         )
         writeBytes(store.audioFile(RESOURCE_ID, OLD_TRACK_ID, 0), 2_048)
         writeBytes(store.audioFile(RESOURCE_ID, TRACK_ID, 0), 4_096)
@@ -524,13 +527,16 @@ class TtsLifecycleTest {
     fun `preview voice synthesizes once per model and voice`() = runTest {
         val store = newStore()
         addSegments(store, count = 1)
-        val h = harness(store = store, appSettings = AppSettings(stepFunKeyConfigured = true))
+        val h = harness(
+            store = store,
+            appSettings = AppSettings(stepFunKeyConfigured = true, qwenKeyConfigured = true),
+        )
         advanceUntilIdle()
         h.service.previewVoice(Voices.WENROU)
         advanceUntilIdle()
 
         assertEquals(1, h.synth.calls.size)
-        val expected = File(h.previewDir, "${TtsModels.AUDIO3}_${Voices.WENROU}.mp3")
+        val expected = File(h.previewDir, "${TtsModels.MINI}_${Voices.WENROU}.mp3")
         assertEquals(expected.absolutePath, h.synth.calls.single().destination.absolutePath)
         assertEquals(expected.absolutePath, h.audition.played.single().absolutePath)
         assertTrue(expected.isFile)
@@ -542,11 +548,11 @@ class TtsLifecycleTest {
         assertEquals(1, h.synth.calls.size)
         assertEquals(2, h.audition.played.size)
 
-        h.service.setModel(TtsModels.MINI)
-        h.service.previewVoice(Voices.WENROU)
+        h.service.setModel(TtsModels.QWEN_FLASH)
+        h.service.previewVoice(Voices.LONGANHUAN)
         advanceUntilIdle()
         assertEquals(2, h.synth.calls.size)
-        assertTrue(h.synth.calls.last().destination.name.startsWith(TtsModels.MINI))
+        assertTrue(h.synth.calls.last().destination.name.startsWith(TtsModels.QWEN_FLASH))
         assertEquals(3, h.audition.played.size)
     }
 
@@ -599,7 +605,7 @@ class TtsLifecycleTest {
     private fun track(resourceId: String, trackId: String) = AudioTrack(
         id = trackId,
         resourceId = resourceId,
-        model = TtsModels.AUDIO3,
+        model = TtsModels.MINI,
         voice = Voices.WENROU,
         createdAt = 1L,
     )

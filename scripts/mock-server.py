@@ -5,11 +5,13 @@
 # ///
 """Listen Reader 本地 E2E mock 服务。
 
-一个进程替身三件事，让真机/模拟器上的真实应用在不 root、不改源码、不注入自签 CA
+一个进程替身四件事，让真机/模拟器上的真实应用在不 root、不改源码、不注入自签 CA
 的前提下跑完整链路：
 
 * ``POST /v1/audio/speech``：StepFun TTS 替身，返回真实 MP3 字节；并发与耗时可控，
   便于观察预取窗口是否真的并行。
+* ``POST /v1/services/audio/tts/SpeechSynthesizer``：千问非流式 TTS 替身，返回官方
+  协议的 JSON（``output.audio.url`` 指向 ``GET /mock-audio/``）。
 * ``POST /v1/chat/completions``：OpenAI 兼容 LLM 替身，返回确定性的朗读分段文本。
 * ``GET /fixtures/<name>`` 与 ``GET /mp.weixin.qq.com/s/<name>``：把
   ``app/src/androidTest/assets/fixtures/*.html`` 当网页提供，覆盖通用网页与公众号模板。
@@ -101,6 +103,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/healthz":
             self._send_json(200, METRICS.snapshot())
             return
+        if path.startswith("/mock-audio/"):
+            self._send_bytes(200, "audio/mpeg", self.tts_fixture.read_bytes())
+            return
         fixture = self._fixture_for(path)
         if fixture is None:
             self._send_json(404, {"ok": False, "error": f"no fixture for {path}"})
@@ -112,6 +117,8 @@ class Handler(BaseHTTPRequestHandler):
         body = self._read_body()
         if path.endswith("/v1/audio/speech"):
             self._handle_tts(body)
+        elif path.endswith("/services/audio/tts/SpeechSynthesizer"):
+            self._handle_qwen_tts(body)
         elif path.endswith("/v1/chat/completions"):
             self._handle_llm(body)
         else:
@@ -130,6 +137,35 @@ class Handler(BaseHTTPRequestHandler):
         active = METRICS.tts_end()
         log_line(f"END active={active} text='{text[:50]}'")
         self._send_bytes(200, "audio/mpeg", audio)
+
+    def _handle_qwen_tts(self, body: bytes) -> None:
+        payload = self._json_body(body)
+        input_obj = payload.get("input")
+        input_dict = input_obj if isinstance(input_obj, dict) else {}
+        text = str(input_dict.get("text", ""))
+        voice = str(input_dict.get("voice", ""))
+        active, peak = METRICS.tts_start()
+        log_line(
+            f"START_QWEN active={active} max={peak} voice={voice} text='{text[:50]}'"
+        )
+        time.sleep(self.tts_delay_ms / 1000.0)
+        active = METRICS.tts_end()
+        log_line(f"END_QWEN active={active} text='{text[:50]}'")
+        host = self.headers.get("Host") or "127.0.0.1:18080"
+        response = {
+            "request_id": "qwen-tts-mock",
+            "output": {
+                "finish_reason": "stop",
+                "audio": {
+                    "url": f"http://{host}/mock-audio/clip.mp3",
+                    "id": "audio-mock",
+                    "data": "",
+                    "expires_at": int(time.time()) + 86400,
+                },
+            },
+            "usage": {"characters": len(text)},
+        }
+        self._send_json(200, response)
 
     def _handle_llm(self, body: bytes) -> None:
         payload = self._json_body(body)

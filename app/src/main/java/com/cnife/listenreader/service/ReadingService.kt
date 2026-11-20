@@ -14,6 +14,7 @@ import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.model.TtsModels
+import com.cnife.listenreader.model.TtsVendor
 import com.cnife.listenreader.model.Voices
 import kotlinx.coroutines.flow.StateFlow
 
@@ -64,11 +65,13 @@ interface ReadingService {
 
     // --- 设置 ---
     fun saveStepFunKey(key: String)
+    fun saveQwenKey(key: String)
     fun saveLlmConfig(endpoint: String, key: String, model: String)
     fun setLlmKey(key: String)
     fun setThemeMode(mode: ThemeMode)
     fun setPrefetchCount(count: Int)
     fun testStepFun()
+    fun testQwen()
     fun testLlm()
     fun previewVoice(voiceId: String)
     fun clearOldAudioTracks()
@@ -179,11 +182,13 @@ data class SettingsState(
     val ttsModel: String = TtsModels.DEFAULT,
     val voice: String = Voices.DEFAULT,
     val stepFunKeyConfigured: Boolean = false,
+    val qwenKeyConfigured: Boolean = false,
     val llmEndpoint: String = LlmDefaults.ENDPOINT,
     val llmModel: String = LlmDefaults.MODEL,
     val llmKeyConfigured: Boolean = false,
     val prefetchCount: Int = 6,
     val stepFunTest: TestState = TestState.Idle,
+    val qwenTest: TestState = TestState.Idle,
     val llmTest: TestState = TestState.Idle,
     val storage: StorageUsage = StorageUsage(0, 0),
     val isClearing: Boolean = false,
@@ -192,7 +197,16 @@ data class SettingsState(
     val auditionError: String? = null,
     val message: String? = null,
     val error: UiError? = null,
-)
+) {
+    val activeTtsKeyConfigured: Boolean
+        get() = when (TtsModels.vendorOf(ttsModel)) {
+            TtsVendor.QWEN -> qwenKeyConfigured
+            TtsVendor.STEPFUN -> stepFunKeyConfigured
+        }
+
+    val activeVendorName: String
+        get() = TtsModels.vendorOf(ttsModel).displayName
+}
 
 sealed interface TestState {
     data object Idle : TestState

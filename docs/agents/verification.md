@@ -33,7 +33,7 @@ ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} \
 `build.gradle.kts`、`StepFunDefaults.BASE_URL` 或注入系统根证书；仓库已提供三条通道：
 
 - `-PappIdSuffix`：隔离包名，测试包与常用手机上的正式版并存
-- `scripts/mock-server.py`：本地 HTTP mock（StepFun TTS / OpenAI 兼容 LLM / fixtures 网页）
+- `scripts/mock-server.py`：本地 HTTP mock（StepFun / 千问 TTS、OpenAI 兼容 LLM、fixtures 网页）
 - `DebugControlReceiver`：debug 构建里的 `adb broadcast` 控制口，注入配置与抓取状态快照
 
 ### 2.1 构建并安装隔离包
@@ -79,10 +79,12 @@ Action `com.cnife.listenreader.DEBUG_CONTROL`，命令通过 `--es cmd <命令>`
 PKG=com.cnife.listenreader.nmtest
 ADB="adb shell am broadcast -a com.cnife.listenreader.DEBUG_CONTROL -p $PKG"
 
-# 指向本地 mock（空串可复原生产端点）
+# 指向本地 mock（空串可复原生产端点；千问 mock 端点与 StepFun 同为 /v1）
 $ADB --es cmd configure \
   --es stepfun_endpoint http://127.0.0.1:18080/v1 \
   --es stepfun_key mock-stepfun-key \
+  --es qwen_endpoint http://127.0.0.1:18080/v1 \
+  --es qwen_key mock-qwen-key \
   --es llm_endpoint http://127.0.0.1:18080/v1 \
   --es llm_model mock-model \
   --es llm_key mock-llm-key \
@@ -103,7 +105,7 @@ $ADB --es cmd clear_state
 
 | `cmd` | 作用 | 关键 extra |
 | --- | --- | --- |
-| `configure` | 覆写 StepFun 端点并写设置 | `stepfun_endpoint`、`stepfun_key`、`llm_endpoint`、`llm_model`、`llm_key`、`tts_model`、`voice`、`theme`、`prefetch_count`(int)、`playback_speed`(float) |
+| `configure` | 覆写 StepFun / 千问端点并写设置 | `stepfun_endpoint`、`stepfun_key`、`qwen_endpoint`、`qwen_key`、`llm_endpoint`、`llm_model`、`llm_key`、`tts_model`、`voice`、`theme`、`prefetch_count`(int)、`playback_speed`(float) |
 | `seed_resource` | 落一条 Resource + 规则分段 | `title`、`text`、`source_kind`（`TEXT`/`URL`）、`source_url`、`open`(bool) |
 | `dump_state` | 输出单行 JSON 状态快照 | — |
 | `clear_state` | 清库、清音频/快照/试听目录、复原端点 | — |
@@ -111,7 +113,7 @@ $ADB --es cmd clear_state
 所有命令都输出一行 JSON（`TAG=ListenReaderDebug`），失败也只会是
 `{"ok":false,"cmd":"…","error":"…"}`，不会让应用崩溃。
 
-`dump_state` 字段：`stepFunEndpoint`、`library`（`isLoading`/`itemCount`/`continueId`/`error`）、
+`dump_state` 字段：`stepFunEndpoint`、`qwenEndpoint`、`library`（`isLoading`/`itemCount`/`continueId`/`error`）、
 `player`（`resourceId`/`title`/`currentIndex`/`isPlaying`/`isPreparing`/`segmentCount`/
 `readyClipCount`/`generatingClipCount`/`failedClipCount`/`error`）、`capture`（`mode`/`url`/
 `isExtracting`/`l2Status`/`previewSegmentCount`/`savedResourceId`/`error`）、

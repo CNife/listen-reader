@@ -98,7 +98,7 @@ class LibraryFlowTest {
                 lastOpenedAt = lastOpenedAt,
             ),
             segments = segments,
-            tracks = listOf(AudioTrack(trackId, id, TtsModels.AUDIO3, Voices.WENROU, 1L)),
+            tracks = listOf(AudioTrack(trackId, id, TtsModels.MINI, Voices.WENROU, 1L)),
             clips = readyClips,
         )
     }

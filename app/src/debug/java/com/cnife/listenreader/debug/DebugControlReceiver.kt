@@ -7,6 +7,7 @@ import android.util.Log
 import com.cnife.listenreader.ListenReaderApp
 import com.cnife.listenreader.core.RuleSegmenter
 import com.cnife.listenreader.data.db.ListenReaderDatabase
+import com.cnife.listenreader.model.QwenDefaults
 import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.StepFunDefaults
@@ -15,8 +16,11 @@ import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.ports.LibraryStore
 import com.cnife.listenreader.service.ports.SettingsStore
 import com.cnife.listenreader.service.ports.SpeechSynthesizer
+import com.cnife.listenreader.tts.QwenSpeechSynthesizer
+import com.cnife.listenreader.tts.RoutingSpeechSynthesizer
 import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
 import com.cnife.listenreader.di.DEBUG_PREFS
+import com.cnife.listenreader.di.KEY_QWEN_ENDPOINT
 import com.cnife.listenreader.di.KEY_STEPFUN_ENDPOINT
 import java.io.File
 import java.util.UUID
@@ -126,7 +130,19 @@ internal object DebugCommands {
                 applyEndpoint(synthesizer, normalized)
             }
         }
+        intent.getStringExtra("qwen_endpoint")?.let { endpoint ->
+            val prefs = context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+            val normalized = endpoint.trim().trimEnd('/')
+            if (normalized.isEmpty()) {
+                prefs.edit().remove(KEY_QWEN_ENDPOINT).apply()
+                applyQwenEndpoint(synthesizer, QwenDefaults.BASE_URL)
+            } else {
+                prefs.edit().putString(KEY_QWEN_ENDPOINT, normalized).apply()
+                applyQwenEndpoint(synthesizer, normalized)
+            }
+        }
         intent.getStringExtra("stepfun_key")?.let { settingsStore.setStepFunKey(it) }
+        intent.getStringExtra("qwen_key")?.let { settingsStore.setQwenKey(it) }
         if (hasAny(intent, "llm_endpoint", "llm_model", "llm_key")) {
             val endpoint = intent.getStringExtra("llm_endpoint") ?: settingsStore.llmEndpoint()
             val model = intent.getStringExtra("llm_model") ?: settingsStore.llmModel()
@@ -150,6 +166,7 @@ internal object DebugCommands {
             put("ok", true)
             put("cmd", "configure")
             put("stepFunEndpoint", synthesizer.endpoint())
+            put("qwenEndpoint", synthesizer.qwenEndpoint())
         }.toString()
     }
 
@@ -216,6 +233,7 @@ internal object DebugCommands {
         context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE).edit().clear().apply()
         libraryStore.saveLastOpenedResourceId(null)
         applyEndpoint(synthesizer, StepFunDefaults.BASE_URL)
+        applyQwenEndpoint(synthesizer, QwenDefaults.BASE_URL)
         readingService.refreshLibrary()
         return result("clear_state", ok = true, error = null)
     }
@@ -229,6 +247,7 @@ internal object DebugCommands {
             put("ok", true)
             put("cmd", "dump_state")
             put("stepFunEndpoint", synthesizer.endpoint())
+            put("qwenEndpoint", synthesizer.qwenEndpoint())
             put(
                 "library",
                 buildJsonObject {
@@ -273,6 +292,7 @@ internal object DebugCommands {
                     put("voice", settings.voice)
                     put("prefetchCount", settings.prefetchCount)
                     put("stepFunKeyConfigured", settings.stepFunKeyConfigured)
+                    put("qwenKeyConfigured", settings.qwenKeyConfigured)
                     put("llmEndpoint", settings.llmEndpoint)
                     put("llmModel", settings.llmModel)
                     put("llmKeyConfigured", settings.llmKeyConfigured)
@@ -296,12 +316,30 @@ internal object DebugCommands {
     }
 
     private fun applyEndpoint(synthesizer: SpeechSynthesizer, endpoint: String) {
-        (synthesizer as? StepFunSpeechSynthesizer)?.baseUrl = endpoint
+        when (synthesizer) {
+            is StepFunSpeechSynthesizer -> synthesizer.baseUrl = endpoint
+            is RoutingSpeechSynthesizer -> synthesizer.stepFun.baseUrl = endpoint
+        }
     }
 
-    private fun SpeechSynthesizer.endpoint(): String =
-        (this as? StepFunSpeechSynthesizer)?.baseUrl ?: StepFunDefaults.BASE_URL
+    private fun applyQwenEndpoint(synthesizer: SpeechSynthesizer, endpoint: String) {
+        when (synthesizer) {
+            is QwenSpeechSynthesizer -> synthesizer.baseUrl = endpoint
+            is RoutingSpeechSynthesizer -> synthesizer.qwen.baseUrl = endpoint
+        }
+    }
 
+    private fun SpeechSynthesizer.endpoint(): String = when (this) {
+        is StepFunSpeechSynthesizer -> baseUrl
+        is RoutingSpeechSynthesizer -> stepFun.baseUrl
+        else -> StepFunDefaults.BASE_URL
+    }
+
+    private fun SpeechSynthesizer.qwenEndpoint(): String = when (this) {
+        is QwenSpeechSynthesizer -> baseUrl
+        is RoutingSpeechSynthesizer -> qwen.baseUrl
+        else -> QwenDefaults.BASE_URL
+    }
     private fun result(command: String, ok: Boolean, error: String?): String = buildJsonObject {
         put("ok", ok)
         put("cmd", command)

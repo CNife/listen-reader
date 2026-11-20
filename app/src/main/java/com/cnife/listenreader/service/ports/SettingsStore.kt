@@ -15,6 +15,8 @@ interface SettingsStore {
     suspend fun setPlaybackSpeed(speed: Float)
     suspend fun setStepFunKey(key: String)
     suspend fun stepFunKey(): String?
+    suspend fun setQwenKey(key: String)
+    suspend fun qwenKey(): String?
     suspend fun setLlmConfig(endpoint: String, model: String, key: String?)
     suspend fun llmEndpoint(): String
     suspend fun llmModel(): String
@@ -30,5 +32,6 @@ data class AppSettings(
     val llmEndpoint: String = LlmDefaults.ENDPOINT,
     val llmModel: String = LlmDefaults.MODEL,
     val stepFunKeyConfigured: Boolean = false,
+    val qwenKeyConfigured: Boolean = false,
     val llmKeyConfigured: Boolean = false,
 )

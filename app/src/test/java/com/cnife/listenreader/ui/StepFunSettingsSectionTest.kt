@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.model.TtsModels
@@ -44,34 +46,62 @@ class StepFunSettingsSectionTest {
     }
 
     @Test
-    fun `saving a key updates the configured status`() {
+    fun `saving StepFun and Qwen keys updates their configured status`() {
         val service = FakeReadingService()
         setSection(service)
 
         composeRule.onNodeWithTag("stepfun-key-status").assertTextContains("尚未配置 Key", substring = true)
-        composeRule.onNodeWithTag("stepfun-key").performTextInput("sk-ui-test")
+        composeRule.onNodeWithTag("stepfun-key").performTextInput("sk-stepfun-test")
         composeRule.onNodeWithTag("stepfun-save-key").performClick()
         composeRule.waitForIdle()
 
-        assertEquals("sk-ui-test", service.lastSavedStepFunKey)
+        assertEquals("sk-stepfun-test", service.lastSavedStepFunKey)
         composeRule.onNodeWithTag("stepfun-key-status").assertTextContains("已加密保存", substring = true)
+
+        composeRule.onNodeWithTag("qwen-key-status").performScrollTo()
+            .assertTextContains("尚未配置 Key", substring = true)
+        composeRule.onNodeWithTag("qwen-key").performScrollTo().performTextInput("sk-qwen-test")
+        composeRule.onNodeWithTag("qwen-save-key").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals("sk-qwen-test", service.lastSavedQwenKey)
+        composeRule.onNodeWithTag("qwen-key-status").assertTextContains("已加密保存", substring = true)
     }
 
     @Test
-    fun `selecting model and voice writes the global settings`() {
+    fun `selecting model normalizes default voice and voice sheet selects a voice`() {
         val service = FakeReadingService()
         setSection(service)
 
-        composeRule.onNodeWithTag("tts-model-${TtsModels.MINI}").performScrollTo().performClick()
-        composeRule.onNodeWithTag("voice-${Voices.LINJIA}").performScrollTo().performClick()
+        composeRule.onNodeWithTag("settings-current-voice")
+            .assertTextContains("温柔女声", substring = true)
+
+        composeRule.onNodeWithTag("tts-model-${TtsModels.QWEN_FLASH}").performScrollTo().performClick()
         composeRule.waitForIdle()
 
+        assertEquals(TtsModels.QWEN_FLASH, service.settings.value.ttsModel)
+        assertEquals(Voices.LONGANHUAN, service.settings.value.voice)
+        composeRule.onNodeWithTag("settings-current-voice")
+            .assertTextContains("龙安欢", substring = true)
+
+        composeRule.onNodeWithTag("tts-model-${TtsModels.MINI}").performScrollTo().performClick()
+        composeRule.waitForIdle()
         assertEquals(TtsModels.MINI, service.settings.value.ttsModel)
+        assertEquals(Voices.WENROU, service.settings.value.voice)
+
+        composeRule.onNodeWithTag("settings-voice-button").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("voice-option-${Voices.LINJIA}")
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.waitForIdle()
+
         assertEquals(Voices.LINJIA, service.settings.value.voice)
+        composeRule.onNodeWithTag("settings-current-voice")
+            .assertTextContains("邻家姐姐", substring = true)
     }
 
     @Test
-    fun `test connection shows success and failure states`() {
+    fun `test connection shows success and failure states for both vendors`() {
         val service = FakeReadingService()
         setSection(service)
 
@@ -86,8 +116,19 @@ class StepFunSettingsSectionTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("stepfun-test-status")
             .assertTextContains("无效", substring = true)
-    }
 
+        service.qwenTestResult = TestState.Success("连接成功，已合成试听音频")
+        composeRule.onNodeWithTag("qwen-test").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("qwen-test-status")
+            .assertTextContains("连接成功", substring = true)
+
+        service.qwenTestResult = TestState.Failure("千问 Key 无效或已过期")
+        composeRule.onNodeWithTag("qwen-test").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("qwen-test-status")
+            .assertTextContains("无效", substring = true)
+    }
     @Test
     fun `settings screen exposes the StepFun form`() {
         val service = FakeReadingService()

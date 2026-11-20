@@ -10,6 +10,8 @@ import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
+import com.cnife.listenreader.model.TtsModels
+import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.CaptureMode
 import com.cnife.listenreader.service.CaptureState
 import com.cnife.listenreader.service.ExtractionInfo
@@ -63,11 +65,14 @@ class FakeReadingService(
 
     /** 测试连接时设置的状态。 */
     var stepFunTestResult: TestState = TestState.Success("连接成功，已合成试听音频")
+    var qwenTestResult: TestState = TestState.Success("连接成功，已合成试听音频")
 
     /** 保存 Key 时记录的明文，便于断言表单传递。 */
     var lastSavedStepFunKey: String? = null
         private set
 
+    var lastSavedQwenKey: String? = null
+        private set
     var lastLlmSave: Triple<String, String, String>? = null
         private set
 
@@ -345,7 +350,9 @@ class FakeReadingService(
     }
 
     override fun setModel(modelId: String) {
-        _settings.update { it.copy(ttsModel = modelId) }
+        val normalizedModel = TtsModels.normalize(modelId)
+        val nextVoice = Voices.normalizeForModel(normalizedModel, _settings.value.voice)
+        _settings.update { it.copy(ttsModel = normalizedModel, voice = nextVoice) }
     }
 
     override fun retrySegment(index: Int) {
@@ -365,6 +372,10 @@ class FakeReadingService(
         _settings.update { it.copy(stepFunKeyConfigured = key.isNotBlank()) }
     }
 
+    override fun saveQwenKey(key: String) {
+        lastSavedQwenKey = key
+        _settings.update { it.copy(qwenKeyConfigured = key.isNotBlank()) }
+    }
     override fun saveLlmConfig(endpoint: String, key: String, model: String) {
         lastLlmSave = Triple(endpoint, key, model)
         _settings.update {
@@ -395,6 +406,10 @@ class FakeReadingService(
         _settings.update { it.copy(stepFunTest = stepFunTestResult) }
     }
 
+    override fun testQwen() {
+        _settings.update { it.copy(qwenTest = TestState.Running) }
+        _settings.update { it.copy(qwenTest = qwenTestResult) }
+    }
     override fun testLlm() {
         _settings.update { it.copy(llmTest = TestState.Success("LLM 连接正常")) }
     }

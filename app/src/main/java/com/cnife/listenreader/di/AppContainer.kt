@@ -8,11 +8,14 @@ import com.cnife.listenreader.data.library.RoomLibraryStore
 import com.cnife.listenreader.data.settings.DataStoreSettingsStore
 import com.cnife.listenreader.l2.LlmScriptCleaner
 import com.cnife.listenreader.l2.OpenAiCompatibleClient
+import com.cnife.listenreader.model.QwenDefaults
 import com.cnife.listenreader.model.StepFunDefaults
 import com.cnife.listenreader.playback.Media3PlaybackEngine
 import com.cnife.listenreader.playback.MediaPlayerAuditionPlayer
 import com.cnife.listenreader.service.DefaultReadingService
 import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.tts.QwenSpeechSynthesizer
+import com.cnife.listenreader.tts.RoutingSpeechSynthesizer
 import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -53,10 +56,26 @@ class AppContainer(context: Context) {
             ?.takeIf { it.isNotBlank() }
             ?: StepFunDefaults.BASE_URL
 
-    internal val speechSynthesizer = StepFunSpeechSynthesizer(
+    /** debug 接收器持久化的千问端点覆写；未设置时回到生产默认值。 */
+    private val initialQwenBaseUrl =
+        appContext.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_QWEN_ENDPOINT, null)
+            ?.takeIf { it.isNotBlank() }
+            ?: QwenDefaults.BASE_URL
+
+    internal val stepFunSynthesizer = StepFunSpeechSynthesizer(
         settingsStore = settingsStore,
         cacheDir = File(appContext.cacheDir, "tts"),
         baseUrl = initialStepFunBaseUrl,
+    )
+    internal val qwenSynthesizer = QwenSpeechSynthesizer(
+        settingsStore = settingsStore,
+        cacheDir = File(appContext.cacheDir, "tts"),
+        baseUrl = initialQwenBaseUrl,
+    )
+    internal val speechSynthesizer = RoutingSpeechSynthesizer(
+        stepFun = stepFunSynthesizer,
+        qwen = qwenSynthesizer,
     )
     private val playbackEngine = Media3PlaybackEngine(appContext, appScope)
     private val auditionPlayer = MediaPlayerAuditionPlayer()
@@ -81,3 +100,6 @@ internal const val DEBUG_PREFS = "listen_reader_debug"
 
 /** debug 自验证通道持久化的 StepFun 端点键。 */
 internal const val KEY_STEPFUN_ENDPOINT = "stepfun_endpoint"
+
+/** debug 自验证通道持久化的千问端点键。 */
+internal const val KEY_QWEN_ENDPOINT = "qwen_endpoint"

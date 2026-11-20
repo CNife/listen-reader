@@ -101,6 +101,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/healthz":
             self._send_json(200, METRICS.snapshot())
             return
+        if path.startswith("/mock-audio/"):
+            self._send_bytes(200, "audio/mpeg", self.tts_fixture.read_bytes())
+            return
         fixture = self._fixture_for(path)
         if fixture is None:
             self._send_json(404, {"ok": False, "error": f"no fixture for {path}"})
@@ -112,6 +115,8 @@ class Handler(BaseHTTPRequestHandler):
         body = self._read_body()
         if path.endswith("/v1/audio/speech"):
             self._handle_tts(body)
+        elif path.endswith("/services/audio/tts/SpeechSynthesizer"):
+            self._handle_qwen_tts(body)
         elif path.endswith("/v1/chat/completions"):
             self._handle_llm(body)
         else:
@@ -131,6 +136,32 @@ class Handler(BaseHTTPRequestHandler):
         log_line(f"END active={active} text='{text[:50]}'")
         self._send_bytes(200, "audio/mpeg", audio)
 
+    def _handle_qwen_tts(self, body: bytes) -> None:
+        payload = self._json_body(body)
+        input_obj = payload.get("input")
+        input_dict = input_obj if isinstance(input_obj, dict) else {}
+        text = str(input_dict.get("text", ""))
+        voice = str(input_dict.get("voice", ""))
+        active, peak = METRICS.tts_start()
+        log_line(f"START_QWEN active={active} max={peak} voice={voice} text='{text[:50]}'")
+        time.sleep(self.tts_delay_ms / 1000.0)
+        active = METRICS.tts_end()
+        log_line(f"END_QWEN active={active} text='{text[:50]}'")
+        host = self.headers.get("Host") or "127.0.0.1:18080"
+        response = {
+            "request_id": "qwen-tts-mock",
+            "output": {
+                "finish_reason": "stop",
+                "audio": {
+                    "url": f"http://{host}/mock-audio/clip.mp3",
+                    "id": "audio-mock",
+                    "data": "",
+                    "expires_at": int(time.time()) + 86400,
+                },
+            },
+            "usage": {"characters": len(text)},
+        }
+        self._send_json(200, response)
     def _handle_llm(self, body: bytes) -> None:
         payload = self._json_body(body)
         METRICS.llm_hit()

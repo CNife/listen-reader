@@ -53,6 +53,7 @@ import com.cnife.listenreader.ui.components.IndeterminateProgressLine
 import com.cnife.listenreader.ui.components.PrimaryAction
 import com.cnife.listenreader.ui.components.ProgressLine
 import com.cnife.listenreader.ui.components.QuietAction
+import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.components.TextTabs
 import com.cnife.listenreader.ui.theme.Accent
@@ -60,7 +61,6 @@ import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Ink3
 import com.cnife.listenreader.ui.theme.Paper
-import com.cnife.listenreader.ui.theme.Rule
 import com.cnife.listenreader.ui.theme.Sunken
 
 @Composable
@@ -118,12 +118,7 @@ fun CaptureScreen(
                 },
                 tagPrefix = "capture",
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Rule),
-            )
+            RuleLine()
 
             if (!textMode) {
                 UrlModeContent(

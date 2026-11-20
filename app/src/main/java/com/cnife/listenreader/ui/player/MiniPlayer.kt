@@ -38,12 +38,12 @@ import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.ui.components.ProgressLine
-import java.util.Locale
+import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.theme.Accent
 import com.cnife.listenreader.ui.theme.CardSurface
 import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.OnAccent
-import com.cnife.listenreader.ui.theme.Rule
+import java.util.Locale
 
 /**
  * 底部常驻播放 dock：Surface + 顶部 1dp 细线，无 elevation。
@@ -70,12 +70,7 @@ fun PlayerDock(
 
     Surface(color = CardSurface, modifier = modifier.fillMaxWidth().testTag("mini-player")) {
         Column(modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Rule),
-            )
+            RuleLine()
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),

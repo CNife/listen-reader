@@ -44,13 +44,13 @@ import com.cnife.listenreader.ui.components.IndeterminateProgressLine
 import com.cnife.listenreader.ui.components.Masthead
 import com.cnife.listenreader.ui.components.PrimaryAction
 import com.cnife.listenreader.ui.components.ProgressLine
+import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.components.SearchField
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.components.TextTabs
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Paper
-import com.cnife.listenreader.ui.theme.Rule
 
 @Composable
 fun LibraryScreen(
@@ -187,12 +187,7 @@ private fun LibraryContent(
             modifier = Modifier.padding(top = 8.dp),
             tagPrefix = "library-filter",
         )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Rule),
-        )
+        RuleLine()
 
         when {
             state.items.isEmpty() && filtersActive -> EmptyState(
@@ -218,12 +213,7 @@ private fun LibraryContent(
                         onDelete = { onDeleteRequest(item) },
                     )
                     if (index != state.items.lastIndex) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Rule),
-                        )
+                        RuleLine()
                     }
                 }
             }

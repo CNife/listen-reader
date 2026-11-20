@@ -1,6 +1,5 @@
 package com.cnife.listenreader.ui.capture
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,12 +32,12 @@ import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.ui.components.PageHeader
 import com.cnife.listenreader.ui.components.PrimaryAction
+import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.theme.Accent
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Paper
-import com.cnife.listenreader.ui.theme.Rule
 
 @Composable
 fun PreviewScreen(
@@ -175,16 +174,6 @@ fun PreviewScreen(
             }
         }
     }
-}
-
-@Composable
-private fun RuleLine() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(Rule),
-    )
 }
 
 @Composable

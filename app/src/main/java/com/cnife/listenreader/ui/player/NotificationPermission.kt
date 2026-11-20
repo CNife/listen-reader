@@ -8,13 +8,10 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,8 +32,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.cnife.listenreader.ui.components.QuietAction
+import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Rule
 
 const val NOTIFICATION_PERMISSION_HINT = "通知未开启，锁屏控制不可用"
 
@@ -109,12 +106,7 @@ fun NotificationPermissionHint(
             .fillMaxWidth()
             .testTag("notification-permission-hint"),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Rule),
-        )
+        RuleLine()
         Row(
             modifier = Modifier
                 .fillMaxWidth()

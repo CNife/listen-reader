@@ -1,8 +1,6 @@
 package com.cnife.listenreader.ui.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,9 +21,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.ui.components.QuietAction
+import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Rule
 import java.util.Locale
 
 /** 设置页存储区：活动/旧 AudioTrack 占用空间与清理。 */
@@ -51,12 +49,7 @@ internal fun StorageContent(state: SettingsState, onClear: () -> Unit) {
             value = formatBytes(state.storage.activeBytes),
             valueTag = "storage-active-bytes",
         )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Rule),
-        )
+        RuleLine()
         StorageRow(
             label = "旧音轨",
             value = formatBytes(state.storage.oldTracksBytes),

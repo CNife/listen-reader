@@ -64,6 +64,17 @@ fun ProgressLine(
     }
 }
 
+/** 1dp 分隔细线：横贯可用宽度，以 Rule 色替代卡片边框。 */
+@Composable
+fun RuleLine(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(Rule),
+    )
+}
+
 /** 不确定进度：2dp 朱砂线线性扫过纸面，没有末端圆点。 */
 @Composable
 fun IndeterminateProgressLine(modifier: Modifier = Modifier) {

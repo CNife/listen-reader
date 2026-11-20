@@ -38,6 +38,7 @@ import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.ui.components.StatusLine
+import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.theme.Accent
 import com.cnife.listenreader.ui.theme.CardSurface
 import com.cnife.listenreader.ui.theme.Ink
@@ -82,12 +83,7 @@ private fun VoiceSheetHandle() {
             .fillMaxWidth()
             .padding(bottom = 8.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Rule),
-        )
+        RuleLine()
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -144,12 +140,7 @@ internal fun VoiceSheetContent(
                     onPreview = onPreview,
                 )
                 if (index != entries.lastIndex) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(Rule),
-                    )
+                    RuleLine()
                 }
             }
         }

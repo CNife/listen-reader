@@ -18,6 +18,9 @@ import com.cnife.listenreader.model.Segment
 import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
+import com.cnife.listenreader.model.TtsModels
+import com.cnife.listenreader.model.TtsVendor
+import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ports.AuditionPlayer
 import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.LibraryStore
@@ -145,6 +148,7 @@ class DefaultReadingService(
                         llmEndpoint = appSettings.llmEndpoint,
                         llmModel = appSettings.llmModel,
                         stepFunKeyConfigured = appSettings.stepFunKeyConfigured,
+                        qwenKeyConfigured = appSettings.qwenKeyConfigured,
                         llmKeyConfigured = appSettings.llmKeyConfigured,
                     )
                 }
@@ -828,9 +832,17 @@ class DefaultReadingService(
     }
 
     override fun setModel(modelId: String) {
-        _settings.update { it.copy(ttsModel = modelId) }
-        persistSettings { settingsStore.setTtsModel(modelId) }
-        switchTrack(model = modelId, voice = _settings.value.voice)
+        val normalizedModel = TtsModels.normalize(modelId)
+        val previousVoice = _settings.value.voice
+        val nextVoice = Voices.normalizeForModel(normalizedModel, previousVoice)
+        _settings.update { it.copy(ttsModel = normalizedModel, voice = nextVoice) }
+        persistSettings {
+            settingsStore.setTtsModel(normalizedModel)
+            if (nextVoice != previousVoice) {
+                settingsStore.setVoice(nextVoice)
+            }
+        }
+        switchTrack(model = normalizedModel, voice = nextVoice)
     }
 
     /**
@@ -968,6 +980,29 @@ class DefaultReadingService(
         }
     }
 
+    override fun saveQwenKey(key: String) {
+        scope.launch {
+            try {
+                settingsStore.setQwenKey(key)
+                _settings.update {
+                    it.copy(
+                        qwenKeyConfigured = key.isNotBlank(),
+                        error = null,
+                        message = if (key.isNotBlank()) "已保存千问 Key" else "已清除千问 Key",
+                    )
+                }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(
+                        error = UiError("无法安全保存千问 Key，请重试", ErrorKind.UNKNOWN, retryable = true),
+                    )
+                }
+            }
+        }
+    }
+
     override fun saveLlmConfig(endpoint: String, key: String, model: String) {
         val normalizedEndpoint = endpoint.trim().ifBlank { LlmDefaults.ENDPOINT }
         val normalizedModel = model.trim().ifBlank { LlmDefaults.MODEL }
@@ -1063,9 +1098,10 @@ class DefaultReadingService(
         _settings.update { it.copy(stepFunTest = TestState.Running, error = null) }
         scope.launch {
             try {
+                val voice = Voices.normalizeForModel(TtsModels.MINI, _settings.value.voice)
                 val result = speechSynthesizer.testConnection(
-                    _settings.value.ttsModel,
-                    _settings.value.voice,
+                    TtsModels.MINI,
+                    voice,
                 )
                 _settings.update {
                     it.copy(
@@ -1077,6 +1113,29 @@ class DefaultReadingService(
                 throw c
             } catch (t: Throwable) {
                 _settings.update { it.copy(stepFunTest = TestState.Failure("连接测试失败，请稍后重试")) }
+            }
+        }
+    }
+
+    override fun testQwen() {
+        _settings.update { it.copy(qwenTest = TestState.Running, error = null) }
+        scope.launch {
+            try {
+                val voice = Voices.normalizeForModel(TtsModels.QWEN_FLASH, _settings.value.voice)
+                val result = speechSynthesizer.testConnection(
+                    TtsModels.QWEN_FLASH,
+                    voice,
+                )
+                _settings.update {
+                    it.copy(
+                        qwenTest = if (result.ok) TestState.Success(result.message)
+                        else TestState.Failure(result.message),
+                    )
+                }
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update { it.copy(qwenTest = TestState.Failure("连接测试失败，请稍后重试")) }
             }
         }
     }
@@ -1100,12 +1159,12 @@ class DefaultReadingService(
 
     override fun previewVoice(voiceId: String) {
         val model = _settings.value.ttsModel
-        if (!_settings.value.stepFunKeyConfigured) {
+        if (!_settings.value.activeTtsKeyConfigured) {
             _settings.update {
                 it.copy(
                     auditionVoice = voiceId,
                     isAuditioning = false,
-                    auditionError = "尚未配置 StepFun Key，请到设置填写",
+                    auditionError = "尚未配置 ${_settings.value.activeVendorName} Key，请到设置填写",
                 )
             }
             return
@@ -1211,12 +1270,14 @@ class DefaultReadingService(
         endedHandledFor = null
         val cachedFile = currentClips[index].takeIf { it.isReadyFile() }?.filePath
         // 已缓存音频直接离线播放，不查 Key、不发起任何合成请求。
-        if (cachedFile == null && _settings.value.stepFunKeyConfigured.not()) {
+        val trackModel = activeTrack?.model ?: _settings.value.ttsModel
+        if (cachedFile == null && !isKeyConfiguredFor(trackModel)) {
+            val vendorName = TtsModels.vendorOf(trackModel).displayName
             _player.update {
                 it.copy(
                     isPreparing = false,
                     error = UiError(
-                        "尚未配置 StepFun Key，请到设置填写后再播放",
+                        "尚未配置 $vendorName Key，请到设置填写后再播放",
                         ErrorKind.NO_KEY,
                     ),
                 )
@@ -1365,10 +1426,10 @@ class DefaultReadingService(
      * 因此不会因为旧任务仍活跃而让窗口停留在过期的位置。
      */
     private fun schedulePrefetch() {
-        if (!_settings.value.stepFunKeyConfigured) return
+        val track = activeTrack ?: return
+        if (!isKeyConfiguredFor(track.model)) return
         val window = _settings.value.prefetchCount
         if (window <= 0) return
-        val track = activeTrack ?: return
         if (currentSegments.isEmpty()) return
         val fromIndex = _player.value.currentIndex
         val lastIndex = minOf(fromIndex + window, currentSegments.lastIndex)
@@ -1390,6 +1451,11 @@ class DefaultReadingService(
             prefetchJobs[index] = job
             job.start()
         }
+    }
+
+    private fun isKeyConfiguredFor(model: String): Boolean = when (TtsModels.vendorOf(model)) {
+        TtsVendor.QWEN -> _settings.value.qwenKeyConfigured
+        TtsVendor.STEPFUN -> _settings.value.stepFunKeyConfigured
     }
 
     /** 预取单句：同一索引由 [synthLock] 去重，不同索引受 [prefetchSemaphore] 限流。 */

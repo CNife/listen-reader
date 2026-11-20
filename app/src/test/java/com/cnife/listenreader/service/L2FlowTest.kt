@@ -8,13 +8,9 @@ import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.ConnectionTestResult
 import com.cnife.listenreader.testing.FakeLibraryStore
-import com.cnife.listenreader.testing.FakePageSession
-import com.cnife.listenreader.testing.FakePlaybackEngine
 import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
-import com.cnife.listenreader.testing.FakeSpeechSynthesizer
-import com.cnife.listenreader.testing.FakeUpdateChecker
-import com.cnife.listenreader.testing.FixedTimeProvider
+import com.cnife.listenreader.testing.testReadingService
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -47,17 +43,11 @@ class L2FlowTest {
         settings: FakeSettingsStore = FakeSettingsStore(),
     ): Harness {
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        val service = DefaultReadingService(
-            pageSession = FakePageSession(),
-            scriptCleaner = cleaner,
-            speechSynthesizer = FakeSpeechSynthesizer(),
-            libraryStore = store,
-            playbackEngine = FakePlaybackEngine(),
-            settingsStore = settings,
-            timeProvider = FixedTimeProvider(),
+        val service = testReadingService(
             scope = scope,
-            updateChecker = FakeUpdateChecker(),
-            appVersion = "0.1.0",
+            scriptCleaner = cleaner,
+            libraryStore = store,
+            settingsStore = settings,
         )
         return Harness(service, store, settings, scope)
     }

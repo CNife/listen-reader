@@ -2,13 +2,8 @@ package com.cnife.listenreader.service
 
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.testing.FakeLibraryStore
-import com.cnife.listenreader.testing.FakePageSession
-import com.cnife.listenreader.testing.FakePlaybackEngine
-import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
-import com.cnife.listenreader.testing.FakeSpeechSynthesizer
-import com.cnife.listenreader.testing.FakeUpdateChecker
-import com.cnife.listenreader.testing.FixedTimeProvider
+import com.cnife.listenreader.testing.testReadingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -34,17 +29,10 @@ class DefaultReadingServiceTest {
         settingsStore: FakeSettingsStore = FakeSettingsStore(),
     ): Harness {
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        val service = DefaultReadingService(
-            pageSession = FakePageSession(),
-            scriptCleaner = FakeScriptCleaner(),
-            speechSynthesizer = FakeSpeechSynthesizer(),
-            libraryStore = libraryStore,
-            playbackEngine = FakePlaybackEngine(),
-            settingsStore = settingsStore,
-            timeProvider = FixedTimeProvider(),
+        val service = testReadingService(
             scope = scope,
-            updateChecker = FakeUpdateChecker(),
-            appVersion = "0.1.0",
+            libraryStore = libraryStore,
+            settingsStore = settingsStore,
         )
         return Harness(service, scope)
     }

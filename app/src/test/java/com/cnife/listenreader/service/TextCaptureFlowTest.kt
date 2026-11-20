@@ -9,13 +9,9 @@ import com.cnife.listenreader.data.library.RoomLibraryStore
 import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.model.SegmentKind
 import com.cnife.listenreader.model.SegmentationSource
-import com.cnife.listenreader.testing.FakePageSession
-import com.cnife.listenreader.testing.FakePlaybackEngine
-import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
-import com.cnife.listenreader.testing.FakeSpeechSynthesizer
-import com.cnife.listenreader.testing.FakeUpdateChecker
 import com.cnife.listenreader.testing.FixedTimeProvider
+import com.cnife.listenreader.testing.testReadingService
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -181,17 +177,11 @@ class TextCaptureFlowTest {
         store: RoomLibraryStore,
         settings: FakeSettingsStore,
         scope: CoroutineScope,
-    ): DefaultReadingService = DefaultReadingService(
-        pageSession = FakePageSession(),
-        scriptCleaner = FakeScriptCleaner(),
-        speechSynthesizer = FakeSpeechSynthesizer(),
+    ): DefaultReadingService = testReadingService(
+        scope = scope,
         libraryStore = store,
-        playbackEngine = FakePlaybackEngine(),
         settingsStore = settings,
         timeProvider = FixedTimeProvider(1_000L),
-        updateChecker = FakeUpdateChecker(),
-        appVersion = "0.1.0",
-        scope = scope,
     )
 
     private fun newStore(settings: FakeSettingsStore): RoomLibraryStore = RoomLibraryStore(

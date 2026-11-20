@@ -8,14 +8,11 @@ import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ports.AppSettings
 import com.cnife.listenreader.service.ports.PlaybackEngineState
 import com.cnife.listenreader.testing.FakeLibraryStore
-import com.cnife.listenreader.testing.FakePageSession
 import com.cnife.listenreader.testing.FakePlaybackEngine
-import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
 import com.cnife.listenreader.testing.FakeSpeechSynthesizer
-import com.cnife.listenreader.testing.FakeUpdateChecker
-import com.cnife.listenreader.testing.FixedTimeProvider
 import com.cnife.listenreader.testing.testSegment
+import com.cnife.listenreader.testing.testReadingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -55,17 +52,12 @@ class SleepTimerTest {
             tracks = listOf(track()),
         )
         val engine = FakePlaybackEngine()
-        val service = DefaultReadingService(
-            pageSession = FakePageSession(),
-            scriptCleaner = FakeScriptCleaner(),
+        val service = testReadingService(
+            scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)),
             speechSynthesizer = synth,
             libraryStore = store,
             playbackEngine = engine,
             settingsStore = FakeSettingsStore(appSettings),
-            timeProvider = FixedTimeProvider(),
-            updateChecker = FakeUpdateChecker(),
-            appVersion = "0.1.0",
-            scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)),
         )
         return Harness(service, engine, store)
     }

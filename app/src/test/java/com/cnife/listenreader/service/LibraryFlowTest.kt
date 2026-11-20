@@ -9,15 +9,9 @@ import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.testing.FakeLibraryStore
-import com.cnife.listenreader.testing.FakePageSession
-import com.cnife.listenreader.testing.FakePlaybackEngine
-import com.cnife.listenreader.testing.FakeScriptCleaner
-import com.cnife.listenreader.testing.FakeSettingsStore
-import com.cnife.listenreader.testing.FakeSpeechSynthesizer
-import com.cnife.listenreader.testing.FakeUpdateChecker
-import com.cnife.listenreader.testing.FixedTimeProvider
 import com.cnife.listenreader.testing.testClip
 import com.cnife.listenreader.testing.testSegment
+import com.cnife.listenreader.testing.testReadingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -45,18 +39,7 @@ class LibraryFlowTest {
 
     private fun TestScope.harness(store: FakeLibraryStore): Harness {
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        val service = DefaultReadingService(
-            pageSession = FakePageSession(),
-            scriptCleaner = FakeScriptCleaner(),
-            speechSynthesizer = FakeSpeechSynthesizer(),
-            libraryStore = store,
-            playbackEngine = FakePlaybackEngine(),
-            settingsStore = FakeSettingsStore(),
-            timeProvider = FixedTimeProvider(),
-            updateChecker = FakeUpdateChecker(),
-            appVersion = "0.1.0",
-            scope = scope,
-        )
+        val service = testReadingService(scope = scope, libraryStore = store)
         return Harness(service, scope, store)
     }
 

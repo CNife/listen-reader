@@ -1,0 +1,98 @@
+#!/bin/sh
+# 秒级本地门禁：只看暂存区，不跑 Gradle。
+#
+# 把「10 分钟后被 AI Review 打回」的问题前移到提交瞬间：
+# 冲突标记、明文密钥、服务层阻塞调用、网页提取脚本语法、以及测试补丁残留。
+#
+# 由根 build.gradle.kts 自动挂载（git config core.hooksPath .githooks），
+# git worktree 共享仓库配置，因此主工作区与 no-mistakes / treehouse worktree 都生效。
+set -eu
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$STAGED" ] && exit 0
+
+FAILED=0
+
+fail() {
+    printf 'pre-commit: %s\n' "$1" >&2
+    FAILED=1
+}
+
+# 1) 冲突标记与明文 API Key：只检查新增行。
+ADDED=$(git diff --cached -U0 | grep -E '^\+' || true)
+if printf '%s\n' "$ADDED" | grep -Eq '^\+(<<<<<<<|>>>>>>>|=======)'; then
+    fail "staged 内容包含未解决的冲突标记"
+fi
+if printf '%s\n' "$ADDED" | grep -Eq '^\+[^+]*sk-[A-Za-z0-9]{20,}'; then
+    fail "staged 内容疑似写入了明文 API Key（sk-…）"
+fi
+
+# 2) 测试补丁残留：隔离包名必须走 -PappIdSuffix，不能写死进构建脚本。
+if git diff --cached --name-only | grep -q '^app/build\.gradle\.kts$'; then
+    if git show :app/build.gradle.kts | grep -q '\.nmtest'; then
+        fail "app/build.gradle.kts 写死了 .nmtest；请用 ./gradlew -PappIdSuffix=.nmtest 构建隔离包"
+    fi
+fi
+
+# 3) 服务层禁止 runBlocking（剥离注释后再判定，避免注释里的示例误报）。
+SERVICE_FILES=$(printf '%s\n' "$STAGED" | grep -E '^app/src/main/java/com/cnife/listenreader/service/.+\.kt$' || true)
+if [ -n "$SERVICE_FILES" ] && command -v python3 >/dev/null 2>&1; then
+    if ! printf '%s\n' "$SERVICE_FILES" | python3 -c '
+import re, subprocess, sys
+
+block = re.compile(r"/\*.*?\*/", re.S)
+check = re.compile(r"\brunBlocking\b")
+bad = []
+for path in sys.stdin.read().split("\n"):
+    path = path.strip()
+    if not path:
+        continue
+    try:
+        text = subprocess.check_output(["git", "show", ":" + path], text=True)
+    except subprocess.CalledProcessError:
+        continue
+    text = block.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    text = "\n".join(line.split("//", 1)[0] for line in text.split("\n"))
+    for index, line in enumerate(text.split("\n"), start=1):
+        if check.search(line):
+            bad.append(f"{path}:{index}")
+if bad:
+    print("pre-commit: service 层禁止 runBlocking：" + ", ".join(bad), file=sys.stderr)
+    sys.exit(1)
+'; then
+        FAILED=1
+    fi
+fi
+
+# 4) 网页提取脚本与模板语法。
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+printf '%s\n' "$STAGED" | grep -E '^(app/src/main/assets/extract/.+\.js|scripts/.+\.mjs)$' | while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    if command -v node >/dev/null 2>&1; then
+        file="$TMP_DIR/$(basename "$path")"
+        git show ":$path" > "$file"
+        if ! node --check "$file" >/dev/null 2>&1; then
+            printf 'pre-commit: %s 语法错误（node --check 失败）\n' "$path" >&2
+            exit 1
+        fi
+    fi
+done || FAILED=1
+
+if printf '%s\n' "$STAGED" | grep -q '^app/src/main/assets/extract/templates\.json$'; then
+    if command -v python3 >/dev/null 2>&1; then
+        file="$TMP_DIR/templates.json"
+        git show :app/src/main/assets/extract/templates.json > "$file"
+        if ! python3 -m json.tool "$file" >/dev/null 2>&1; then
+            fail "templates.json 不是合法 JSON"
+        fi
+    fi
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+    printf 'pre-commit: 已阻止本次提交，修复上述问题后重新 git add。\n' >&2
+    exit 1
+fi
+
+exit 0

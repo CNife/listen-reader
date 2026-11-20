@@ -1,5 +1,6 @@
 package com.cnife.listenreader.capture
 
+import com.cnife.listenreader.model.SourceLabels
 import java.net.URI
 
 /** 分享内容的 URL / 文本判别与 URL 校验（纯函数，便于测试）。 */
@@ -35,9 +36,6 @@ object ShareText {
         return trimmed
     }
 
-    /** 来源展示名：host 去掉 `www.`。 */
-    fun sourceLabel(url: String): String {
-        val host = runCatching { URI(url.trim()).host }.getOrNull().orEmpty()
-        return host.removePrefix("www.").ifBlank { "网页" }
-    }
+    /** 来源展示名：常见站点用中文名，其余去掉 `www.` 的 host。 */
+    fun sourceLabel(url: String): String = SourceLabels.fromUrl(url)
 }

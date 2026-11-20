@@ -1,43 +1,133 @@
 package com.cnife.listenreader.ui.theme
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-val Primary = Color(0xFF6750A4)
-val OnPrimary = Color(0xFFFFFFFF)
-val PrimaryContainer = Color(0xFFEADDFF)
-val OnPrimaryContainer = Color(0xFF21005D)
-val Secondary = Color(0xFF625B71)
-val OnSecondary = Color(0xFFFFFFFF)
-val SecondaryContainer = Color(0xFFE8DEF8)
-val OnSecondaryContainer = Color(0xFF1D192B)
-val Tertiary = Color(0xFF7D5260)
-val OnTertiary = Color(0xFFFFFFFF)
-val TertiaryContainer = Color(0xFFFFD8E4)
-val OnTertiaryContainer = Color(0xFF31111D)
-val Error = Color(0xFFB3261E)
-val OnError = Color(0xFFFFFFFF)
-val Surface = Color(0xFFFEF7FF)
-val OnSurface = Color(0xFF1D1B20)
-val SurfaceVariant = Color(0xFFE7E0EC)
-val OnSurfaceVariant = Color(0xFF49454F)
-val Outline = Color(0xFF79747E)
+// 「墨声」静态色板。外层通过 CompositionLocal 提供当前（浅/深）色板；
+// 组件里使用下面的同名 Composable token，避免深色模式仍取到浅色纸面。
+val LightPaper = Color(0xFFF7F6F2)
+val LightCardSurface = Color(0xFFFFFFFF)
+val LightSunken = Color(0xFFEFEEE8)
+val LightInk = Color(0xFF17171A)
+val LightInk2 = Color(0xFF5B5B57)
+val LightInk3 = Color(0xFF8A8A83)
+val LightRule = Color(0xFFDEDED7)
+val LightRuleStrong = Color(0xFFC4C4BB)
+val LightAccent = Color(0xFFB23A26)
+val LightOnAccent = Color(0xFFFFFFFF)
+val LightScrim = Color(0x5217171A)
 
-val DarkPrimary = Color(0xFFD0BCFF)
-val DarkOnPrimary = Color(0xFF381E72)
-val DarkPrimaryContainer = Color(0xFF4F378B)
-val DarkOnPrimaryContainer = Color(0xFFEADDFF)
-val DarkSecondary = Color(0xFFCCC2DC)
-val DarkOnSecondary = Color(0xFF332D41)
-val DarkSecondaryContainer = Color(0xFF4A4458)
-val DarkOnSecondaryContainer = Color(0xFFE8DEF8)
-val DarkTertiary = Color(0xFFEFB8C8)
-val DarkOnTertiary = Color(0xFF492532)
-val DarkTertiaryContainer = Color(0xFF633B48)
-val DarkOnTertiaryContainer = Color(0xFFFFD8E4)
-val DarkError = Color(0xFFF2B8B5)
-val DarkOnError = Color(0xFF601410)
-val DarkSurface = Color(0xFF141218)
-val DarkOnSurface = Color(0xFFE6E0E9)
-val DarkSurfaceVariant = Color(0xFF49454F)
-val DarkOnSurfaceVariant = Color(0xFFCAC4D0)
-val DarkOutline = Color(0xFF938F99)
+val DarkPaper = Color(0xFF121210)
+val DarkCardSurface = Color(0xFF1A1A18)
+val DarkSunken = Color(0xFF232320)
+val DarkInk = Color(0xFFECEBE5)
+val DarkInk2 = Color(0xFFAAA9A1)
+val DarkInk3 = Color(0xFF7B7A73)
+val DarkRule = Color(0xFF2E2E2A)
+val DarkRuleStrong = Color(0xFF45453F)
+val DarkAccent = Color(0xFFE07054)
+val DarkOnAccent = Color(0xFF121210)
+val DarkScrim = Color(0x8C000000)
+
+@Immutable
+data class LrColors(
+    val paper: Color,
+    val cardSurface: Color,
+    val sunken: Color,
+    val ink: Color,
+    val ink2: Color,
+    val ink3: Color,
+    val rule: Color,
+    val ruleStrong: Color,
+    val accent: Color,
+    val onAccent: Color,
+    val scrim: Color,
+)
+
+val LightLrColors = LrColors(
+    paper = LightPaper,
+    cardSurface = LightCardSurface,
+    sunken = LightSunken,
+    ink = LightInk,
+    ink2 = LightInk2,
+    ink3 = LightInk3,
+    rule = LightRule,
+    ruleStrong = LightRuleStrong,
+    accent = LightAccent,
+    onAccent = LightOnAccent,
+    scrim = LightScrim,
+)
+
+val DarkLrColors = LrColors(
+    paper = DarkPaper,
+    cardSurface = DarkCardSurface,
+    sunken = DarkSunken,
+    ink = DarkInk,
+    ink2 = DarkInk2,
+    ink3 = DarkInk3,
+    rule = DarkRule,
+    ruleStrong = DarkRuleStrong,
+    accent = DarkAccent,
+    onAccent = DarkOnAccent,
+    scrim = DarkScrim,
+)
+
+val LocalLrColors = staticCompositionLocalOf { LightLrColors }
+
+val Paper: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.paper
+
+val CardSurface: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.cardSurface
+
+val Sunken: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.sunken
+
+val Ink: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.ink
+
+val Ink2: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.ink2
+
+val Ink3: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.ink3
+
+val Rule: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.rule
+
+val RuleStrong: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.ruleStrong
+
+val Accent: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.accent
+
+val OnAccent: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.onAccent
+
+val Scrim: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.scrim

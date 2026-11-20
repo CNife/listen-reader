@@ -1,6 +1,5 @@
 package com.cnife.listenreader.ui
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -13,6 +12,7 @@ import com.cnife.listenreader.service.PlayerSegment
 import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.testing.FakeReadingService
 import com.cnife.listenreader.ui.player.PlayerScreen
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -39,12 +39,11 @@ class SleepTimerUiTest {
 
     private fun setPlayerScreen(service: FakeReadingService) {
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 PlayerScreen(
                     service = service,
                     resourceId = "r1",
                     onBack = {},
-                    onOpenReader = {},
                     onOpenSettings = {},
                 )
             }
@@ -65,7 +64,7 @@ class SleepTimerUiTest {
         composeRule.waitForIdle()
 
         assertEquals(15, service.sleepTimerChanges.last())
-        composeRule.onNodeWithTag("player-sleep-timer").assertTextContains("定时 15:00")
+        composeRule.onNodeWithTag("player-sleep-timer").assertTextContains("睡眠定时 15:00")
     }
 
     @Test
@@ -78,13 +77,13 @@ class SleepTimerUiTest {
         )
         setPlayerScreen(service)
 
-        composeRule.onNodeWithTag("player-sleep-timer").assertTextContains("定时 4:59")
+        composeRule.onNodeWithTag("player-sleep-timer").assertTextContains("睡眠定时 4:59")
 
         composeRule.onNodeWithTag("player-sleep-timer").performClick()
         composeRule.onNodeWithTag("sleep-cancel").performClick()
         composeRule.waitForIdle()
 
         assertEquals(null, service.sleepTimerChanges.last())
-        composeRule.onNodeWithTag("player-sleep-timer").assertTextContains("定时")
+        composeRule.onNodeWithTag("player-sleep-timer").assertTextContains("睡眠定时")
     }
 }

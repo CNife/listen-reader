@@ -1,7 +1,7 @@
 package com.cnife.listenreader.ui
 
 import android.app.Application
-import androidx.compose.material3.MaterialTheme
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -32,7 +32,7 @@ class StorageSectionTest {
     fun `storage content shows usage and clears old tracks`() {
         var cleared = false
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 StorageContent(
                     state = SettingsState(storage = StorageUsage(4 * 1024L, 2 * 1024L)),
                     onClear = { cleared = true },
@@ -52,7 +52,7 @@ class StorageSectionTest {
         val service = FakeReadingService()
         service.storageUsage = StorageUsage(8 * 1024L, 3 * 1024L)
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 SettingsScreen(service = service, onBack = {})
             }
         }

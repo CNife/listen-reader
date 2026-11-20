@@ -20,6 +20,7 @@ import com.cnife.listenreader.service.LibraryState
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.testing.FakeReadingService
 import com.cnife.listenreader.ui.library.LibraryScreen
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -41,35 +42,63 @@ class LibraryScreenTest {
         onOpen: (String) -> Unit = {},
     ) {
         composeRule.setContent {
-            LibraryScreen(
-                service = service,
-                onNewCapture = onNew,
-                onOpenSettings = onSettings,
-                onOpenResource = onOpen,
-            )
+            ListenReaderTheme {
+                LibraryScreen(
+                    service = service,
+                    onNewCapture = onNew,
+                    onOpenSettings = onSettings,
+                    onOpenResource = onOpen,
+                )
+            }
         }
     }
 
     @Test
-    fun `continue card shows title source progress and opens the resource`() {
+    fun `continue card shows title source and percent and opens the resource`() {
         val opened = mutableListOf<String>()
         val service = FakeReadingService(
             initialLibrary = LibraryState(
                 isLoading = false,
                 items = listOf(item("r1", "列表里的文章")),
-                continueListening = item("r1", "上次读的文章", index = 1, segmentCount = 5),
+                continueListening = item("r1", "上次读的文章", index = 1, lastOpenedAt = 1_000L),
             ),
         )
         show(service, onOpen = { opened += it })
 
         composeRule.onNodeWithTag("continue-card").assertIsDisplayed()
         composeRule.onNodeWithText("上次读的文章").assertIsDisplayed()
-        composeRule.onNodeWithText("粘贴文本 · 第 2 / 5 句").assertIsDisplayed()
-        composeRule.onNodeWithTag("continue-progress").assertIsDisplayed()
+        composeRule.onNodeWithText("粘贴文本 · 40%").assertIsDisplayed()
+        composeRule.onNodeWithTag("continue-progress", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("继续收听").assertDoesNotExist()
 
         composeRule.onNodeWithTag("continue-play").performClick()
         composeRule.waitForIdle()
         assertEquals(listOf("r1"), opened)
+    }
+
+    @Test
+    fun `library lists newest first and shows friendly relative time`() {
+        val now = System.currentTimeMillis()
+        val day = 24L * 60 * 60 * 1000
+        val service = FakeReadingService(
+            initialLibrary = LibraryState(
+                isLoading = false,
+                items = listOf(
+                    item("old", "旧文章", createdAt = now - 5 * day),
+                    item("new", "新文章", createdAt = now - 2 * day),
+                ),
+            ),
+        )
+        show(service)
+
+        composeRule.onNodeWithText("2 篇").assertIsDisplayed()
+        composeRule.onNodeWithText("粘贴文本 · 2 天前").assertIsDisplayed()
+
+        val newTop = composeRule.onNodeWithTag("library-row-new")
+            .fetchSemanticsNode().boundsInRoot.top
+        val oldTop = composeRule.onNodeWithTag("library-row-old")
+            .fetchSemanticsNode().boundsInRoot.top
+        assertTrue(newTop < oldTop)
     }
 
     @Test
@@ -85,16 +114,23 @@ class LibraryScreenTest {
         )
         show(service)
 
+        composeRule.onNodeWithTag("library-search").assertDoesNotExist()
+        composeRule.onNodeWithTag("library-search-open").performClick()
         composeRule.onNodeWithTag("library-search").performTextInput("kotlin")
         composeRule.waitForIdle()
 
         assertEquals("kotlin", service.library.value.query)
         composeRule.onNodeWithText("Kotlin 入门").assertIsDisplayed()
         composeRule.onNodeWithText("午饭吃什么").assertDoesNotExist()
+
+        composeRule.onNodeWithTag("library-search-open").performClick()
+        composeRule.waitForIdle()
+        assertEquals("", service.library.value.query)
+        composeRule.onNodeWithTag("library-search").assertDoesNotExist()
     }
 
     @Test
-    fun `filter chips narrow the list and mark the selected chip`() {
+    fun `filter tabs narrow the list and mark the selected tab`() {
         val service = FakeReadingService(
             initialLibrary = LibraryState(
                 isLoading = false,
@@ -132,6 +168,7 @@ class LibraryScreenTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("删除这篇内容？").assertExists()
+        composeRule.onNodeWithText("会删除朗读文稿、缓存音频和原文快照，无法恢复。").assertExists()
         assertTrue(service.deletedIds.isEmpty())
 
         composeRule.onNodeWithTag("delete-confirm").performClick()
@@ -166,6 +203,7 @@ class LibraryScreenTest {
         show(service)
 
         composeRule.onNodeWithText("没有匹配的内容").assertIsDisplayed()
+        composeRule.onNodeWithText("换个词，或清除筛选。").assertIsDisplayed()
         composeRule.onNodeWithText("清除筛选").performClick()
         composeRule.waitForIdle()
 
@@ -175,12 +213,27 @@ class LibraryScreenTest {
     }
 
     @Test
-    fun `loading and delete error states are visible`() {
+    fun `empty library keeps the add action pinned`() {
+        val service = FakeReadingService(initialLibrary = LibraryState(isLoading = false))
+        var newClicks = 0
+        show(service, onNew = { newClicks += 1 })
+
+        composeRule.onNodeWithText("还没有内容").assertIsDisplayed()
+        composeRule.onNodeWithText("粘贴一篇长文，或输入网页链接。提取后会生成语音。").assertIsDisplayed()
+        composeRule.onNodeWithTag("library-new").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, newClicks)
+        composeRule.onNodeWithText("添加内容").assertIsDisplayed()
+    }
+
+    @Test
+    fun `loading state is visible without blocking the page`() {
         val loading = FakeReadingService(initialLibrary = LibraryState(isLoading = true))
-        composeRule.setContent {
-            LibraryScreen(loading, {}, {}, {})
-        }
-        composeRule.onNodeWithText("正在加载…").assertIsDisplayed()
+        show(loading)
+
+        composeRule.onNodeWithText("正在加载").assertIsDisplayed()
+        composeRule.onNodeWithTag("library-new").assertIsDisplayed()
     }
 
     @Test
@@ -194,9 +247,10 @@ class LibraryScreenTest {
         )
         show(service)
 
-        composeRule.onNodeWithTag("library-error")
-            .assertIsDisplayed()
+        composeRule.onNodeWithTag("library-error").assertIsDisplayed()
+        composeRule.onNodeWithText("出错").assertIsDisplayed()
         composeRule.onNodeWithText("删除失败，请稍后重试").assertIsDisplayed()
+        composeRule.onNodeWithText("重试").assertIsDisplayed()
         composeRule.onNodeWithText("文章").assertIsDisplayed()
     }
 
@@ -208,6 +262,7 @@ class LibraryScreenTest {
         segmentCount: Int = 5,
         cached: Boolean = false,
         lastOpenedAt: Long = 0,
+        createdAt: Long = 1_000L,
     ) = LibraryItem(
         id = id,
         title = title,
@@ -219,5 +274,6 @@ class LibraryScreenTest {
         currentSegmentIndex = index,
         currentPositionMs = 0,
         lastOpenedAt = lastOpenedAt,
+        createdAt = createdAt,
     )
 }

@@ -2,29 +2,31 @@ package com.cnife.listenreader.ui.capture
 
 import android.view.View
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,21 +34,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.service.CaptureMode
 import com.cnife.listenreader.service.PageUiState
 import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.ui.components.PageHeader
+import com.cnife.listenreader.ui.components.PrimaryAction
+import com.cnife.listenreader.ui.components.ProgressLine
+import com.cnife.listenreader.ui.components.QuietAction
+import com.cnife.listenreader.ui.components.StatusLine
+import com.cnife.listenreader.ui.components.TextTabs
+import com.cnife.listenreader.ui.theme.Accent
+import com.cnife.listenreader.ui.theme.Ink
+import com.cnife.listenreader.ui.theme.Ink2
+import com.cnife.listenreader.ui.theme.Ink3
+import com.cnife.listenreader.ui.theme.Paper
+import com.cnife.listenreader.ui.theme.Rule
+import com.cnife.listenreader.ui.theme.Sunken
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaptureScreen(
     service: ReadingService,
@@ -73,43 +88,53 @@ fun CaptureScreen(
         }
     }
 
+    val modeKey = if (textMode) "paste-text" else "web"
+
     Scaffold(
+        containerColor = Paper,
         topBar = {
-            TopAppBar(
-                title = { Text("采集") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    if (!textMode) {
-                        IconButton(
-                            onClick = { service.pageBack() },
-                            modifier = Modifier.testTag("capture-web-back"),
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "网页后退")
-                        }
-                        IconButton(onClick = { service.reloadPage() }) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "刷新")
-                        }
-                    }
-                },
-            )
+            PageHeader(title = "添加内容", onBack = onBack)
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .imePadding(),
         ) {
+            TextTabs(
+                options = listOf("web" to "网页", "paste-text" to "粘贴文本"),
+                selectedKey = modeKey,
+                onSelect = { key ->
+                    val nextTextMode = key == "paste-text"
+                    if (nextTextMode != textMode) {
+                        textMode = nextTextMode
+                        emptyHint = false
+                        if (!nextTextMode && service.capture.value.mode == CaptureMode.TEXT) {
+                            service.beginUrlCapture(null)
+                        }
+                    }
+                },
+                tagPrefix = "capture",
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(Rule),
+            )
+
             if (!textMode) {
-                UrlBar(
-                    url = urlText,
+                UrlModeContent(
+                    service = service,
+                    state = state,
+                    context = context,
+                    urlText = urlText,
                     onUrlChange = {
                         urlText = it
                         emptyHint = false
                     },
+                    emptyHint = emptyHint,
                     onOpen = {
                         if (urlText.isBlank()) {
                             emptyHint = true
@@ -117,76 +142,16 @@ fun CaptureScreen(
                             service.loadUrl(urlText.trim())
                         }
                     },
+                    modifier = Modifier.weight(1f),
                 )
-                if (emptyHint) {
-                    HintText("请输入网址")
-                }
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    WebViewArea(
-                        service = service,
-                        context = context,
-                        showWebView = state.url.isNotBlank() || state.page !is PageUiState.Idle,
-                    )
-                    PageStatusOverlay(state.page, state.isExtracting, state.extractionStage)
-                }
-                state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        HintText(
-                            text = buildString {
-                                if (extraction.expandRounds > 0) {
-                                    append("已自动展开 ").append(extraction.expandRounds).append(" 轮；")
-                                }
-                                append(extraction.degradedReason ?: "正文可能不完整，可编辑预览或稍后重试展开")
-                            },
-                            modifier = Modifier.testTag("capture-degraded-hint"),
-                        )
-                        if (!extraction.usedFullPage) {
-                            TextButton(
-                                onClick = { service.useFullPage() },
-                                modifier = Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .testTag("capture-use-full-page"),
-                            ) {
-                                Text("使用页面全文")
-                            }
-                        }
-                    }
-                }
-                state.error?.let { error ->
-                    Text(
-                        text = error.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .testTag("capture-error"),
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Button(
-                        onClick = { service.extractPage() },
-                        enabled = !state.isExtracting,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("capture-extract"),
-                    ) {
-                        Text(if (state.isExtracting) "提取中…" else "提取正文")
-                    }
-                    TextButton(
-                        onClick = {
-                            textMode = true
-                            emptyHint = false
-                        },
-                        modifier = Modifier.testTag("capture-paste-text"),
-                    ) {
-                        Text("粘贴文本")
-                    }
-                }
+                PrimaryAction(
+                    text = if (state.isExtracting) "正在提取…" else "提取正文",
+                    onClick = { service.extractPage() },
+                    enabled = !state.isExtracting &&
+                        (state.url.isNotBlank() || urlText.isNotBlank()),
+                    testTag = "capture-extract",
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                )
             } else {
                 TextComposer(
                     text = text,
@@ -196,17 +161,19 @@ fun CaptureScreen(
                     },
                     emptyHint = emptyHint,
                     errorMessage = state.error?.message,
-                    onPreview = {
+                    modifier = Modifier.weight(1f),
+                )
+                PrimaryAction(
+                    text = "预览",
+                    onClick = {
                         if (text.isBlank()) {
                             emptyHint = true
                         } else {
                             service.beginTextCapture(text)
                         }
                     },
-                    onSwitchUrl = {
-                        textMode = false
-                        if (state.mode == CaptureMode.TEXT) service.beginUrlCapture(null)
-                    },
+                    testTag = "capture-preview",
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                 )
             }
         }
@@ -214,7 +181,93 @@ fun CaptureScreen(
 }
 
 @Composable
-private fun UrlBar(
+private fun UrlModeContent(
+    service: ReadingService,
+    state: com.cnife.listenreader.service.CaptureState,
+    context: android.content.Context,
+    urlText: String,
+    onUrlChange: (String) -> Unit,
+    emptyHint: Boolean,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val showWebView = state.url.isNotBlank() || state.page !is PageUiState.Idle
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        UrlRow(url = urlText, onUrlChange = onUrlChange, onOpen = onOpen)
+        if (emptyHint) {
+            Text(
+                text = "请输入网址",
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink2,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+        }
+        if (showWebView) {
+            PageToolbar(
+                url = state.url.ifBlank { urlText },
+                onBack = { service.pageBack() },
+                onRefresh = { service.reloadPage() },
+            )
+        }
+        PageStatus(
+            page = state.page,
+            isExtracting = state.isExtracting,
+            stage = state.extractionStage,
+            onRetryPage = { service.reloadPage() },
+        )
+
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            WebViewArea(
+                service = service,
+                context = context,
+                showWebView = showWebView,
+            )
+        }
+
+        state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
+            val description = if (extraction.usedFullPage) {
+                "已使用页面全文，可编辑正文后保存。"
+            } else {
+                buildString {
+                    if (extraction.expandRounds > 0) {
+                        append("已自动展开 ").append(extraction.expandRounds).append(" 轮。")
+                    }
+                    extraction.degradedReason?.let { append(it).append("。") }
+                    append("可以编辑，或使用页面全文。")
+                }
+            }
+            StatusLine(
+                title = if (extraction.usedFullPage) "已使用页面全文" else "正文可能不完整",
+                description = description,
+                actionLabel = if (extraction.usedFullPage) null else "使用页面全文",
+                onAction = if (extraction.usedFullPage) null else ({ service.useFullPage() }),
+                actionTag = "capture-use-full-page",
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .testTag("capture-degraded-hint"),
+            )
+        }
+
+        if (state.page !is PageUiState.Failed) {
+            state.error?.let { error ->
+                StatusLine(
+                    title = "提取失败",
+                    description = error.message,
+                    actionLabel = "重试",
+                    onAction = { service.extractPage() },
+                    actionTag = "capture-retry",
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .testTag("capture-error"),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UrlRow(
     url: String,
     onUrlChange: (String) -> Unit,
     onOpen: () -> Unit,
@@ -222,26 +275,148 @@ private fun UrlBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .height(48.dp)
+            .background(Sunken, RoundedCornerShape(8.dp))
+            .padding(start = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        OutlinedTextField(
+        BasicTextField(
             value = url,
             onValueChange = onUrlChange,
             modifier = Modifier
                 .weight(1f)
                 .testTag("capture-url-input"),
-            label = { Text("网址") },
-            placeholder = { Text("https://…") },
             singleLine = true,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
+            cursorBrush = SolidColor(Accent),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { onOpen() }),
+            decorationBox = { innerTextField ->
+                Box {
+                    if (url.isEmpty()) {
+                        Text(
+                            text = "https://…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Ink3,
+                        )
+                    }
+                    innerTextField()
+                }
+            },
         )
-        IconButton(
+        QuietAction(
+            text = "打开",
             onClick = onOpen,
-            modifier = Modifier.testTag("capture-open"),
+            testTag = "capture-open",
+        )
+    }
+}
+
+@Composable
+private fun PageToolbar(
+    url: String,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clickable(onClick = onBack)
+                .testTag("capture-web-back"),
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Search, contentDescription = "打开网址")
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "网页后退",
+                tint = Ink2,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clickable(onClick = onRefresh)
+                .testTag("capture-web-refresh"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = "刷新",
+                tint = Ink2,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = pageHost(url),
+            style = MaterialTheme.typography.bodySmall,
+            color = Ink2,
+            maxLines = 1,
+        )
+    }
+}
+
+private fun pageHost(url: String): String = runCatching {
+    android.net.Uri.parse(url).host
+}.getOrNull() ?: url
+
+@Composable
+private fun PageStatus(
+    page: PageUiState,
+    isExtracting: Boolean,
+    stage: String?,
+    onRetryPage: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        when (page) {
+            is PageUiState.Loading -> {
+                Text(
+                    text = "正在加载网页… ${page.progress}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Ink2,
+                )
+                ProgressLine(
+                    progress = page.progress / 100f,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+
+            is PageUiState.NeedsUserAction -> StatusLine(
+                title = "需要操作",
+                description = "${page.reason}。完成页面操作后点「提取正文」。App 不会自动登录或提交表单。",
+                modifier = Modifier.testTag("capture-user-action"),
+            )
+
+            is PageUiState.Failed -> StatusLine(
+                title = "无法打开",
+                description = page.message,
+                actionLabel = "重试",
+                onAction = onRetryPage,
+                actionTag = "capture-retry",
+                modifier = Modifier.testTag("capture-error"),
+            )
+
+            PageUiState.Idle, PageUiState.Ready -> Unit
+        }
+        if (isExtracting) {
+            Text(
+                text = stage ?: "正在提取正文…",
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink2,
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .testTag("capture-extracting"),
+            )
+            IndeterminateProgressLine(modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
@@ -257,13 +432,21 @@ private fun WebViewArea(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("capture-empty-web"),
-            contentAlignment = androidx.compose.ui.Alignment.Center,
+            contentAlignment = Alignment.TopStart,
         ) {
-            Text(
-                text = "输入网址开始采集",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 32.dp)) {
+                Text(
+                    text = "输入网址，页面会在这里打开。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Ink,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "提取后进入预览，可以修改标题和正文。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Ink2,
+                )
+            }
         }
         return
     }
@@ -288,67 +471,8 @@ private fun WebViewArea(
             Text(
                 text = "网页视图不可用",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(16.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PageStatusOverlay(page: PageUiState, isExtracting: Boolean, stage: String?) {
-    when (page) {
-        is PageUiState.Loading -> Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                Text("正在加载网页… ${page.progress}%", style = MaterialTheme.typography.bodySmall)
-                LinearProgressIndicator(
-                    progress = { page.progress / 100f },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-        is PageUiState.NeedsUserAction -> UserActionBanner(page.reason)
-        is PageUiState.Failed -> HintText(page.message)
-        PageUiState.Idle, PageUiState.Ready -> Unit
-    }
-    if (isExtracting) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = stage ?: "正在提取正文…",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .testTag("capture-extracting"),
-            )
-        }
-    }
-}
-
-@Composable
-private fun UserActionBanner(reason: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(
-                text = reason,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.testTag("capture-user-action"),
-            )
-            Text(
-                text = "请在下方页面内完成操作，然后点「提取正文」。App 不会自动登录或提交表单。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
+                color = Ink,
+                modifier = Modifier.padding(20.dp),
             )
         }
     }
@@ -360,53 +484,63 @@ private fun TextComposer(
     onTextChange: (String) -> Unit,
     emptyHint: Boolean,
     errorMessage: String?,
-    onPreview: () -> Unit,
-    onSwitchUrl: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 4.dp),
     ) {
-        Text("粘贴文本", style = MaterialTheme.typography.titleLarge)
-        OutlinedTextField(
+        Text(
+            text = "正文",
+            style = MaterialTheme.typography.bodySmall,
+            color = Ink2,
+        )
+        Spacer(Modifier.height(6.dp))
+        BasicTextField(
             value = text,
             onValueChange = onTextChange,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .testTag("capture-text-input"),
-            label = { Text("要朗读的文本") },
-            placeholder = { Text("把文章或段落粘贴到这里") },
-            minLines = 8,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = 18.sp,
+                lineHeight = 32.sp,
+                color = Ink,
+            ),
+            cursorBrush = SolidColor(Accent),
+            decorationBox = { innerTextField ->
+                Box {
+                    if (text.isEmpty()) {
+                        Text(
+                            text = "把文章或段落粘贴到这里",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 18.sp,
+                                lineHeight = 32.sp,
+                                color = Ink3,
+                            ),
+                        )
+                    }
+                    innerTextField()
+                }
+            },
         )
-        if (emptyHint) HintText("请先粘贴要朗读的文本")
-        errorMessage?.let { HintText(it, error = true) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onPreview,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("capture-preview"),
-            ) {
-                Text("预览")
-            }
-            TextButton(onClick = onSwitchUrl, modifier = Modifier.testTag("capture-switch-url")) {
-                Text("网页采集")
-            }
+        if (emptyHint) {
+            Text(
+                text = "请先粘贴要朗读的文本",
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink2,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
-    }
-}
-
-@Composable
-private fun HintText(text: String?, modifier: Modifier = Modifier, error: Boolean = false) {
-    text?.let {
-        Text(
-            text = it,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        )
+        errorMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink2,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }

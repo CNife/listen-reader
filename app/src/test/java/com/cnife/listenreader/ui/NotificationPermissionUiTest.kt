@@ -2,7 +2,6 @@ package com.cnife.listenreader.ui
 
 import android.Manifest
 import android.app.Application
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -19,6 +18,7 @@ import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.testing.FakeReadingService
 import com.cnife.listenreader.ui.player.NOTIFICATION_PERMISSION_HINT
 import com.cnife.listenreader.ui.player.PlayerScreen
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,12 +46,11 @@ class NotificationPermissionUiTest {
     private fun setPlayerScreen() {
         val service = FakeReadingService(initialPlayer = playerState())
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 PlayerScreen(
                     service = service,
                     resourceId = "r1",
                     onBack = {},
-                    onOpenReader = {},
                     onOpenSettings = {},
                 )
             }

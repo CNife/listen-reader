@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
@@ -37,7 +37,7 @@ class StepFunSettingsSectionTest {
 
     private fun setSection(service: FakeReadingService) {
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     StepFunSettingsSection(service = service)
                 }
@@ -130,14 +130,30 @@ class StepFunSettingsSectionTest {
             .assertTextContains("无效", substring = true)
     }
     @Test
+    fun `clearing StepFun key asks for confirmation and saves an empty key`() {
+        val service = FakeReadingService(
+            initialSettings = com.cnife.listenreader.service.SettingsState(stepFunKeyConfigured = true),
+        )
+        setSection(service)
+
+        composeRule.onNodeWithTag("stepfun-clear-key").performScrollTo().performClick()
+        composeRule.onNodeWithTag("stepfun-clear-confirm").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals("", service.lastSavedStepFunKey)
+        composeRule.onNodeWithTag("stepfun-key-status").performScrollTo()
+            .assertTextContains("尚未配置 Key", substring = true)
+    }
+
+    @Test
     fun `settings screen exposes the StepFun form`() {
         val service = FakeReadingService()
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 com.cnife.listenreader.ui.settings.SettingsScreen(service = service, onBack = {})
             }
         }
         composeRule.onNodeWithTag("stepfun-key").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("StepFun 朗读").assertIsDisplayed()
+        composeRule.onNodeWithText("朗读服务").assertIsDisplayed()
     }
 }

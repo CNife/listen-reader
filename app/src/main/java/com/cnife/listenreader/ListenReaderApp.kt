@@ -1,9 +1,13 @@
 package com.cnife.listenreader
 
+import android.app.Activity
 import android.app.Application
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.di.AppContainer
 import com.cnife.listenreader.model.ThemeMode
@@ -29,6 +33,16 @@ fun ListenReaderApp(service: ReadingService) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
+    }
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
     }
     ListenReaderTheme(darkTheme = darkTheme) {
         AppNavHost(service = service)

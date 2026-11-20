@@ -73,7 +73,7 @@ interface LibraryDao {
                     INNER JOIN audio_tracks t ON c.trackId = t.id
                     WHERE t.resourceId = r.id AND t.id = r.activeTrackId AND c.status = 'READY') AS durationMs
         FROM resources r
-        ORDER BY r.lastOpenedAt DESC, r.createdAt DESC
+        ORDER BY r.createdAt DESC
         """
     )
     fun observeLibraryItems(): Flow<List<LibraryItemRow>>

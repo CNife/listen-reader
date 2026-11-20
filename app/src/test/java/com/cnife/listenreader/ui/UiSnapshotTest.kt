@@ -1,6 +1,8 @@
 package com.cnife.listenreader.ui
 
 import android.app.Application
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -8,8 +10,11 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.ListenReaderApp
+import com.cnife.listenreader.core.ErrorKind
+import com.cnife.listenreader.core.UiError
 import com.cnife.listenreader.model.ClipStatus
 import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.model.LibraryItem
@@ -56,6 +61,29 @@ class UiSnapshotTest {
     }
 
     @Test
+    fun snapshot_libraryEmptyDark() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(themeMode = ThemeMode.DARK),
+            ),
+        )
+        captureSnapshot("library-empty-dark")
+    }
+
+    @Test
+    fun snapshot_libraryError() {
+        render(
+            FakeReadingService(
+                initialLibrary = LibraryState(
+                    isLoading = false,
+                    error = UiError("删除失败，请稍后重试。", ErrorKind.UNKNOWN, retryable = true),
+                ),
+            ),
+        )
+        captureSnapshot("library-error")
+    }
+
+    @Test
     fun snapshot_libraryPopulatedWithMiniPlayer() {
         render(
             FakeReadingService(
@@ -63,10 +91,11 @@ class UiSnapshotTest {
                     isLoading = false,
                     items = listOf(
                         libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 5, true),
-                        libraryItem("r2", "被折叠的公众号文章", SourceKind.URL, "mp.weixin.qq.com", 9, false),
+                        libraryItem("r2", "被折叠的公众号文章", SourceKind.URL, "微信公众号", 9, false),
                         libraryItem("r3", "粘贴的深读笔记", SourceKind.TEXT, "粘贴文本", 4, true),
                     ),
-                    continueListening = libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 5, true),
+                    continueListening = libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 5, true)
+                        .copy(lastOpenedAt = 1_000L, currentSegmentIndex = 2),
                 ),
                 initialPlayer = PlayerState(
                     resourceId = "r1",
@@ -84,7 +113,7 @@ class UiSnapshotTest {
     @Test
     fun snapshot_captureUrlIdlePlaceholder() {
         render(FakeReadingService())
-        composeRule.onNodeWithText("新建").performClick()
+        composeRule.onNodeWithText("添加内容").performClick()
         composeRule.waitForIdle()
         captureSnapshot("capture-url-idle")
     }
@@ -119,7 +148,7 @@ class UiSnapshotTest {
     }
 
     @Test
-    fun snapshot_playerAndReaderMode() {
+    fun snapshot_player() {
         render(
             FakeReadingService(
                 initialLibrary = LibraryState(
@@ -136,7 +165,6 @@ class UiSnapshotTest {
                     positionInSegmentMs = 400L,
                     totalDurationMs = 8_000L,
                     isPlaying = true,
-                    snapshotText = "# 在通勤路上听见长文\n\n每天早上七点半，地铁里挤满了低头看手机的人。\n\n把文字变成声音之后，同样的四十分钟忽然变得宽裕起来。",
                 ),
             ),
         )
@@ -144,10 +172,110 @@ class UiSnapshotTest {
         composeRule.onNodeWithText("在通勤路上听见长文").performClick()
         composeRule.waitForIdle()
         captureSnapshot("player-active")
+    }
 
-        composeRule.onNodeWithTag("player-open-reader").performClick()
+    @Test
+    fun snapshot_playerNoKey() {
+        render(
+            FakeReadingService(
+                initialLibrary = LibraryState(
+                    isLoading = false,
+                    items = listOf(libraryItem("r1", "还没有音频的文章", SourceKind.TEXT, "粘贴文本", 3, false)),
+                ),
+                initialPlayer = PlayerState(
+                    resourceId = "r1",
+                    title = "还没有音频的文章",
+                    sourceKind = SourceKind.TEXT,
+                    sourceLabel = "粘贴文本",
+                    segments = emptyList(),
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithText("还没有音频的文章").performClick()
         composeRule.waitForIdle()
-        captureSnapshot("reader-markdown")
+        captureSnapshot("player-no-key")
+    }
+
+    @Test
+    fun snapshot_voiceSheet() {
+        render(
+            FakeReadingService(
+                initialLibrary = LibraryState(
+                    isLoading = false,
+                    items = listOf(libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 4, true)),
+                ),
+                initialPlayer = PlayerState(
+                    resourceId = "r1",
+                    title = "在通勤路上听见长文",
+                    sourceKind = SourceKind.URL,
+                    sourceLabel = "example.com",
+                    segments = playerSegments(),
+                    totalDurationMs = 8_000L,
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithText("在通勤路上听见长文").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("player-voice").performClick()
+        composeRule.waitForIdle()
+        captureSnapshot("voice-sheet", nodeTag = "voice-sheet")
+    }
+
+    @Test
+    fun snapshot_playerFontScale2x() {
+        val service = FakeReadingService(
+            initialLibrary = LibraryState(
+                isLoading = false,
+                items = listOf(libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 4, true)),
+            ),
+            initialPlayer = PlayerState(
+                resourceId = "r1",
+                title = "在通勤路上听见长文",
+                sourceKind = SourceKind.URL,
+                sourceLabel = "微信公众号",
+                segments = playerSegments(),
+                currentIndex = 1,
+                positionInSegmentMs = 400L,
+                totalDurationMs = 8_000L,
+                isPlaying = true,
+                activeTrack = com.cnife.listenreader.service.AudioTrackInfo(
+                    "t1",
+                    "step-tts-mini",
+                    "wenrou",
+                ),
+            ),
+        )
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = 2f),
+            ) {
+                ListenReaderApp(service)
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("在通勤路上听见长文").performClick()
+        composeRule.waitForIdle()
+        captureSnapshot("player-font-scale-2x")
+    }
+
+    @Test
+    fun snapshot_settingsTop() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(
+                    prefetchCount = 6,
+                    stepFunKeyConfigured = true,
+                    llmKeyConfigured = true,
+                    llmModel = "openai/gpt-4.1-mini",
+                ),
+            ),
+        )
+        composeRule.onNodeWithContentDescription("设置").performClick()
+        composeRule.waitForIdle()
+        captureSnapshot("settings-top")
     }
 
     @Test
@@ -174,11 +302,16 @@ class UiSnapshotTest {
         composeRule.waitForIdle()
     }
 
-    private fun captureSnapshot(name: String) {
+    private fun captureSnapshot(name: String, nodeTag: String? = null) {
         composeRule.waitForIdle()
         val outputDir = File("build/outputs/roborazzi").apply { mkdirs() }
         val file = File(outputDir, "$name.png")
-        composeRule.onRoot().captureRoboImage(file)
+        val node = if (nodeTag != null) {
+            composeRule.onNodeWithTag(nodeTag, useUnmergedTree = true)
+        } else {
+            composeRule.onRoot()
+        }
+        node.captureRoboImage(file)
         assertTrue("快照未生成：${file.path}", file.isFile && file.length() > 1_000L)
     }
 
@@ -200,6 +333,7 @@ class UiSnapshotTest {
         currentSegmentIndex = 0,
         currentPositionMs = 0,
         lastOpenedAt = 0,
+        createdAt = System.currentTimeMillis() - 86_400_000L,
     )
 
     private fun playerSegments() = listOf(

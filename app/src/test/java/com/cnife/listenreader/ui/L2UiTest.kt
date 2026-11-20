@@ -57,8 +57,8 @@ class L2UiTest {
         }
 
         composeRule.onNodeWithTag("preview-status").assertTextContains("LLM 未配置", substring = true)
-        composeRule.onNodeWithTag("l2-segmentation").assertTextContains("规则分段", substring = true)
-        composeRule.onNodeWithTag("l2-error").assertTextContains("尚未配置", substring = true)
+        composeRule.onNodeWithTag("l2-error").assertTextContains("还没有配置", substring = true)
+        composeRule.onNodeWithTag("l2-error").assertTextContains("分段会按规则进行", substring = true)
         composeRule.onNodeWithTag("l2-open-settings").performClick()
         composeRule.onNodeWithTag("l2-retry").performClick()
 
@@ -85,7 +85,7 @@ class L2UiTest {
 
         composeRule.onNodeWithTag("preview-status").assertTextContains("LLM 清洗失败", substring = true)
         composeRule.onNodeWithTag("l2-error").assertTextContains("不是有效 JSON", substring = true)
-        composeRule.onNodeWithText("重试 L2").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("重新清洗").assertIsDisplayed().performClick()
         assertEquals(1, retryCount)
     }
 
@@ -118,7 +118,7 @@ class L2UiTest {
         }
 
         composeRule.onNodeWithTag("preview-status").assertTextContains("LLM 分段", substring = true)
-        composeRule.onNodeWithTag("l2-segmentation").assertTextContains("LLM 分段", substring = true)
+        composeRule.onNodeWithTag("l2-segmentation").assertTextContains("已清洗", substring = true)
     }
 
     @Test
@@ -144,7 +144,7 @@ class L2UiTest {
             }
         }
 
-        composeRule.onNodeWithText("保存（规则分段）").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("保存（按规则分段）").assertIsDisplayed()
     }
 
     @Test

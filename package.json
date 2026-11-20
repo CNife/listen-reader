@@ -1,0 +1,15 @@
+{
+  "name": "listen-reader-tools",
+  "private": true,
+  "description": "本仓库的测试工具链：JVM 测试里通过 Node + jsdom 运行网页提取脚本。",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "js-extract": "node scripts/js-extract-harness.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^31.0.1"
+  }
+}

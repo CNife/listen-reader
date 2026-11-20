@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install JS test dependencies
+        run: npm ci
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 与 .no-mistakes.yaml 的 commands.test 同一基线，外加 lint、仪器测试编译与打包校验。
+      - name: Verify
+        run: |
+          ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew --console=plain \
+            :app:lintDebug \
+            :app:testDebugUnitTest \
+            :app:compileDebugAndroidTestKotlin \
+            :app:assembleDebug
+
+      - name: Room schema must match entities
+        run: git diff --exit-code app/schemas/
+
+      - name: Mock server syntax
+        run: python3 -m py_compile scripts/mock-server.py

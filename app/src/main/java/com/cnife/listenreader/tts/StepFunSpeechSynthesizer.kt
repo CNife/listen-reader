@@ -26,11 +26,14 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * StepFun 非流式 TTS：`POST {base}/audio/speech`。
  * 2xx 先写 `<destination>.tmp` 再原子改名；429/5xx/超时/IO 重试 2 次（指数退避），4xx 不重试。
  * 日志只记录状态码与重试次数，绝不写入 key 或正文。
+ *
+ * [baseUrl] 是可运行期覆写的端点：debug 构建的自验证接收器可把它指向本地 mock 服务，
+ * 生产构建保持 [StepFunDefaults.BASE_URL]。
  */
 class StepFunSpeechSynthesizer(
     private val settingsStore: SettingsStore,
     private val cacheDir: File,
-    private val baseUrl: String = StepFunDefaults.BASE_URL,
+    @Volatile var baseUrl: String = StepFunDefaults.BASE_URL,
     private val httpClient: OkHttpClient = defaultClient(),
     private val retryDelaysMs: List<Long> = DEFAULT_RETRY_DELAYS,
     private val sleep: suspend (Long) -> Unit = { delay(it) },

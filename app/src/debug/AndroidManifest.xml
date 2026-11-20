@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 仅 debug/仪器测试：允许 WebView 加载本地 MockWebServer 的 http fixture。 -->
-    <application android:usesCleartextTraffic="true" />
+    <application android:usesCleartextTraffic="true">
+        <!-- 自验证通道：Agent 通过 adb broadcast 注入 mock 端点与状态。release 构建不含本组件。 -->
+        <receiver
+            android:name=".debug.DebugControlReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.cnife.listenreader.DEBUG_CONTROL" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

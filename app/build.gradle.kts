@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -18,6 +19,12 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // 自验证通道：-PappIdSuffix 生成可与正式版并存的隔离包，无需改源码。
+        val appIdSuffix = providers.gradleProperty("appIdSuffix").orNull?.trim().orEmpty()
+        if (appIdSuffix.isNotEmpty()) {
+            applicationIdSuffix = if (appIdSuffix.startsWith(".")) appIdSuffix else ".$appIdSuffix"
+        }
     }
 
     buildTypes {
@@ -47,6 +54,10 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -89,6 +100,8 @@ dependencies {
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.compose.ui.test.manifest)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
 
     debugImplementation(libs.compose.ui.test.manifest)
 

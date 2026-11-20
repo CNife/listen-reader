@@ -14,6 +14,7 @@ import com.cnife.listenreader.testing.FakePlaybackEngine
 import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
 import com.cnife.listenreader.testing.FakeSpeechSynthesizer
+import com.cnife.listenreader.testing.FakeUpdateChecker
 import com.cnife.listenreader.testing.FixedTimeProvider
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -188,6 +189,8 @@ class TextCaptureFlowTest {
         playbackEngine = FakePlaybackEngine(),
         settingsStore = settings,
         timeProvider = FixedTimeProvider(1_000L),
+        updateChecker = FakeUpdateChecker(),
+        appVersion = "0.1.0",
         scope = scope,
     )
 

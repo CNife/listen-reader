@@ -14,6 +14,7 @@ import com.cnife.listenreader.testing.FakePlaybackEngine
 import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
 import com.cnife.listenreader.testing.FakeSpeechSynthesizer
+import com.cnife.listenreader.testing.FakeUpdateChecker
 import com.cnife.listenreader.testing.FixedTimeProvider
 import com.cnife.listenreader.testing.testClip
 import com.cnife.listenreader.testing.testSegment
@@ -52,6 +53,8 @@ class LibraryFlowTest {
             playbackEngine = FakePlaybackEngine(),
             settingsStore = FakeSettingsStore(),
             timeProvider = FixedTimeProvider(),
+            updateChecker = FakeUpdateChecker(),
+            appVersion = "0.1.0",
             scope = scope,
         )
         return Harness(service, scope, store)

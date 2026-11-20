@@ -23,10 +23,13 @@ import com.cnife.listenreader.service.ports.PageSession
 import com.cnife.listenreader.service.ports.PageSessionState
 import com.cnife.listenreader.service.ports.PlaybackEngine
 import com.cnife.listenreader.service.ports.PlaybackEngineState
+import com.cnife.listenreader.service.ports.RemoteRelease
 import com.cnife.listenreader.service.ports.ScriptCleaner
 import com.cnife.listenreader.service.ports.SettingsStore
 import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
+import com.cnife.listenreader.service.ports.UpdateCheckException
+import com.cnife.listenreader.service.ports.UpdateChecker
 import com.cnife.listenreader.tts.SpeechException
 import java.io.File
 import kotlinx.coroutines.CompletableDeferred
@@ -287,6 +290,44 @@ class FakeSettingsStore(
     override suspend fun llmModel(): String = state.value.llmModel
 
     override suspend fun llmKey(): String? = llmKey
+
+    override suspend fun setAutoCheckUpdate(enabled: Boolean) {
+        state.update { it.copy(autoCheckUpdate = enabled) }
+    }
+
+    override suspend fun saveReleaseCheck(atMs: Long, release: RemoteRelease) {
+        state.update {
+            it.copy(
+                lastUpdateCheckAt = atMs,
+                knownReleaseVersion = release.version,
+                knownReleaseUrl = release.url,
+                knownReleaseNotes = release.notes,
+            )
+        }
+    }
+
+    override suspend fun setIgnoredUpdateVersion(version: String?) {
+        state.update { it.copy(ignoredUpdateVersion = version) }
+    }
+}
+
+class FakeUpdateChecker(
+    var release: RemoteRelease = RemoteRelease(
+        version = "0.2.0",
+        url = "https://example.test/listen-reader-0.2.0.apk",
+        notes = "更新说明",
+    ),
+    var failure: UpdateCheckException? = null,
+) : UpdateChecker {
+
+    var calls: Int = 0
+        private set
+
+    override suspend fun latestRelease(): RemoteRelease {
+        calls++
+        failure?.let { throw it }
+        return release
+    }
 }
 
 class FakePageSession : PageSession {

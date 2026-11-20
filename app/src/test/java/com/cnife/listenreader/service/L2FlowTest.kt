@@ -13,6 +13,7 @@ import com.cnife.listenreader.testing.FakePlaybackEngine
 import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
 import com.cnife.listenreader.testing.FakeSpeechSynthesizer
+import com.cnife.listenreader.testing.FakeUpdateChecker
 import com.cnife.listenreader.testing.FixedTimeProvider
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +56,8 @@ class L2FlowTest {
             settingsStore = settings,
             timeProvider = FixedTimeProvider(),
             scope = scope,
+            updateChecker = FakeUpdateChecker(),
+            appVersion = "0.1.0",
         )
         return Harness(service, store, settings, scope)
     }

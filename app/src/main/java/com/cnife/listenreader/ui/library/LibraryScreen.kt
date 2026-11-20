@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,17 +38,21 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.LibraryFilter
 import com.cnife.listenreader.model.LibraryItem
+import com.cnife.listenreader.service.AvailableUpdate
 import com.cnife.listenreader.service.LibraryState
 import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.service.UpdateState
 import com.cnife.listenreader.ui.components.EmptyState
 import com.cnife.listenreader.ui.components.IndeterminateProgressLine
 import com.cnife.listenreader.ui.components.Masthead
 import com.cnife.listenreader.ui.components.PrimaryAction
 import com.cnife.listenreader.ui.components.ProgressLine
+import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.components.SearchField
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.components.TextTabs
+import com.cnife.listenreader.ui.components.openExternalUrl
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Paper
@@ -60,6 +65,8 @@ fun LibraryScreen(
     onOpenResource: (String) -> Unit,
 ) {
     val state by service.library.collectAsStateWithLifecycle()
+    val settings by service.settings.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var pendingDelete by remember { mutableStateOf<LibraryItem?>(null) }
     var searchExpanded by remember { mutableStateOf(false) }
 
@@ -94,6 +101,9 @@ fun LibraryScreen(
                 onDeleteRequest = { pendingDelete = it },
                 onQueryChange = service::setLibraryQuery,
                 onFilterChange = service::setLibraryFilter,
+                update = settings.update,
+                onOpenUpdate = { url -> openExternalUrl(context, url) },
+                onDismissUpdate = service::dismissUpdate,
                 onRetry = service::refreshLibrary,
             )
         }
@@ -126,6 +136,9 @@ private fun LibraryContent(
     state: LibraryState,
     isLoading: Boolean,
     searchExpanded: Boolean,
+    update: UpdateState,
+    onOpenUpdate: (String) -> Unit,
+    onDismissUpdate: () -> Unit,
     onOpenResource: (String) -> Unit,
     onDeleteRequest: (LibraryItem) -> Unit,
     onQueryChange: (String) -> Unit,
@@ -158,6 +171,16 @@ private fun LibraryContent(
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
                     .testTag("library-error"),
+            )
+        }
+        update.release?.takeIf { !update.ignored }?.let { release ->
+            UpdateNotice(
+                update = release,
+                onOpen = { onOpenUpdate(release.url) },
+                onDismiss = onDismissUpdate,
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .testTag("library-update"),
             )
         }
 
@@ -217,6 +240,27 @@ private fun LibraryContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UpdateNotice(
+    update: AvailableUpdate,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(
+            text = "发现新版本 v${update.version}",
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = Ink,
+        )
+        Row {
+            QuietAction(text = "去更新", onClick = onOpen, testTag = "library-update-open")
+            Spacer(Modifier.width(16.dp))
+            QuietAction(text = "忽略", onClick = onDismiss, testTag = "library-update-dismiss")
         }
     }
 }

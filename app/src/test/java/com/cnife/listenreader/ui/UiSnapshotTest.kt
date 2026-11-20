@@ -29,6 +29,8 @@ import com.cnife.listenreader.service.LibraryState
 import com.cnife.listenreader.service.PlayerSegment
 import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.service.PreviewState
+import com.cnife.listenreader.service.AvailableUpdate
+import com.cnife.listenreader.service.UpdateState
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.testing.FakeReadingService
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -297,6 +299,29 @@ class UiSnapshotTest {
         captureSnapshot("settings-dark")
     }
 
+    @Test
+    fun snapshot_libraryUpdateNotice() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(update = updateSnapshotState()),
+            ),
+        )
+        captureSnapshot("library-update-notice")
+    }
+
+    @Test
+    fun snapshot_settingsUpdateSection() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(update = updateSnapshotState()),
+            ),
+        )
+        composeRule.onNodeWithContentDescription("设置").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("update-notes").performScrollTo()
+        captureSnapshot("settings-update")
+    }
+
     private fun render(service: FakeReadingService) {
         composeRule.setContent { ListenReaderApp(service) }
         composeRule.waitForIdle()
@@ -341,5 +366,14 @@ class UiSnapshotTest {
         PlayerSegment(1, "每天早上七点半，地铁里挤满了低头看手机的人。", SegmentKind.PARAGRAPH, 2_000L, ClipStatus.READY),
         PlayerSegment(2, "把文字变成声音之后，同样的四十分钟忽然变得宽裕起来。", SegmentKind.PARAGRAPH, 2_000L, ClipStatus.READY),
         PlayerSegment(3, "技术退到背景里，留下的只有内容本身。", SegmentKind.PARAGRAPH, 2_000L, ClipStatus.SYNTHESIZING),
+    )
+
+    private fun updateSnapshotState() = UpdateState(
+        currentVersion = "0.1.0",
+        release = AvailableUpdate(
+            version = "0.2.0",
+            url = "https://example.test/listen-reader-0.2.0.apk",
+            notes = "新增睡眠定时记忆；修复切换音色后的进度偏移；提升长文章提取的稳定性。",
+        ),
     )
 }

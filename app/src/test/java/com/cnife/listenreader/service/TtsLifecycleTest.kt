@@ -16,6 +16,7 @@ import com.cnife.listenreader.testing.FakePlaybackEngine
 import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
 import com.cnife.listenreader.testing.FakeSpeechSynthesizer
+import com.cnife.listenreader.testing.FakeUpdateChecker
 import com.cnife.listenreader.testing.FixedTimeProvider
 import com.cnife.listenreader.testing.testClip
 import com.cnife.listenreader.testing.testSegment
@@ -72,6 +73,8 @@ class TtsLifecycleTest {
             playbackEngine = engine,
             settingsStore = settings,
             timeProvider = FixedTimeProvider(),
+            updateChecker = FakeUpdateChecker(),
+            appVersion = "0.1.0",
             scope = scope,
             auditionPlayer = audition,
             previewDir = previewDir,

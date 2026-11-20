@@ -8,6 +8,7 @@
 - **清洗分段**：调用 OpenAI 兼容的 LLM 把正文整理成适合朗读的语段；LLM 不可用时自动回退规则分段。
 - **语音合成**：双供应商 TTS——StepFun `step-tts-mini`（默认，27 个官方音色）与千问 `qwen-audio-3.0-tts-flash`（备选，12 个系统音色）；切换模型时当前音色自动归一化到目标模型的合法音色，音频按语段本地缓存，缓存后可离线播放。
 - **播放**：语段级进度切换、音色切换、睡眠定时器、后台播放与通知控制；资料库支持继续收听与历史归档管理。
+- **检查更新**：以 GitHub Release 为准；设置页可开关自动检查（冷启动且距上次成功检查满 24 小时才请求）与随时手动检查，发现新版本时在资料库顶部提示并可跳转浏览器下载 APK。
 
 ## BYOK 配置
 
@@ -26,6 +27,15 @@
 ```bash
 ./gradlew assembleDebug
 ```
+
+## 检查更新
+
+更新源是公开仓库 `CNife/listen-reader` 的 GitHub Release：只读取正式版（`/releases/latest`，排除 Draft 与 Pre-release），版本号按 `vX.Y.Z` 与 `versionCode` 同一套规则比较，仅当远端严格更高时提示。
+
+- 自动检查默认开启，冷启动时若距上次**成功**检查已满 24 小时才请求；离线或限流失败静默忽略，不刷新冷却。
+- 手动检查无视冷却，若该版本曾被「忽略」也会恢复资料库提示；失败只在设置页版本区展示原因。
+- 「去更新」优先打开 Release 附件中的 `listen-reader-<version>.apk` 直链，找不到 APK 附件时回退到 Release 页面，由系统浏览器完成下载与安装。
+- 最近一次检查到的远端版本会落盘，断网时也能看到已知更新；安装新版本后旧提示自动消失。
 
 ## 发版
 
@@ -47,3 +57,7 @@ keystore 必须妥善备份且绝不能提交进仓库（`.gitignore` 已忽略 
 ## 术语
 
 产品与代码使用的领域术语（Source、Script、Segment、AudioTrack 等）见 [GLOSSARY.md](GLOSSARY.md)。
+
+## 许可
+
+[MIT](LICENSE)。内嵌的第三方提取脚本署名见 `app/src/main/assets/extract/NOTICE`。

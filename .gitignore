@@ -8,3 +8,6 @@ build/
 captures/
 .externalNativeBuild/
 .cxx/
+__pycache__/
+
+node_modules/

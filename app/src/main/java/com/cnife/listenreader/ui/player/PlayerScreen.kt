@@ -307,7 +307,7 @@ private fun NoKeyHint(state: PlayerState, onOpenSettings: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "还没有缓存的音频。播放时会按设置里的 StepFun 配置逐句合成。",
+                text = "还没有缓存的音频。播放时会按设置里的 TTS 配置逐句合成。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),

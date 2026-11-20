@@ -25,7 +25,7 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val ttsModel: String = TtsModels.DEFAULT,
     val voice: String = Voices.DEFAULT,
-    val prefetchCount: Int = 2,
+    val prefetchCount: Int = 6,
     val playbackSpeed: Float = 1.0f,
     val llmEndpoint: String = LlmDefaults.ENDPOINT,
     val llmModel: String = LlmDefaults.MODEL,

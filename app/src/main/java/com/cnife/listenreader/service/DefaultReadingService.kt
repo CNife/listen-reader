@@ -36,6 +36,7 @@ import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -45,10 +46,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 
 /**
  * 应用级协调器：资料库、采集、设置与逐 Segment 的 TTS / 播放编排。
@@ -96,7 +98,9 @@ class DefaultReadingService(
     private var wantPlaying = false
     private var endedHandledFor: Int? = null
     private var playbackJob: Job? = null
-    private val synthMutex = Mutex()
+
+    /** 每个 Segment 一把锁：同一句不会重复请求，不同句可以并行合成。 */
+    private val synthLocks = mutableMapOf<Int, Mutex>()
 
     /** 睡眠定时倒计时；到点暂停并清空。 */
     private var sleepTimerJob: Job? = null
@@ -104,11 +108,11 @@ class DefaultReadingService(
     /** 服务主动 prepare/play 期间，引擎的瞬时暂停不算用户从通知栏暂停。 */
     private var pendingEngineStart = false
 
-    /** 串行预取任务；只跑一条，避免并发触发多个合成。 */
-    private var prefetchJob: Job? = null
+    /** 进行中的预取任务，按 Segment 索引去重；窗口移动时旧任务继续跑完。 */
+    private val prefetchJobs = mutableMapOf<Int, Job>()
 
-    /** 正在合成的 Segment，防止预取与手动重试重复请求。 */
-    private val inFlightIndices = mutableSetOf<Int>()
+    /** 预取请求的并发上限；前台合成不受它约束。 */
+    private val prefetchSemaphore = Semaphore(MAX_CONCURRENT_PREFETCH)
 
     /** 切换 AudioTrack 时自增，用于丢弃旧轨上已完成但已过期的合成结果。 */
     private var trackEpoch = 0
@@ -306,7 +310,7 @@ class DefaultReadingService(
             return
         }
         val (title, body) = splitTextTitle(normalized)
-        val drafts = RuleSegmenter.segment(title, body)
+        val drafts = RuleSegmenter.segment(speechTitle(title), body)
         val configured = scriptCleaner.isConfigured()
         val revision = _capture.value.previewRevision + 1
         _capture.value = CaptureState(
@@ -632,7 +636,7 @@ class DefaultReadingService(
                 val current = state.preview ?: return@update state
                 state.copy(
                     preview = current.copy(
-                        segmentDrafts = RuleSegmenter.segment(current.title, current.body),
+                        segmentDrafts = RuleSegmenter.segment(speechTitle(current.title), current.body),
                         segmentation = SegmentationSource.RULE,
                         l2Status = L2Status.NOT_CONFIGURED,
                         l2Error = NO_LLM_MESSAGE,
@@ -680,7 +684,7 @@ class DefaultReadingService(
         }
         val body = preview.body.trim()
         // 保存当前预览里的分段：L2 成功时是 LLM 分段，失败/未配置时是规则分段。
-        val drafts = preview.segmentDrafts.ifEmpty { RuleSegmenter.segment(title, body) }
+        val drafts = preview.segmentDrafts.ifEmpty { RuleSegmenter.segment(speechTitle(title), body) }
         if (drafts.isEmpty()) {
             _capture.update {
                 it.copy(error = UiError("正文为空，无法保存", ErrorKind.UNKNOWN))
@@ -906,7 +910,7 @@ class DefaultReadingService(
         updateSegment(index) { it.copy(status = ClipStatus.PENDING) }
         val epoch = trackEpoch
         scope.launch {
-            val ready = synthMutex.withLock {
+            val ready = synthLock(index).withLock {
                 synthesizeSegment(index, track, foreground = true, epoch = epoch)
             }
             if (ready != null && epoch == trackEpoch &&
@@ -1031,9 +1035,10 @@ class DefaultReadingService(
     }
 
     override fun setPrefetchCount(count: Int) {
-        val normalized = count.coerceIn(0, 2)
+        val normalized = count.coerceIn(0, 8)
         _settings.update { it.copy(prefetchCount = normalized) }
         persistSettings { settingsStore.setPrefetchCount(normalized) }
+        if (wantPlaying) schedulePrefetch()
     }
 
     /** 设置持久化失败不崩溃，统一写入 [SettingsState.error]。 */
@@ -1247,7 +1252,7 @@ class DefaultReadingService(
         val track = activeTrack ?: return null
         val cached = currentClips[index]
         if (cached.isReadyFile()) return cached
-        return synthMutex.withLock {
+        return synthLock(index).withLock {
             val rechecked = currentClips[index]
             if (rechecked.isReadyFile()) {
                 rechecked
@@ -1257,8 +1262,11 @@ class DefaultReadingService(
         }
     }
 
+    private fun synthLock(index: Int): Mutex = synthLocks.getOrPut(index) { Mutex() }
+
     /**
-     * 合成单个 Segment。串行调用方必须持有 [synthMutex]。
+     * 合成单个 Segment。调用方必须持有 [synthLock]；同一句的串行由该锁保证，
+     * 不同句因此可以并行合成。
      * [foreground] 为 false（预取）时失败只标 ERROR，不打断当前播放，也不写全局错误。
      * [epoch] 与当前 [trackEpoch] 不一致说明已切轨，结果只落旧轨文件/DB，不污染新轨状态。
      */
@@ -1268,74 +1276,68 @@ class DefaultReadingService(
         foreground: Boolean,
         epoch: Int = trackEpoch,
     ): AudioClip? {
-        if (index in inFlightIndices) return currentClips[index]
         if (epoch != trackEpoch) return null
         val segment = currentSegments.firstOrNull { it.index == index } ?: return null
-        inFlightIndices += index
-        try {
-            val file = libraryStore.audioFile(track.resourceId, track.id, index)
-            val pendingClip = AudioClip(
-                id = clipId(track, index),
-                trackId = track.id,
-                segmentIndex = index,
-                filePath = null,
-                durationMs = 0,
-                status = ClipStatus.SYNTHESIZING,
-                error = null,
+        val file = libraryStore.audioFile(track.resourceId, track.id, index)
+        val pendingClip = AudioClip(
+            id = clipId(track, index),
+            trackId = track.id,
+            segmentIndex = index,
+            filePath = null,
+            durationMs = 0,
+            status = ClipStatus.SYNTHESIZING,
+            error = null,
+        )
+        if (epoch == trackEpoch) {
+            currentClips[index] = pendingClip
+            runCatching { libraryStore.upsertClip(pendingClip) }
+            updateSegment(index) { it.copy(status = ClipStatus.SYNTHESIZING, durationMs = 0) }
+            refreshPreparing()
+        }
+
+        return try {
+            val durationMs = speechSynthesizer.synthesize(
+                text = segment.text,
+                model = track.model,
+                voice = track.voice,
+                destination = file,
             )
+            val ready = pendingClip.copy(
+                filePath = file.absolutePath,
+                durationMs = durationMs,
+                status = ClipStatus.READY,
+            )
+            runCatching { libraryStore.upsertClip(ready) }
             if (epoch == trackEpoch) {
-                currentClips[index] = pendingClip
-                runCatching { libraryStore.upsertClip(pendingClip) }
-                updateSegment(index) { it.copy(status = ClipStatus.SYNTHESIZING, durationMs = 0) }
+                currentClips[index] = ready
+                updateSegment(index) { it.copy(status = ClipStatus.READY, durationMs = durationMs) }
+                refreshTotalDuration()
                 refreshPreparing()
             }
-
-            return try {
-                val durationMs = speechSynthesizer.synthesize(
-                    text = segment.text,
-                    model = track.model,
-                    voice = track.voice,
-                    destination = file,
-                )
-                val ready = pendingClip.copy(
-                    filePath = file.absolutePath,
-                    durationMs = durationMs,
-                    status = ClipStatus.READY,
-                )
-                runCatching { libraryStore.upsertClip(ready) }
-                if (epoch == trackEpoch) {
-                    currentClips[index] = ready
-                    updateSegment(index) { it.copy(status = ClipStatus.READY, durationMs = durationMs) }
-                    refreshTotalDuration()
-                    refreshPreparing()
+            ready
+        } catch (c: CancellationException) {
+            throw c
+        } catch (e: SpeechException) {
+            val message = if (e.kind == ErrorKind.NETWORK) OFFLINE_MESSAGE else e.message
+            if (epoch == trackEpoch) {
+                markClipError(index, message)
+                if (foreground) {
+                    _player.update { it.copy(error = UiError(message, e.kind, e.retryable)) }
                 }
-                ready
-            } catch (c: CancellationException) {
-                throw c
-            } catch (e: SpeechException) {
-                val message = if (e.kind == ErrorKind.NETWORK) OFFLINE_MESSAGE else e.message
-                if (epoch == trackEpoch) {
-                    markClipError(index, message)
-                    if (foreground) {
-                        _player.update { it.copy(error = UiError(message, e.kind, e.retryable)) }
-                    }
-                }
-                null
-            } catch (t: Throwable) {
-                if (epoch == trackEpoch) {
-                    markClipError(index, "合成失败，请重试朗读")
-                    if (foreground) {
-                        _player.update {
-                            it.copy(
-                                error = UiError("合成失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
-                            )
-                        }
-                    }
-                }
-                null
             }
-        } finally {
-            inFlightIndices -= index
+            null
+        } catch (t: Throwable) {
+            if (epoch == trackEpoch) {
+                markClipError(index, "合成失败，请重试朗读")
+                if (foreground) {
+                    _player.update {
+                        it.copy(
+                            error = UiError("合成失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true),
+                        )
+                    }
+                }
+            }
+            null
         }
     }
 
@@ -1358,41 +1360,50 @@ class DefaultReadingService(
     }
 
     /**
-     * 当前段开始播放后，串行合成后续 [AppSettings.prefetchCount] 段。
-     * 跳过已缓存、正在合成与已失败的 Segment；失败只标记该 clip。
+     * 为当前段之后的 [SettingsState.prefetchCount] 段补齐预取窗口。
+     * 每次调用都按当前索引重新计算窗口：已在进行中的索引跳过，窗口移动时旧任务继续跑完，
+     * 因此不会因为旧任务仍活跃而让窗口停留在过期的位置。
      */
     private fun schedulePrefetch() {
         if (!_settings.value.stepFunKeyConfigured) return
-        if (_settings.value.prefetchCount <= 0) return
-        if (activeTrack == null || currentSegments.isEmpty()) return
-        if (prefetchJob?.isActive == true) return
-        prefetchJob = scope.launch {
-            val fromIndex = _player.value.currentIndex
-            val lastIndex = minOf(fromIndex + _settings.value.prefetchCount, currentSegments.lastIndex)
-            for (candidate in fromIndex + 1..lastIndex) {
-                if (!isActive) break
-                val clip = currentClips[candidate]
-                if (clip.isReadyFile()) continue
-                if (clip?.status == ClipStatus.ERROR) continue
-                prefetchOne(candidate)
+        val window = _settings.value.prefetchCount
+        if (window <= 0) return
+        val track = activeTrack ?: return
+        if (currentSegments.isEmpty()) return
+        val fromIndex = _player.value.currentIndex
+        val lastIndex = minOf(fromIndex + window, currentSegments.lastIndex)
+        if (lastIndex <= fromIndex) return
+        val epoch = trackEpoch
+        for (index in fromIndex + 1..lastIndex) {
+            val clip = currentClips[index]
+            if (clip.isReadyFile()) continue
+            if (clip?.status == ClipStatus.ERROR) continue
+            if (prefetchJobs[index]?.isActive == true) continue
+            val job = scope.launch(start = CoroutineStart.LAZY) {
+                try {
+                    prefetchSemaphore.withPermit { prefetchOne(index, track, epoch) }
+                } finally {
+                    if (prefetchJobs[index] === coroutineContext[Job]) prefetchJobs.remove(index)
+                    refreshPreparing()
+                }
             }
-            refreshPreparing()
+            prefetchJobs[index] = job
+            job.start()
         }
     }
 
-    private suspend fun prefetchOne(index: Int) {
-        val track = activeTrack ?: return
-        synthMutex.withLock {
-            if (index in inFlightIndices) return@withLock
+    /** 预取单句：同一索引由 [synthLock] 去重，不同索引受 [prefetchSemaphore] 限流。 */
+    private suspend fun prefetchOne(index: Int, track: AudioTrack, epoch: Int) {
+        synthLock(index).withLock {
             val clip = currentClips[index]
             if (clip.isReadyFile() || clip?.status == ClipStatus.ERROR) return@withLock
-            synthesizeSegment(index, track, foreground = false, epoch = trackEpoch)
+            synthesizeSegment(index, track, foreground = false, epoch = epoch)
         }
     }
 
     private fun cancelPrefetch() {
-        prefetchJob?.cancel()
-        prefetchJob = null
+        prefetchJobs.values.forEach { it.cancel() }
+        prefetchJobs.clear()
     }
 
     /** `isPreparing` 由当前/下一句的合成状态派生，避免预取与前台合成互相覆盖。 */
@@ -1495,6 +1506,7 @@ class DefaultReadingService(
         _player.update { it.copy(currentIndex = next, positionInSegmentMs = 0) }
         refreshPreparing()
         if (wantPlaying) startEnginePlay(next, 0)
+        schedulePrefetch()
     }
 
     private fun persistProgress(index: Int, positionMs: Long) {
@@ -1668,7 +1680,8 @@ class DefaultReadingService(
     private fun startL2(epoch: Int, title: String, body: String) {
         l2Epoch++
         val runEpoch = l2Epoch
-        val ruleDrafts = RuleSegmenter.segment(title, body)
+        val cleanTitle = speechTitle(title)
+        val ruleDrafts = RuleSegmenter.segment(cleanTitle, body)
         _capture.update { state ->
             val preview = state.preview ?: return@update state
             state.copy(
@@ -1682,7 +1695,7 @@ class DefaultReadingService(
         }
         l2Job = scope.launch {
             val result = try {
-                scriptCleaner.clean(title, body)
+                scriptCleaner.clean(cleanTitle, body)
             } catch (c: CancellationException) {
                 throw c
             } catch (t: Throwable) {
@@ -1737,12 +1750,16 @@ class DefaultReadingService(
             title = title,
             body = body,
             charCount = body.length,
-            segmentDrafts = RuleSegmenter.segment(title, body),
+            segmentDrafts = RuleSegmenter.segment(speechTitle(title), body),
             segmentation = SegmentationSource.RULE,
             l2Status = if (unconfigured) L2Status.NOT_CONFIGURED else L2Status.NOT_RUN,
             l2Error = if (unconfigured) NO_LLM_MESSAGE else null,
         )
     }
+
+    /** 朗读/L2 使用的标题：粘贴文本的占位标题只是展示信息，不该被念出来。 */
+    private fun speechTitle(title: String): String =
+        title.trim().takeUnless { it == TEXT_SOURCE_LABEL } ?: ""
 
     /** 首行短且不像正文句子时作为标题，其余保留为正文；否则整段作为正文。 */
     private fun splitTextTitle(text: String): Pair<String, String> {
@@ -1798,6 +1815,7 @@ class DefaultReadingService(
         const val TEXT_EXTRACTOR = "文本输入"
         const val CHARS_PER_SECOND = 4.5
         const val SLEEP_TIMER_TICK_MS = 1_000L
+        const val MAX_CONCURRENT_PREFETCH = 2
         const val NO_LLM_MESSAGE = "尚未配置 LLM Key，当前使用规则分段；到设置填写后可重新 L2"
         const val OFFLINE_MESSAGE = "需要联网合成，请联网后重试"
         const val PREVIEW_TEXT = "你好，这是听我读的音色试听。"

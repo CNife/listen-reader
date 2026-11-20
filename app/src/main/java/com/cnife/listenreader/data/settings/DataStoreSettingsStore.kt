@@ -43,7 +43,7 @@ class DataStoreSettingsStore(
     }
 
     override suspend fun setPrefetchCount(count: Int) {
-        dataStore.edit { it[Keys.PREFETCH] = count.coerceIn(0, 2) }
+        dataStore.edit { it[Keys.PREFETCH] = count.coerceIn(0, 8) }
     }
 
     override suspend fun setPlaybackSpeed(speed: Float) {
@@ -111,7 +111,7 @@ private fun Preferences.toAppSettings(keyStore: EncryptedKeyStore): AppSettings 
             ?: ThemeMode.SYSTEM,
         ttsModel = this[Keys.TTS_MODEL] ?: defaults.ttsModel,
         voice = this[Keys.VOICE] ?: defaults.voice,
-        prefetchCount = (this[Keys.PREFETCH] ?: defaults.prefetchCount).coerceIn(0, 2),
+        prefetchCount = (this[Keys.PREFETCH] ?: defaults.prefetchCount).coerceIn(0, 8),
         playbackSpeed = (this[Keys.PLAYBACK_SPEED] ?: defaults.playbackSpeed).coerceIn(0.5f, 2.0f),
         llmEndpoint = this[Keys.LLM_ENDPOINT] ?: LlmDefaults.ENDPOINT,
         llmModel = this[Keys.LLM_MODEL] ?: LlmDefaults.MODEL,

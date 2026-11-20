@@ -1,9 +1,9 @@
 # 单元测试基线：单模块 Android 应用，Robolectric + Compose 测试秒级可跑。
-# run worktree 没有 local.properties，用 ANDROID_HOME 定位 SDK；也没有 node_modules，
-# 而 JsExtractorContractTest 需要 Node + jsdom，所以先 npm ci（约 1 秒，命中缓存）。
+# run worktree 没有 local.properties，用 ANDROID_HOME 定位 SDK；jsdom 由
+# app/build.gradle.kts 的 installJsTestDeps 任务自动 npm ci（依赖未变时 UP-TO-DATE）。
 # 跑完基线后 test 步骤仍会按意图驱动有针对性的端到端验证；真实 CI 由 .github/workflows/ci.yml 提供。
 commands:
-  test: "npm ci --silent && ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest --console=plain"
+  test: "ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest --console=plain"
 
 # v1 的两次自动修复用尽后仍漏掉一个同类兄弟位点，本仓库把自动修复轮次放宽到三轮。
 auto_fix:

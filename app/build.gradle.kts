@@ -139,3 +139,18 @@ dependencies {
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.compose.ui.test.junit4)
 }
+
+// JsExtractorContractTest 在 jsdom 里真实执行提取脚本；新 worktree 没有 node_modules 时
+// 会以「请在仓库根目录执行 npm ci」假失败，逼 Agent 先诊断再手工补装。
+// 把安装下沉成构建的增量前置：依赖未变时 UP-TO-DATE（0ms），新 worktree 自动补齐。
+val installJsTestDeps = tasks.register<Exec>("installJsTestDeps") {
+    description = "安装 jsdom 等 JS 测试依赖（js-extract-harness 用）"
+    workingDir = rootProject.projectDir
+    commandLine("npm", "ci", "--silent")
+    inputs.files(rootProject.file("package.json"), rootProject.file("package-lock.json"))
+    outputs.file(rootProject.file("node_modules/.package-lock.json"))
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(installJsTestDeps)
+}

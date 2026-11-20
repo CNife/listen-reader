@@ -33,7 +33,7 @@ import org.junit.Test
  * 引擎与模板、密度提取三条路径都在覆盖范围内。决策仍然留在 Kotlin：`L3Rules.pick`
  * 选择要点哪个元素，测试只负责把页面状态推进一步。
  *
- * 前置条件：仓库根目录执行过 `npm ci`（jsdom 是 devDependency）。
+ * 前置条件：Node 24+；jsdom 由 `app/build.gradle.kts` 的 `installJsTestDeps` 自动安装。
  */
 class JsExtractorContractTest {
 

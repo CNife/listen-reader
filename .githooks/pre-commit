@@ -90,6 +90,37 @@ if printf '%s\n' "$STAGED" | grep -q '^app/src/main/assets/extract/templates\.js
     fi
 fi
 
+# 5) 视觉快照清单与验证手册表格同步：新增快照必须在 docs/agents/verification.md 里登记。
+#    PR #21 / #22 连续两次让 AI Review 在 document 阶段补这张表，这里把它前移到提交瞬间。
+if printf '%s\n' "$STAGED" | grep -qE '^(app/src/test/java/com/cnife/listenreader/ui/UiSnapshotTest\.kt|docs/agents/verification\.md)$'; then
+    if command -v python3 >/dev/null 2>&1; then
+        if ! python3 -c '
+import re, subprocess, sys
+
+def staged(path):
+    try:
+        return subprocess.check_output(["git", "show", ":" + path], text=True)
+    except subprocess.CalledProcessError:
+        return ""
+
+tests = staged("app/src/test/java/com/cnife/listenreader/ui/UiSnapshotTest.kt")
+doc = staged("docs/agents/verification.md")
+generated = set(re.findall(r"captureSnapshot\(\"([\w-]+)\"", tests))
+documented = {name[: -len(".png")] for name in re.findall(r"`([\w-]+\.png)`", doc)}
+missing = sorted(generated - documented)
+if missing:
+    print(
+        "pre-commit: 这些快照没登记到 docs/agents/verification.md 的表格："
+        + ", ".join(missing),
+        file=sys.stderr,
+    )
+    sys.exit(1)
+'; then
+            FAILED=1
+        fi
+    fi
+fi
+
 if [ "$FAILED" -ne 0 ]; then
     printf 'pre-commit: 已阻止本次提交，修复上述问题后重新 git add。\n' >&2
     exit 1

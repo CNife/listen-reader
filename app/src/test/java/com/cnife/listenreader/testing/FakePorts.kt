@@ -472,15 +472,9 @@ class FakeSpeechSynthesizer(
 
 class FakeAuditionPlayer : AuditionPlayer {
     val played = mutableListOf<File>()
-    var stops: Int = 0
-        private set
 
     override fun play(file: File) {
         played += file
-    }
-
-    override fun stop() {
-        stops++
     }
 }
 

@@ -44,41 +44,77 @@ class ArchitectureContractTest {
     @Test
     fun servicePorts_everyDeclaredMemberHasProductionCaller() {
         val portsDir = File(mainSourceDir(), "service/ports")
-        val productionLines = allKotlinFiles(mainSourceDir())
+        val production = allKotlinFiles(mainSourceDir())
             .filterNot { it.path.startsWith(portsDir.path) }
-            .map { stripComments(it.readText()).lines() }
+            .map { file -> ProductionFile(file.absolutePath, stripComments(file.readText()).lines()) }
 
         val violations = allKotlinFiles(portsDir).flatMap { port ->
-            unusedMembers(port.readText(), productionLines)
+            unusedMembers(port.readText(), production)
                 .map { "Unused port member: $it (${port.name})" }
         }
         assertTrue("service/ports 只允许生产代码实际调用的成员，违规位点：$violations", violations.isEmpty())
     }
 
     @Test
-    fun portMemberDetector_flagsDeadMembersAndIgnoresOverrideDeclarations() {
-        val port = """
-            interface DemoPort {
-                fun used()
-                fun dead()
-                val usedValue: Int
+    fun portMemberDetector_flagsImplementerSelfCallsAndPortDataClassFuns() {
+        // 回归 PR #21：实现类内部调用自己的端口成员曾把死成员伪装成「有消费者」。
+        val libraryPort = """
+            interface LibraryStore {
+                fun audioFile(id: String): File
+                fun snapshotFile(id: String): File
             }
         """.trimIndent()
-        val production = listOf(
-            """
-            class DemoImpl : DemoPort {
-                override fun used() = Unit
-                override fun dead() = Unit
-                override val usedValue: Int = 1
+        val libraryImpl = """
+            class RoomLibraryStore : LibraryStore {
+                override fun audioFile(id: String): File = File("/audio")
+                override fun snapshotFile(id: String): File = File("/snapshot")
+                fun delete(id: String) {
+                    snapshotFile(id).delete()
+                }
             }
-            fun call(port: DemoPort) {
-                port.used()
-                println(port.usedValue)
+        """.trimIndent()
+        val libraryCaller = """
+            fun readAudio(store: LibraryStore) {
+                store.audioFile("x")
             }
-            """.trimIndent(),
-        ).map { stripComments(it).lines() }
+        """.trimIndent()
 
-        assertEquals(listOf("DemoPort.dead"), unusedMembers(port, production))
+        assertEquals(
+            listOf("LibraryStore.snapshotFile"),
+            unusedMembers(
+                libraryPort,
+                listOf(
+                    ProductionFile("RoomLibraryStore.kt", stripComments(libraryImpl).lines()),
+                    ProductionFile("Caller.kt", stripComments(libraryCaller).lines()),
+                ),
+            ),
+        )
+
+        // 回归 PR #20：端口文件里 data class 上新增的公开 fun 曾完全逃出检测。
+        val settingsPort = """
+            interface SettingsStore {
+                suspend fun setThemeMode(mode: String)
+            }
+            data class AppSettings(
+                val themeMode: String = "system",
+                val autoCheckUpdate: Boolean = true,
+            ) {
+                fun isKeyConfiguredFor(model: String): Boolean = false
+            }
+        """.trimIndent()
+        val settingsProduction = """
+            suspend fun applyTheme(store: SettingsStore) {
+                store.setThemeMode("dark")
+            }
+        """.trimIndent()
+
+        assertEquals(
+            listOf("isKeyConfiguredFor"),
+            unusedMembers(
+                settingsPort,
+                listOf(ProductionFile("SettingsSetup.kt", stripComments(settingsProduction).lines())),
+            ),
+        )
     }
 
     @Test
@@ -142,35 +178,67 @@ class ArchitectureContractTest {
         assertTrue(RUN_BLOCKING.containsMatchIn(stripComments("val value = runBlocking { 1 }")))
     }
 
-    /** 返回 `Interface.member` 形式的死端口成员。 */
-    private fun unusedMembers(portSource: String, productionLines: List<List<String>>): List<String> =
-        portInterfaces(stripComments(portSource)).flatMap { (iface, members) ->
-            members.filterNot { member ->
-                productionLines.any { lines ->
-                    lines.any { line -> !overrideDeclaration(member, line) && wordReference(member, line) }
+    /** 返回端口死成员；接口成员用 `Interface.member`，端口 data class 上的公开 fun 用裸名。 */
+    private fun unusedMembers(portSource: String, production: List<ProductionFile>): List<String> {
+        val text = stripComments(portSource)
+        val ports = portInterfaces(text)
+
+        // 实现端口的具体类必然出现 override 声明，它对自己的内部调用不是「外部消费者」。
+        // 不排除它，`RoomLibraryStore` 里的 snapshotFile(id) 就会把死成员判成活的。
+        val deadInterfaceMembers = ports.flatMap { port ->
+            val externalCallers = production.filterNot { implements(port, it) }
+            port.members.filterNot { member ->
+                externalCallers.any { file ->
+                    file.lines.any { line -> !overrideDeclaration(member, line) && wordReference(member, line) }
                 }
-            }.map { "$iface.$it" }
+            }.map { "${port.name}.$it" }
         }
 
-    /** 提取每个非 sealed 接口名及其声明的 fun/val 成员名。 */
-    private fun portInterfaces(text: String): List<Pair<String, List<String>>> {
-        val result = mutableListOf<Pair<String, List<String>>>()
+        // 端口文件里的 data class 不承载端口契约，但它上面的公开 fun 同样是生产接口面。
+        val deadLooseFuns = loosePublicFuns(text, ports).filterNot { funName ->
+            production.any { file ->
+                file.lines.any { line -> !definitionLine(funName, line) && wordReference(funName, line) }
+            }
+        }
+        return deadInterfaceMembers + deadLooseFuns
+    }
+
+    /**
+     * 完整实现一个端口的类必然 override 它的全部抽象成员；只靠「出现同一个成员名」不够，
+     * 服务实现类与多个端口本来就有同名成员（如 deleteResource），那会把真实调用者误排除。
+     */
+    private fun implements(port: PortInterface, file: ProductionFile): Boolean {
+        if (port.members.isEmpty()) return false
+        return port.members.all { member -> file.lines.any { overrideDeclaration(member, it) } }
+    }
+
+    /** 提取每个非 sealed 接口名、其声明的 fun/val 成员名，以及成员所在的源码区间。 */
+    private fun portInterfaces(text: String): List<PortInterface> {
+        val result = mutableListOf<PortInterface>()
         for (match in INTERFACE_DECL.findAll(text)) {
             val start = match.range.first
             val headerStart = maxOf(0, start - 40)
             if (text.substring(headerStart, start).contains("sealed")) continue
             val bodyStart = text.indexOf('{', match.range.last + 1)
-            if (bodyStart < 0 || bodyStart < match.range.last) continue
+            if (bodyStart < 0) continue
             val bodyEnd = matchingBrace(text, bodyStart)
             if (bodyEnd < 0) continue
             val members = MEMBER_DECL.findAll(text.substring(bodyStart + 1, bodyEnd))
                 .map { it.groupValues[1] }
                 .distinct()
                 .toList()
-            result += match.groupValues[1] to members
+            result += PortInterface(match.groupValues[1], members, bodyStart, bodyEnd)
         }
         return result
     }
+
+    /** 端口目录内、接口体之外声明的非私有 fun（data class / class / object 上的公开方法）。 */
+    private fun loosePublicFuns(text: String, ports: List<PortInterface>): List<String> =
+        FUN_DECL.findAll(text)
+            .filterNot { match -> ports.any { match.range.first in it.bodyStart..it.bodyEnd } }
+            .map { it.groupValues[1] }
+            .distinct()
+            .toList()
 
     private fun matchingBrace(text: String, openIndex: Int): Int {
         var depth = 0
@@ -185,6 +253,9 @@ class ArchitectureContractTest {
         }
         return -1
     }
+
+    private fun definitionLine(member: String, line: String): Boolean =
+        DEFINITION_MEMBER(member).containsMatchIn(line)
 
     private fun overrideDeclaration(member: String, line: String): Boolean =
         OVERRIDE_MEMBER(member).containsMatchIn(line)
@@ -213,11 +284,29 @@ class ArchitectureContractTest {
         Regex("""\b${Pattern.quote(member)}\b""")
     }
 
+    private val definitionCache = mutableMapOf<String, Regex>()
+
+    private fun DEFINITION_MEMBER(member: String): Regex = definitionCache.getOrPut(member) {
+        Regex("""\b(?:override\s+)?(?:suspend\s+)?fun\s+${Pattern.quote(member)}\b""")
+    }
+
+    /** 同一源码文件；路径只用于诊断，[lines] 已剥离注释。 */
+    private class ProductionFile(val path: String, val lines: List<String>)
+
+    /** 一个非 sealed 端口接口：名字、声明的成员，以及 `{`…`}` 在文件中的下标。 */
+    private class PortInterface(
+        val name: String,
+        val members: List<String>,
+        val bodyStart: Int,
+        val bodyEnd: Int,
+    )
+
     private companion object {
         val RUN_BLOCKING = Regex("""\brunBlocking\b""")
         val BLOCK_COMMENT = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
         val INTERFACE_DECL = Regex("""interface\s+(\w+)""")
         val MEMBER_DECL = Regex("""\b(?:fun|val)\s+(\w+)""")
+        val FUN_DECL = Regex("""(?<!private\s)(?<!protected\s)\bfun\s+(\w+)""")
         val SELECTOR_FIELDS = listOf(
             "titleSelector",
             "contentSelector",

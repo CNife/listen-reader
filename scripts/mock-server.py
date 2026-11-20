@@ -5,11 +5,13 @@
 # ///
 """Listen Reader 本地 E2E mock 服务。
 
-一个进程替身三件事，让真机/模拟器上的真实应用在不 root、不改源码、不注入自签 CA
+一个进程替身四件事，让真机/模拟器上的真实应用在不 root、不改源码、不注入自签 CA
 的前提下跑完整链路：
 
 * ``POST /v1/audio/speech``：StepFun TTS 替身，返回真实 MP3 字节；并发与耗时可控，
   便于观察预取窗口是否真的并行。
+* ``POST /v1/services/audio/tts/SpeechSynthesizer``：千问非流式 TTS 替身，返回官方
+  协议的 JSON（``output.audio.url`` 指向 ``GET /mock-audio/``）。
 * ``POST /v1/chat/completions``：OpenAI 兼容 LLM 替身，返回确定性的朗读分段文本。
 * ``GET /fixtures/<name>`` 与 ``GET /mp.weixin.qq.com/s/<name>``：把
   ``app/src/androidTest/assets/fixtures/*.html`` 当网页提供，覆盖通用网页与公众号模板。
@@ -143,7 +145,9 @@ class Handler(BaseHTTPRequestHandler):
         text = str(input_dict.get("text", ""))
         voice = str(input_dict.get("voice", ""))
         active, peak = METRICS.tts_start()
-        log_line(f"START_QWEN active={active} max={peak} voice={voice} text='{text[:50]}'")
+        log_line(
+            f"START_QWEN active={active} max={peak} voice={voice} text='{text[:50]}'"
+        )
         time.sleep(self.tts_delay_ms / 1000.0)
         active = METRICS.tts_end()
         log_line(f"END_QWEN active={active} text='{text[:50]}'")
@@ -162,6 +166,7 @@ class Handler(BaseHTTPRequestHandler):
             "usage": {"characters": len(text)},
         }
         self._send_json(200, response)
+
     def _handle_llm(self, body: bytes) -> None:
         payload = self._json_body(body)
         METRICS.llm_hit()

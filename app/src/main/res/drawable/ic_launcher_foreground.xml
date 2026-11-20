@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 上方静态语段（已读上下文） -->
+    <path
+        android:fillColor="#8CEADDFF"
+        android:pathData="M 30.5,31 H 52.5 A 3.5,3.5 0 0,1 52.5,38 H 30.5 A 3.5,3.5 0 0,1 30.5,31 Z" />
+
+    <!-- 下方静态语段（待读上下文） -->
+    <path
+        android:fillColor="#8CEADDFF"
+        android:pathData="M 30.5,70 H 45.5 A 3.5,3.5 0 0,1 45.5,77 H 30.5 A 3.5,3.5 0 0,1 30.5,70 Z" />
+
+    <!-- 中间活跃语段：左侧正在朗读的文字行 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 30.5,50.5 H 41.5 A 3.5,3.5 0 0,1 41.5,57.5 H 30.5 A 3.5,3.5 0 0,1 30.5,50.5 Z" />
+
+    <!-- 中间活跃语段：右侧化作声波音轨（脉冲 1） -->
+    <path
+        android:fillColor="#FFEADDFF"
+        android:pathData="M 51,46.5 A 3.5,3.5 0 0,1 58,46.5 V 61.5 A 3.5,3.5 0 0,1 51,61.5 V 46.5 Z" />
+
+    <!-- 中间活跃语段：声波主波峰（脉冲 2，暖珊瑚粉渐变高光） -->
+    <path android:pathData="M 63,36.5 A 3.5,3.5 0 0,1 70,36.5 V 71.5 A 3.5,3.5 0 0,1 63,71.5 V 36.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="66.5"
+                android:endY="75"
+                android:startX="66.5"
+                android:startY="33"
+                android:type="linear">
+                <item
+                    android:color="#FFFFD8E4"
+                    android:offset="0.0" />
+                <item
+                    android:color="#FFEFB8C8"
+                    android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 中间活跃语段：右侧声波尾音（脉冲 3） -->
+    <path
+        android:fillColor="#FFEADDFF"
+        android:pathData="M 75,48.5 A 3.5,3.5 0 0,1 82,48.5 V 59.5 A 3.5,3.5 0 0,1 75,59.5 V 48.5 Z" />
+</vector>

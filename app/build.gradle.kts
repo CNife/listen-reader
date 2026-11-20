@@ -7,16 +7,41 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
+// 发版签名：CI 从 secrets 注入四个环境变量；本地不设置时仍可构建未签名包。
+// 只设置一部分说明配置有误，直接失败，避免把未签名包装进发布流程。
+val releaseSigning = listOf(
+    "RELEASE_KEYSTORE",
+    "RELEASE_KEYSTORE_PASSWORD",
+    "RELEASE_KEY_ALIAS",
+    "RELEASE_KEY_PASSWORD",
+).associateWith { providers.environmentVariable(it).orNull?.takeIf(String::isNotBlank) }
+val signingConfigured = releaseSigning.values.all { it != null }
+if (!signingConfigured && releaseSigning.values.any { it != null }) {
+    throw GradleException("发版签名环境变量不完整，需要同时设置：" + releaseSigning.keys.joinToString("、"))
+}
+
 android {
     namespace = "com.cnife.listenreader"
     compileSdk = 35
+
+    signingConfigs {
+        if (signingConfigured) {
+            create("release") {
+                storeFile = file(releaseSigning.getValue("RELEASE_KEYSTORE")!!)
+                storePassword = releaseSigning.getValue("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = releaseSigning.getValue("RELEASE_KEY_ALIAS")
+                keyPassword = releaseSigning.getValue("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.cnife.listenreader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // 发版 CI 按 tag 覆盖；默认值与 v0.1.0 的映射一致。
+        versionCode = providers.gradleProperty("versionCode").map { it.toInt() }.getOrElse(1000)
+        versionName = providers.gradleProperty("versionName").getOrElse("0.1.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -29,6 +54,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

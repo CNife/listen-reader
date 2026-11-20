@@ -26,6 +26,23 @@
 ./gradlew assembleDebug
 ```
 
+## 发版
+
+推送形如 `v1.2.3` 的 tag 会触发 `.github/workflows/release.yml`：构建已签名 APK，校验签名、对齐、包名与版本，然后创建 GitHub Release 并附带 `listen-reader-<version>.apk` 与 `SHA256SUMS`。
+
+`versionName` 取 tag 去掉 `v`；`versionCode = major*1000000 + minor*1000 + patch`，所以 minor 与 patch 都必须小于 1000，且 tag 只能递增。
+
+首次发版前，在仓库 Settings → Secrets and variables → Actions 配置四个 secrets：
+
+- `RELEASE_KEYSTORE_BASE64`：release keystore 的 base64（`base64 -w0 release.jks`）
+- `RELEASE_KEYSTORE_PASSWORD`
+- `RELEASE_KEY_ALIAS`
+- `RELEASE_KEY_PASSWORD`
+
+keystore 必须妥善备份且绝不能提交进仓库（`.gitignore` 已忽略 `*.jks`、`*.keystore`、`keystore.properties`）。丢失它就无法再发布可覆盖升级的同包名安装包。
+
+本地构建已签名包时设置 `RELEASE_KEYSTORE`（keystore 路径）、`RELEASE_KEYSTORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD` 后运行 `./gradlew :app:assembleRelease`；不设置签名变量时仍会产出未签名的 `app-release-unsigned.apk`。
+
 ## 术语
 
 产品与代码使用的领域术语（Source、Script、Segment、AudioTrack 等）见 [GLOSSARY.md](GLOSSARY.md)。

@@ -11,3 +11,8 @@ captures/
 __pycache__/
 
 node_modules/
+
+# 发版签名材料绝不入库
+*.jks
+*.keystore
+keystore.properties

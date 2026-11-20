@@ -35,13 +35,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       # 与 .no-mistakes.yaml 的 commands.test 同一基线，外加 lint、仪器测试编译与打包校验。
+      # assembleRelease 不签名，只保证发版变体在 PR 阶段就能编译通过。
       - name: Verify
         run: |
           ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew --console=plain \
             :app:lintDebug \
             :app:testDebugUnitTest \
             :app:compileDebugAndroidTestKotlin \
-            :app:assembleDebug
+            :app:assembleDebug \
+            :app:assembleRelease
 
       - name: Room schema must match entities
         run: git diff --exit-code app/schemas/

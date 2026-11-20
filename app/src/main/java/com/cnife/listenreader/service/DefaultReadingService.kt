@@ -3,6 +3,7 @@ package com.cnife.listenreader.service
 import android.content.Context
 import android.view.View
 import com.cnife.listenreader.capture.ShareText
+import com.cnife.listenreader.core.AppVersion
 import com.cnife.listenreader.core.ErrorKind
 import com.cnife.listenreader.core.RuleSegmenter
 import com.cnife.listenreader.core.UiError
@@ -21,6 +22,7 @@ import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.TtsVendor
 import com.cnife.listenreader.model.Voices
+import com.cnife.listenreader.service.ports.AppSettings
 import com.cnife.listenreader.service.ports.AuditionPlayer
 import com.cnife.listenreader.service.ports.CleanResult
 import com.cnife.listenreader.service.ports.LibraryStore
@@ -30,10 +32,13 @@ import com.cnife.listenreader.service.ports.PageSession
 import com.cnife.listenreader.service.ports.PageSessionState
 import com.cnife.listenreader.service.ports.PlaybackEngine
 import com.cnife.listenreader.service.ports.PlaybackEngineState
+import com.cnife.listenreader.service.ports.RemoteRelease
 import com.cnife.listenreader.service.ports.ScriptCleaner
 import com.cnife.listenreader.service.ports.SettingsStore
 import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import com.cnife.listenreader.service.ports.TimeProvider
+import com.cnife.listenreader.service.ports.UpdateCheckException
+import com.cnife.listenreader.service.ports.UpdateChecker
 import com.cnife.listenreader.tts.SpeechException
 import java.io.File
 import java.util.UUID
@@ -67,6 +72,9 @@ class DefaultReadingService(
     private val playbackEngine: PlaybackEngine,
     private val settingsStore: SettingsStore,
     private val timeProvider: TimeProvider,
+    private val updateChecker: UpdateChecker,
+    /** 已安装包的 versionName，用于与远端版本比较。 */
+    private val appVersion: String,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     private val auditionPlayer: AuditionPlayer = com.cnife.listenreader.service.ports.NoopAuditionPlayer,
     private val previewDir: File? = null,
@@ -129,6 +137,9 @@ class DefaultReadingService(
     /** 最近一次 LLM 配置写入，供 testLlm 等待保存完成。 */
     private var llmConfigSaveJob: Job? = null
 
+    /** 最近一次更新检查任务；手动检查会抢占仍在跑的自动检查。 */
+    private var updateCheckJob: Job? = null
+
     /** 最近一次网页提取的原始快照，保存时写入 Source（Markdown + HTML）。 */
     private var pendingMarkdown: String? = null
     private var pendingHtml: String? = null
@@ -150,6 +161,7 @@ class DefaultReadingService(
                         stepFunKeyConfigured = appSettings.stepFunKeyConfigured,
                         qwenKeyConfigured = appSettings.qwenKeyConfigured,
                         llmKeyConfigured = appSettings.llmKeyConfigured,
+                        update = updateStateFor(appSettings, it.update.check),
                     )
                 }
             }
@@ -177,6 +189,8 @@ class DefaultReadingService(
                 runCatching { loadResource(resourceId, markOpened = false) }
             }
         }
+        // 冷启动静默检查：未到冷却或离线失败都不打扰正在听书的用户。
+        updateCheckJob = scope.launch { autoCheckIfDue() }
     }
 
     // --- 资料库 ---
@@ -1242,6 +1256,129 @@ class DefaultReadingService(
         }
     }
 
+    // --- 更新 ---
+
+    override fun setAutoCheckUpdate(enabled: Boolean) {
+        _settings.update { it.copy(update = it.update.copy(autoCheck = enabled)) }
+        persistSettings { settingsStore.setAutoCheckUpdate(enabled) }
+    }
+
+    override fun checkForUpdate() {
+        updateCheckJob?.cancel()
+        _settings.update { it.copy(update = it.update.copy(check = UpdateCheckState.Checking)) }
+        updateCheckJob = scope.launch {
+            val release = try {
+                updateChecker.latestRelease()
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                _settings.update {
+                    it.copy(
+                        update = it.update.copy(check = UpdateCheckState.Failed(updateFailureMessage(t))),
+                    )
+                }
+                return@launch
+            }
+            persistManualCheck(release)
+        }
+    }
+
+    override fun dismissUpdate() {
+        val version = _settings.value.update.release?.version ?: return
+        _settings.update { it.copy(update = it.update.copy(ignored = true)) }
+        persistSettings { settingsStore.setIgnoredUpdateVersion(version) }
+    }
+
+    /** 手动检查成功：恢复被忽略版本的提示，落盘结果，并区分「已是最新」与「有新版本」。 */
+    private suspend fun persistManualCheck(release: RemoteRelease) {
+        try {
+            settingsStore.setIgnoredUpdateVersion(null)
+            settingsStore.saveReleaseCheck(timeProvider.now(), release)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            _settings.update {
+                it.copy(
+                    error = UiError("更新检查结果保存失败，请重试", ErrorKind.UNKNOWN, retryable = true),
+                )
+            }
+        }
+        _settings.update {
+            it.copy(
+                update = it.update.copy(
+                    check = if (releaseIsNewer(release)) {
+                        UpdateCheckState.Idle
+                    } else {
+                        UpdateCheckState.Latest(release.version)
+                    },
+                ),
+            )
+        }
+    }
+
+    /**
+     * 冷启动自动检查。失败时静默返回：离线或限流不应在听书时弹出全局错误，
+     * 也不刷新冷却时间戳，下次启动继续尝试。
+     */
+    private suspend fun autoCheckIfDue() {
+        val stored = try {
+            settingsStore.settings.first()
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            return
+        }
+        if (!stored.autoCheckUpdate) return
+        val now = timeProvider.now()
+        if (now - stored.lastUpdateCheckAt < UPDATE_CHECK_INTERVAL_MS) return
+        val release = try {
+            updateChecker.latestRelease()
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            return
+        }
+        val checkedAt = timeProvider.now()
+        try {
+            settingsStore.saveReleaseCheck(checkedAt, release)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            return
+        }
+        _settings.update { it.copy(update = it.update.copy(check = UpdateCheckState.Idle)) }
+    }
+
+    /** 远端缓存与忽略状态是推导字段：每次设置变化都在这里统一重算。 */
+    private fun updateStateFor(settings: AppSettings, check: UpdateCheckState): UpdateState {
+        val release = knownRelease(settings)
+        return UpdateState(
+            currentVersion = appVersion,
+            autoCheck = settings.autoCheckUpdate,
+            release = release,
+            ignored = release != null && settings.ignoredUpdateVersion == release.version,
+            check = check,
+        )
+    }
+
+    private fun knownRelease(settings: AppSettings): AvailableUpdate? {
+        val remote = AppVersion.parse(settings.knownReleaseVersion) ?: return null
+        if (!releaseIsNewer(remote)) return null
+        val url = settings.knownReleaseUrl?.takeIf { it.isNotBlank() } ?: return null
+        return AvailableUpdate(remote.toString(), url, settings.knownReleaseNotes.orEmpty())
+    }
+
+    private fun releaseIsNewer(release: RemoteRelease): Boolean =
+        AppVersion.parse(release.version)?.let { releaseIsNewer(it) } ?: false
+
+    private fun releaseIsNewer(remote: AppVersion): Boolean {
+        val current = AppVersion.parse(appVersion) ?: return false
+        return remote > current
+    }
+
+    private fun updateFailureMessage(t: Throwable): String =
+        (t as? UpdateCheckException)?.message ?: "检查更新失败，请稍后重试"
+
     // --- 播放 internals ---
 
     private fun startEnginePlay(index: Int, positionMs: Long, autoPlay: Boolean = true) {
@@ -1868,6 +2005,7 @@ class DefaultReadingService(
         const val CHARS_PER_SECOND = 4.5
         const val SLEEP_TIMER_TICK_MS = 1_000L
         const val MAX_CONCURRENT_PREFETCH = 2
+        const val UPDATE_CHECK_INTERVAL_MS = 24L * 60 * 60 * 1000
         const val NO_LLM_MESSAGE = "尚未配置 LLM Key，当前使用规则分段；到设置填写后可重新 L2"
         const val OFFLINE_MESSAGE = "需要联网合成，请联网后重试"
         const val PREVIEW_TEXT = "你好，这是听我读的音色试听。"

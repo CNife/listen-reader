@@ -21,6 +21,11 @@ interface SettingsStore {
     suspend fun llmEndpoint(): String
     suspend fun llmModel(): String
     suspend fun llmKey(): String?
+    suspend fun setAutoCheckUpdate(enabled: Boolean)
+
+    /** 记录一次成功的更新检查：时间戳与远端版本信息一起落盘，失败时不刷新冷却。 */
+    suspend fun saveReleaseCheck(atMs: Long, release: RemoteRelease)
+    suspend fun setIgnoredUpdateVersion(version: String?)
 }
 
 data class AppSettings(
@@ -34,4 +39,11 @@ data class AppSettings(
     val stepFunKeyConfigured: Boolean = false,
     val qwenKeyConfigured: Boolean = false,
     val llmKeyConfigured: Boolean = false,
+    val autoCheckUpdate: Boolean = true,
+    /** 上次成功检查的时间；0 表示尚未检查，真实时钟下必然已过冷却。 */
+    val lastUpdateCheckAt: Long = 0L,
+    val knownReleaseVersion: String? = null,
+    val knownReleaseUrl: String? = null,
+    val knownReleaseNotes: String? = null,
+    val ignoredUpdateVersion: String? = null,
 )

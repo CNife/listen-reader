@@ -9,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.Voices
+import com.cnife.listenreader.service.ports.RemoteRelease
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -131,6 +132,33 @@ class DataStoreSettingsStoreTest {
         val qwenSettings = store.settings.first()
         assertEquals(TtsModels.QWEN_FLASH, qwenSettings.ttsModel)
         assertEquals(Voices.LONGANHUAN, qwenSettings.voice)
+    }
+
+    @Test
+    fun `update preferences survive and clearing the ignored version removes it`() = runBlocking {
+        createStore(tempFolder.newFile("settings-update.preferences_pb"))
+
+        store.setAutoCheckUpdate(false)
+        store.saveReleaseCheck(
+            atMs = 1_234L,
+            release = RemoteRelease(
+                version = "0.2.0",
+                url = "https://example.test/listen-reader-0.2.0.apk",
+                notes = "更新说明",
+            ),
+        )
+        store.setIgnoredUpdateVersion("0.2.0")
+
+        val settings = store.settings.first()
+        assertFalse(settings.autoCheckUpdate)
+        assertEquals(1_234L, settings.lastUpdateCheckAt)
+        assertEquals("0.2.0", settings.knownReleaseVersion)
+        assertEquals("https://example.test/listen-reader-0.2.0.apk", settings.knownReleaseUrl)
+        assertEquals("更新说明", settings.knownReleaseNotes)
+        assertEquals("0.2.0", settings.ignoredUpdateVersion)
+
+        store.setIgnoredUpdateVersion(null)
+        assertNull(store.settings.first().ignoredUpdateVersion)
     }
 
     @Test

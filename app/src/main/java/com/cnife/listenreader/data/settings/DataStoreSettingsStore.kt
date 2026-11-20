@@ -3,9 +3,11 @@ package com.cnife.listenreader.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.cnife.listenreader.model.LlmDefaults
@@ -13,6 +15,7 @@ import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ports.AppSettings
+import com.cnife.listenreader.service.ports.RemoteRelease
 import com.cnife.listenreader.service.ports.SettingsStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -99,6 +102,26 @@ class DataStoreSettingsStore(
     override suspend fun llmKey(): String? =
         keyStore.decrypt(dataStore.data.first()[Keys.LLM_KEY])
 
+    override suspend fun setAutoCheckUpdate(enabled: Boolean) {
+        dataStore.edit { it[Keys.AUTO_CHECK_UPDATE] = enabled }
+    }
+
+    override suspend fun saveReleaseCheck(atMs: Long, release: RemoteRelease) {
+        dataStore.edit { prefs ->
+            prefs[Keys.LAST_UPDATE_CHECK] = atMs
+            prefs[Keys.RELEASE_VERSION] = release.version
+            prefs[Keys.RELEASE_URL] = release.url
+            prefs[Keys.RELEASE_NOTES] = release.notes
+        }
+    }
+
+    override suspend fun setIgnoredUpdateVersion(version: String?) {
+        dataStore.edit { prefs ->
+            if (version == null) prefs.remove(Keys.IGNORED_UPDATE_VERSION)
+            else prefs[Keys.IGNORED_UPDATE_VERSION] = version
+        }
+    }
+
     companion object {
         fun create(context: Context): DataStoreSettingsStore =
             DataStoreSettingsStore(context.applicationContext.settingsDataStore)
@@ -116,6 +139,12 @@ private object Keys {
     val STEPFUN_KEY = stringPreferencesKey("stepFunKeyEncrypted")
     val QWEN_KEY = stringPreferencesKey("qwenKeyEncrypted")
     val LLM_KEY = stringPreferencesKey("llmKeyEncrypted")
+    val AUTO_CHECK_UPDATE = booleanPreferencesKey("autoCheckUpdate")
+    val LAST_UPDATE_CHECK = longPreferencesKey("lastUpdateCheckAt")
+    val RELEASE_VERSION = stringPreferencesKey("knownReleaseVersion")
+    val RELEASE_URL = stringPreferencesKey("knownReleaseUrl")
+    val RELEASE_NOTES = stringPreferencesKey("knownReleaseNotes")
+    val IGNORED_UPDATE_VERSION = stringPreferencesKey("ignoredUpdateVersion")
 }
 
 private fun Preferences.toAppSettings(keyStore: EncryptedKeyStore): AppSettings {
@@ -135,5 +164,11 @@ private fun Preferences.toAppSettings(keyStore: EncryptedKeyStore): AppSettings 
         stepFunKeyConfigured = keyStore.decrypt(this[Keys.STEPFUN_KEY]) != null,
         qwenKeyConfigured = keyStore.decrypt(this[Keys.QWEN_KEY]) != null,
         llmKeyConfigured = keyStore.decrypt(this[Keys.LLM_KEY]) != null,
+        autoCheckUpdate = this[Keys.AUTO_CHECK_UPDATE] ?: defaults.autoCheckUpdate,
+        lastUpdateCheckAt = this[Keys.LAST_UPDATE_CHECK] ?: defaults.lastUpdateCheckAt,
+        knownReleaseVersion = this[Keys.RELEASE_VERSION],
+        knownReleaseUrl = this[Keys.RELEASE_URL],
+        knownReleaseNotes = this[Keys.RELEASE_NOTES],
+        ignoredUpdateVersion = this[Keys.IGNORED_UPDATE_VERSION],
     )
 }

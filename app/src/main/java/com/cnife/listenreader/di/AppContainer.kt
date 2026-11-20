@@ -17,6 +17,7 @@ import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.tts.QwenSpeechSynthesizer
 import com.cnife.listenreader.tts.RoutingSpeechSynthesizer
 import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
+import com.cnife.listenreader.update.GitHubReleaseChecker
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -81,6 +82,12 @@ class AppContainer(context: Context) {
     private val auditionPlayer = MediaPlayerAuditionPlayer()
     private val previewDir = File(appContext.filesDir, "previews")
 
+    /** 安装包的 versionName；发版时由 tag 映射，更新检查用它判断远端是否更高。 */
+    private val appVersion: String =
+        appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName.orEmpty()
+
+    private val updateChecker = GitHubReleaseChecker()
+
     val readingService: ReadingService = DefaultReadingService(
         pageSession = WebViewPageSession(appContext),
         scriptCleaner = scriptCleaner,
@@ -89,6 +96,8 @@ class AppContainer(context: Context) {
         playbackEngine = playbackEngine,
         settingsStore = settingsStore,
         timeProvider = SystemTimeProvider(),
+        updateChecker = updateChecker,
+        appVersion = appVersion,
         scope = appScope,
         auditionPlayer = auditionPlayer,
         previewDir = previewDir,

@@ -120,6 +120,12 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 StorageSection(service = service)
             }
+
+            SectionDivider()
+
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                UpdateSection(service = service)
+            }
         }
     }
 }

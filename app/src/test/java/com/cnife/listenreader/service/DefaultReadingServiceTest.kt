@@ -7,6 +7,7 @@ import com.cnife.listenreader.testing.FakePlaybackEngine
 import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
 import com.cnife.listenreader.testing.FakeSpeechSynthesizer
+import com.cnife.listenreader.testing.FakeUpdateChecker
 import com.cnife.listenreader.testing.FixedTimeProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,6 +43,8 @@ class DefaultReadingServiceTest {
             settingsStore = settingsStore,
             timeProvider = FixedTimeProvider(),
             scope = scope,
+            updateChecker = FakeUpdateChecker(),
+            appVersion = "0.1.0",
         )
         return Harness(service, scope)
     }

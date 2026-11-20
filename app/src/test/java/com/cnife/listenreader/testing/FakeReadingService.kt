@@ -21,6 +21,7 @@ import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.service.TestState
+import com.cnife.listenreader.service.UpdateCheckState
 import com.cnife.listenreader.service.ports.PageExtraction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -435,5 +436,24 @@ class FakeReadingService(
 
     override fun refreshStorageUsage() {
         _settings.update { it.copy(storage = storageUsage) }
+    }
+
+    var autoCheckChanges: MutableList<Boolean> = mutableListOf()
+    var checkForUpdateCalls: Int = 0
+
+    override fun setAutoCheckUpdate(enabled: Boolean) {
+        autoCheckChanges += enabled
+        _settings.update { it.copy(update = it.update.copy(autoCheck = enabled)) }
+    }
+
+    override fun checkForUpdate() {
+        checkForUpdateCalls++
+        _settings.update {
+            it.copy(update = it.update.copy(check = UpdateCheckState.Latest(it.update.currentVersion)))
+        }
+    }
+
+    override fun dismissUpdate() {
+        _settings.update { it.copy(update = it.update.copy(ignored = true)) }
     }
 }

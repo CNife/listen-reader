@@ -76,6 +76,15 @@ interface ReadingService {
     fun previewVoice(voiceId: String)
     fun clearOldAudioTracks()
     fun refreshStorageUsage()
+
+    // --- 更新 ---
+    fun setAutoCheckUpdate(enabled: Boolean)
+
+    /** 手动检查：无视冷却间隔，成功时恢复被忽略版本的资料库提示。 */
+    fun checkForUpdate()
+
+    /** 忽略当前远端版本在资料库顶部的提醒；设置页仍展示该版本。 */
+    fun dismissUpdate()
 }
 
 data class LibraryState(
@@ -193,6 +202,7 @@ data class SettingsState(
     val auditionError: String? = null,
     val message: String? = null,
     val error: UiError? = null,
+    val update: UpdateState = UpdateState(),
 ) {
     val activeTtsKeyConfigured: Boolean
         get() = when (TtsModels.vendorOf(ttsModel)) {
@@ -212,3 +222,27 @@ sealed interface TestState {
 }
 
 data class StorageUsage(val activeBytes: Long, val oldTracksBytes: Long)
+
+/** 高于当前版本、可跳转下载的远端正式版。 */
+data class AvailableUpdate(
+    val version: String,
+    val url: String,
+    val notes: String,
+)
+
+sealed interface UpdateCheckState {
+    data object Idle : UpdateCheckState
+    data object Checking : UpdateCheckState
+    data class Latest(val version: String) : UpdateCheckState
+    data class Failed(val message: String) : UpdateCheckState
+}
+
+data class UpdateState(
+    val currentVersion: String = "",
+    val autoCheck: Boolean = true,
+    /** 高于当前版本的已知远端版本；与是否被忽略无关，设置页始终展示。 */
+    val release: AvailableUpdate? = null,
+    /** 资料库顶部提示是否已被用户忽略；同版本手动检查会恢复。 */
+    val ignored: Boolean = false,
+    val check: UpdateCheckState = UpdateCheckState.Idle,
+)

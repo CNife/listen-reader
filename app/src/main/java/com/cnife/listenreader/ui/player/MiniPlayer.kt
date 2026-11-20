@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.ui.components.ProgressLine
+import java.util.Locale
 import com.cnife.listenreader.ui.theme.Accent
 import com.cnife.listenreader.ui.theme.CardSurface
 import com.cnife.listenreader.ui.theme.Ink2
@@ -205,7 +206,7 @@ internal fun formatTime(ms: Long): String {
 }
 
 internal fun formatSpeed(speed: Float): String =
-    if (speed % 1f == 0f) speed.toInt().toString() else "%.2f".format(speed).trimEnd('0')
+    if (speed % 1f == 0f) speed.toInt().toString() else "%.2f".format(Locale.US, speed).trimEnd('0')
 
 internal val SPEED_STEPS = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 

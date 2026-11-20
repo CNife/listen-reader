@@ -94,6 +94,8 @@ class ArchitectureContractTest {
         val settingsPort = """
             interface SettingsStore {
                 suspend fun setThemeMode(mode: String)
+
+                private suspend fun sharedDefault(): Boolean = true
             }
             data class AppSettings(
                 val themeMode: String = "system",
@@ -227,7 +229,9 @@ class ArchitectureContractTest {
             if (bodyStart < 0) continue
             val bodyEnd = matchingBrace(text, bodyStart)
             if (bodyEnd < 0) continue
-            val members = MEMBER_DECL.findAll(text.substring(bodyStart + 1, bodyEnd))
+            val bodyOffset = bodyStart + 1
+            val members = MEMBER_DECL.findAll(text.substring(bodyOffset, bodyEnd))
+                .filterNot { match -> nonPublicDeclaration(text, match.range.first + bodyOffset) }
                 .map { it.groupValues[1] }
                 .distinct()
                 .toList()

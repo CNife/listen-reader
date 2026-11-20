@@ -155,7 +155,7 @@ class RoomLibraryStore(
     override fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File =
         File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
 
-    override fun snapshotFile(resourceId: String): File = File(snapshotRoot, "$resourceId.md")
+    fun snapshotFile(resourceId: String): File = File(snapshotRoot, "$resourceId.md")
 
     override suspend fun deleteUnusedTracks(): Long = withContext(ioDispatcher) {
         val active = dao.resources().mapNotNull { it.activeTrackId }.toSet()
@@ -205,11 +205,6 @@ class RoomLibraryStore(
             }
         }
         StorageUsage(activeBytes, oldBytes)
-    }
-
-    private fun resolve(path: String): File {
-        val file = File(path)
-        return if (file.isAbsolute) file else File(filesDir, path)
     }
 
     private fun directorySize(dir: File): Long {

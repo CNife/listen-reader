@@ -1,26 +1,13 @@
 package com.cnife.listenreader.ui.capture
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -28,12 +15,11 @@ import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.model.L2Status
 import com.cnife.listenreader.service.ExtractionInfo
 import com.cnife.listenreader.service.PreviewState
+import com.cnife.listenreader.ui.components.IndeterminateProgressLine
 import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.components.StatusLine
-import com.cnife.listenreader.ui.theme.Accent
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Rule
 
 /**
  * 预览页的分段状态区：只写状态、原因和一个朱砂动作，不套彩色容器。
@@ -165,35 +151,5 @@ fun L2StatusSection(
                 actionTag = "preview-use-full-page",
             )
         }
-    }
-}
-
-/** 2dp 线性扫过的进度条；没有末端圆点，也不依赖默认进度控件。 */
-@Composable
-internal fun IndeterminateProgressLine(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "indeterminate-line")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_400, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "indeterminate-progress",
-    )
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .background(Rule),
-    ) {
-        val barWidth = maxWidth * 0.38f
-        Box(
-            modifier = Modifier
-                .width(barWidth)
-                .height(2.dp)
-                .offset(x = (maxWidth - barWidth) * progress)
-                .background(Accent),
-        )
     }
 }

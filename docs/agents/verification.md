@@ -18,6 +18,8 @@ ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} \
 | --- | --- |
 | `library-empty.png` | 空资料库引导页 |
 | `library-populated.png` | 继续收听卡片 + 资源列表 |
+| `library-empty-dark.png` | 深色主题空资料库引导页 |
+| `library-error.png` | 资料库加载失败错误态 |
 | `capture-url-idle.png` | 网页采集页空 URL 态（左对齐说明，URL 栏不被遮挡） |
 | `preview-l2-success.png` | 采集预览页，L2 清洗成功状态条 + 分段草稿 |
 | `player-active.png` | 播放页，当前语段用字重与深浅标出 |

@@ -1,14 +1,11 @@
 package com.cnife.listenreader.ui.library
 
 import androidx.compose.runtime.Composable
-import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.ui.components.LrDialog
 
 /** 删除前的确认弹层，明确说明会级联清理文稿、缓存音频与原文快照。 */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun DeleteResourceDialog(
-    item: LibraryItem,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {

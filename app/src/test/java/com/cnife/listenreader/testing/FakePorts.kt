@@ -181,8 +181,6 @@ class FakeLibraryStore(
     override fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File =
         File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
 
-    override fun snapshotFile(resourceId: String): File = File("build/tmp/sources/$resourceId.md")
-
     val deletedTrackIds = mutableListOf<String>()
 
     override suspend fun deleteUnusedTracks(): Long {

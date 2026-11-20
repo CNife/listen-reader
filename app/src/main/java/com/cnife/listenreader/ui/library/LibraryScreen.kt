@@ -109,7 +109,6 @@ fun LibraryScreen(
 
     pendingDelete?.let { item ->
         DeleteResourceDialog(
-            item = item,
             onConfirm = {
                 pendingDelete = null
                 service.deleteResource(item.id)

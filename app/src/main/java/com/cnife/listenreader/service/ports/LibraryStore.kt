@@ -34,7 +34,6 @@ interface LibraryStore {
     suspend fun upsertClip(clip: AudioClip)
     suspend fun deleteResource(resourceId: String)
     fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File
-    fun snapshotFile(resourceId: String): File
     suspend fun deleteUnusedTracks(): Long
     suspend fun lastOpenedResourceId(): String?
     fun saveLastOpenedResourceId(resourceId: String?)

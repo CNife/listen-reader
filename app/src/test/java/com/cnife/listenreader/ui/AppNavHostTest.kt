@@ -15,15 +15,11 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.ListenReaderApp
-import com.cnife.listenreader.model.ClipStatus
 import com.cnife.listenreader.model.LibraryItem
-import com.cnife.listenreader.model.SegmentKind
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.CaptureMode
 import com.cnife.listenreader.service.LibraryState
-import com.cnife.listenreader.service.PlayerSegment
-import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.service.ports.PageExtraction
 import com.cnife.listenreader.testing.FakeReadingService
 import org.junit.Assert.assertEquals
@@ -46,7 +42,7 @@ class AppNavHostTest {
         composeRule.setContent { ListenReaderApp(service) }
 
         composeRule.onNodeWithText("还没有内容").assertIsDisplayed()
-        composeRule.onNodeWithText("新建").assertIsDisplayed()
+        composeRule.onNodeWithText("添加内容").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("设置").assertIsDisplayed()
     }
 
@@ -55,10 +51,10 @@ class AppNavHostTest {
         val service = FakeReadingService()
         composeRule.setContent { ListenReaderApp(service) }
 
-        composeRule.onNodeWithText("新建").performClick()
+        composeRule.onNodeWithText("添加内容").performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("采集").assertIsDisplayed()
+        composeRule.onNodeWithText("添加内容").assertIsDisplayed()
         composeRule.onNodeWithText("粘贴文本").assertIsDisplayed()
         assertEquals(CaptureMode.URL, service.capture.value.mode)
     }
@@ -68,12 +64,12 @@ class AppNavHostTest {
         val service = FakeReadingService()
         composeRule.setContent { ListenReaderApp(service) }
 
-        composeRule.onNodeWithText("新建").performClick()
+        composeRule.onNodeWithText("添加内容").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("capture-url-input").assertIsDisplayed()
         composeRule.onNodeWithTag("capture-empty-web").assertIsDisplayed()
-        composeRule.onNodeWithText("输入网址开始采集").assertIsDisplayed()
+        composeRule.onNodeWithText("输入网址，页面会在这里打开。").assertIsDisplayed()
     }
 
     @Test
@@ -81,7 +77,7 @@ class AppNavHostTest {
         val service = FakeReadingService()
         composeRule.setContent { ListenReaderApp(service) }
 
-        composeRule.onNodeWithText("新建").performClick()
+        composeRule.onNodeWithText("添加内容").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("粘贴文本").performClick()
         composeRule.waitForIdle()
@@ -96,7 +92,7 @@ class AppNavHostTest {
         val service = FakeReadingService()
         composeRule.setContent { ListenReaderApp(service) }
 
-        composeRule.onNodeWithText("新建").performClick()
+        composeRule.onNodeWithText("添加内容").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("粘贴文本").performClick()
         composeRule.waitForIdle()
@@ -107,7 +103,7 @@ class AppNavHostTest {
 
         composeRule.onNodeWithTag("preview-title").assertTextContains("文章标题")
         composeRule.onNodeWithTag("preview-status").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("preview-status").assertTextContains("规则分段 · LLM 未运行")
+        composeRule.onNodeWithTag("preview-status").assertTextContains("当前按规则分段。")
         composeRule.onNodeWithTag("preview-meta").performScrollTo()
         composeRule.onNodeWithTag("preview-meta").assertTextContains("22 字", substring = true)
         composeRule.onNodeWithTag("preview-meta").assertTextContains("3 句", substring = true)
@@ -118,7 +114,7 @@ class AppNavHostTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("preview-meta").assertTextContains("2 句", substring = true)
 
-        composeRule.onNodeWithText("保存").performScrollTo().performClick()
+        composeRule.onNodeWithText("保存").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("player-title").assertTextContains("文章标题")
@@ -188,7 +184,7 @@ class AppNavHostTest {
     }
 
     @Test
-    fun library_showsItemsWithSourceAndSegmentCount() {
+    fun library_showsItemsWithSourceAndRelativeTime() {
         val item = LibraryItem(
             id = "r1",
             title = "已保存的文章",
@@ -200,6 +196,7 @@ class AppNavHostTest {
             currentSegmentIndex = 0,
             currentPositionMs = 0,
             lastOpenedAt = 0,
+            createdAt = System.currentTimeMillis() - 86_400_000L,
         )
         val service = FakeReadingService(
             initialLibrary = LibraryState(isLoading = false, items = listOf(item)),
@@ -207,11 +204,11 @@ class AppNavHostTest {
         composeRule.setContent { ListenReaderApp(service) }
 
         composeRule.onNodeWithText("已保存的文章").assertIsDisplayed()
-        composeRule.onNodeWithText("粘贴文本 · 5 句").assertIsDisplayed()
+        composeRule.onNodeWithText("粘贴文本 · 1 天前").assertIsDisplayed()
     }
 
     @Test
-    fun player_switchesToReaderAndBack() {
+    fun player_opensFromLibrary() {
         val item = LibraryItem(
             id = "r1",
             title = "已保存的文章",
@@ -223,38 +220,17 @@ class AppNavHostTest {
             currentSegmentIndex = 0,
             currentPositionMs = 0,
             lastOpenedAt = 0,
+            createdAt = 1_000L,
         )
         val service = FakeReadingService(
             initialLibrary = LibraryState(isLoading = false, items = listOf(item)),
-            initialPlayer = PlayerState(
-                segments = listOf(
-                    PlayerSegment(0, "第一句朗读文字。", SegmentKind.PARAGRAPH, 1_000L, ClipStatus.READY),
-                    PlayerSegment(1, "第二句朗读文字。", SegmentKind.PARAGRAPH, 1_000L, ClipStatus.READY),
-                ),
-                totalDurationMs = 2_000L,
-                snapshotText = "# 离线原文\n\n原文第一段。",
-            ),
         )
         composeRule.setContent { ListenReaderApp(service) }
 
         composeRule.onNodeWithText("已保存的文章").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("player-title").assertTextContains("已保存的文章")
-
-        composeRule.onNodeWithTag("player-open-reader").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("reader-mode-switch").assertIsDisplayed()
-        composeRule.onNodeWithTag("mini-player").assertIsDisplayed()
-
-        composeRule.onNodeWithTag("reader-tab-snapshot").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("reader-snapshot").assertIsDisplayed()
-        composeRule.onNodeWithText("离线原文").assertIsDisplayed()
-
-        composeRule.onNodeWithContentDescription("返回").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("player-title").assertTextContains("已保存的文章")
-        composeRule.onNodeWithTag("reader-mode-switch").assertDoesNotExist()
+        composeRule.onNodeWithTag("player-open-reader").assertDoesNotExist()
     }
 
     @Test

@@ -68,4 +68,5 @@ data class LibraryItem(
     val currentSegmentIndex: Int,
     val currentPositionMs: Long,
     val lastOpenedAt: Long,
+    val createdAt: Long,
 )

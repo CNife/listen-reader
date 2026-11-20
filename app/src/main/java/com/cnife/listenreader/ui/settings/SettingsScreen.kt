@@ -1,51 +1,42 @@
 package com.cnife.listenreader.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.service.TestState
+import com.cnife.listenreader.ui.components.PageHeader
+import com.cnife.listenreader.ui.components.RuleLine
+import com.cnife.listenreader.ui.components.StatusLine
+import com.cnife.listenreader.ui.components.TextTabs
+import com.cnife.listenreader.ui.theme.Ink
+import com.cnife.listenreader.ui.theme.Ink2
+import com.cnife.listenreader.ui.theme.Paper
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
     val state by service.settings.collectAsStateWithLifecycle()
 
     Scaffold(
+        containerColor = Paper,
         topBar = {
-            TopAppBar(
-                title = { Text("设置") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
+            PageHeader(title = "设置", onBack = onBack)
         },
     ) { padding ->
         Column(
@@ -53,125 +44,135 @@ fun SettingsScreen(service: ReadingService, onBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(top = 24.dp, bottom = 40.dp),
         ) {
             state.error?.let { error ->
-                Text(
-                    text = error.message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.testTag("settings-error"),
+                StatusLine(
+                    title = "出错",
+                    description = error.message,
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .testTag("settings-error"),
                 )
             }
-            Text(
-                text = "外观",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-            ThemeOption(
-                label = "跟随系统",
-                selected = state.themeMode == ThemeMode.SYSTEM,
-                testTag = "theme-SYSTEM",
-                onSelect = { service.setThemeMode(ThemeMode.SYSTEM) },
-            )
-            ThemeOption(
-                label = "浅色",
-                selected = state.themeMode == ThemeMode.LIGHT,
-                testTag = "theme-LIGHT",
-                onSelect = { service.setThemeMode(ThemeMode.LIGHT) },
-            )
-            ThemeOption(
-                label = "深色",
-                selected = state.themeMode == ThemeMode.DARK,
-                testTag = "theme-DARK",
-                onSelect = { service.setThemeMode(ThemeMode.DARK) },
+
+            SettingsSectionTitle("外观", Modifier.padding(horizontal = 20.dp))
+            Spacer(Modifier.height(8.dp))
+            TextTabs(
+                options = listOf(
+                    ThemeMode.SYSTEM.name to "跟随系统",
+                    ThemeMode.LIGHT.name to "浅色",
+                    ThemeMode.DARK.name to "深色",
+                ),
+                selectedKey = state.themeMode.name,
+                onSelect = { key ->
+                    ThemeMode.entries.firstOrNull { it.name == key }?.let(service::setThemeMode)
+                },
+                tagPrefix = "theme",
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            SectionDivider()
 
-            StepFunSettingsSection(service = service)
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            LlmSettingsSection(
-                state = state,
-                onSave = service::saveLlmConfig,
-                onTest = service::testLlm,
-                onClearKey = { service.setLlmKey("") },
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            Text(
-                text = "预取",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(0, 2, 4, 6, 8).forEach { count ->
-                    PrefetchOption(
-                        count = count,
-                        selected = state.prefetchCount == count,
-                        onSelect = { service.setPrefetchCount(count) },
-                    )
-                }
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                StepFunSettingsSection(service = service)
             }
+
+            SectionDivider()
+
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                LlmSettingsSection(
+                    state = state,
+                    onSave = service::saveLlmConfig,
+                    onTest = service::testLlm,
+                    onClearKey = { service.setLlmKey("") },
+                )
+            }
+
+            SectionDivider()
+
+            SettingsSectionTitle("预取", Modifier.padding(horizontal = 20.dp))
+            Spacer(Modifier.height(8.dp))
+            TextTabs(
+                options = listOf(
+                    "0" to "关闭",
+                    "2" to "2",
+                    "4" to "4",
+                    "6" to "6",
+                    "8" to "8",
+                ),
+                selectedKey = state.prefetchCount.toString(),
+                onSelect = { key -> key.toIntOrNull()?.let(service::setPrefetchCount) },
+                tagPrefix = "prefetch",
+            )
             Text(
-                text = "播放当前句时预先合成后面 ${state.prefetchCount} 句，最多并行 2 句。",
+                text = if (state.prefetchCount == 0) {
+                    "预取已关闭。"
+                } else {
+                    "播放当前句时预先合成后面 ${state.prefetchCount} 句，最多并行 2 句。"
+                },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = com.cnife.listenreader.ui.theme.Ink2,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            SectionDivider()
 
-            StorageSection(service = service)
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                StorageSection(service = service)
+            }
         }
     }
 }
 
 @Composable
-private fun PrefetchOption(count: Int, selected: Boolean, onSelect: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .testTag("prefetch-$count")
-            .selectable(
-                selected = selected,
-                role = Role.RadioButton,
-                onClick = onSelect,
-            )
-            .padding(vertical = 4.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Text(
-            text = if (count == 0) "关闭" else "$count 句",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
+internal fun SettingsSectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier,
+        style = MaterialTheme.typography.bodyLarge.copy(
+            fontSize = 18.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.SemiBold,
+        ),
+        color = Ink,
+    )
 }
 
 @Composable
-private fun ThemeOption(
-    label: String,
-    selected: Boolean,
-    testTag: String,
-    onSelect: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(testTag)
-            .selectable(
-                selected = selected,
-                role = Role.RadioButton,
-                onClick = onSelect,
+internal fun SectionDivider() {
+    Spacer(Modifier.height(20.dp))
+    RuleLine(Modifier.padding(horizontal = 20.dp))
+    Spacer(Modifier.height(20.dp))
+}
+
+@Composable
+internal fun TestStatus(test: TestState, testTag: String) {
+    when (test) {
+        TestState.Idle -> Unit
+        TestState.Running -> Text(
+            text = "正在测试连接…",
+            style = MaterialTheme.typography.bodySmall,
+            color = Ink2,
+            modifier = Modifier.testTag(testTag),
+        )
+        is TestState.Success -> Text(
+            text = test.message,
+            style = MaterialTheme.typography.bodySmall,
+            color = Ink2,
+            modifier = Modifier.testTag(testTag),
+        )
+        is TestState.Failure -> Column {
+            Text(
+                text = "测试失败",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = Ink,
             )
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = test.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink2,
+                modifier = Modifier.testTag(testTag),
+            )
+        }
     }
 }

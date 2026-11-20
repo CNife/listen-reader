@@ -37,11 +37,13 @@ class FakeReadingService(
     initialCapture: CaptureState = CaptureState(),
 ) : ReadingService {
 
-    private val _library = MutableStateFlow(initialLibrary)
+    private val _library = MutableStateFlow(
+        initialLibrary.copy(items = initialLibrary.items.sortedByDescending { it.createdAt }),
+    )
     override val library: StateFlow<LibraryState> = _library.asStateFlow()
 
     /** 全部条目，用于在测试替身里按查询/筛选复现列表行为。 */
-    private var allItems: List<LibraryItem> = initialLibrary.items
+    private var allItems: List<LibraryItem> = _library.value.items
 
     val deletedIds = mutableListOf<String>()
 
@@ -141,6 +143,7 @@ class FakeReadingService(
                     LibraryFilter.CACHED -> item.hasCachedAudio
                 }
             }
+            .sortedByDescending { it.createdAt }
     }
 
     override fun beginUrlCapture(url: String?) {
@@ -270,6 +273,7 @@ class FakeReadingService(
             currentSegmentIndex = 0,
             currentPositionMs = 0,
             lastOpenedAt = 0,
+            createdAt = System.currentTimeMillis(),
         )
         allItems = allItems + item
         _library.update { state ->

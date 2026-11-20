@@ -90,19 +90,19 @@ class RoomLibraryStoreTest {
         assertEquals(Voices.LINJIA, tracks[0].voice)
         assertEquals(tracks[0].id, saved?.activeTrackId)
 
-        assertEquals(TEXT_BODY, store.snapshotText(id))
+        assertEquals(TEXT_BODY, store.snapshotFile(id).readText())
         assertTrue(store.snapshotFile(id).isFile)
     }
 
     @Test
-    fun `library sorts opened resources first then newest created`() = runBlocking {
+    fun `library sorts newest created first`() = runBlocking {
         store.createResource(resource("a", createdAt = 1_000), TEXT_BODY, null)
         store.createResource(resource("b", createdAt = 2_000), TEXT_BODY, null)
 
         assertEquals(listOf("b", "a"), store.observeItems().first().map { it.id })
 
         store.markOpened("a", 3_000)
-        assertEquals(listOf("a", "b"), store.observeItems().first().map { it.id })
+        assertEquals(listOf("b", "a"), store.observeItems().first().map { it.id })
     }
 
     @Test

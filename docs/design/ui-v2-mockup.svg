@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1554" viewBox="0 0 900 1554">
+  <defs>
+    <clipPath id="phone1"><rect x="1" y="1" width="388" height="718" rx="23"/></clipPath>
+    <clipPath id="phone2"><rect x="1" y="1" width="388" height="718" rx="23"/></clipPath>
+    <clipPath id="phone4"><rect x="1" y="1" width="388" height="718" rx="23"/></clipPath>
+  </defs>
+
+  <rect width="900" height="1554" fill="#E9E8E2"/>
+
+  <!-- ============ 01 资料库 ============ -->
+  <text x="30" y="26" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" font-weight="500" fill="#5B5B57">01 资料库</text>
+  <g transform="translate(30,40)">
+    <rect x="0" y="0" width="390" height="720" rx="24" fill="#F7F6F2" stroke="#C4C4BB" stroke-width="1"/>
+    <g clip-path="url(#phone1)">
+      <text x="20" y="22" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="10" fill="#5B5B57">9:41</text>
+      <rect x="348" y="15" width="18" height="7" rx="2" fill="none" stroke="#5B5B57" stroke-width="1"/>
+      <rect x="366" y="17" width="2" height="3" fill="#5B5B57"/>
+
+      <!-- header -->
+      <text x="20" y="65" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="28" font-weight="600" fill="#17171A">听我读</text>
+      <g transform="translate(312,49)" fill="none" stroke="#5B5B57" stroke-width="1.5">
+        <circle cx="7" cy="7" r="6"/>
+        <path d="M11.5 11.5 L16 16"/>
+      </g>
+      <g transform="translate(344,48) scale(0.86)" fill="#5B5B57">
+        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.18L15.45 6.81c-.32-.09-.65-.15-1-.15s-.68.06-1 .15L10.4 6.81c-.22-.11-.47-.04-.59.18L7.89 10.31c-.11.2-.06.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.18l2.05-1.58c.32.09.65.15 1 .15s.68-.06 1-.15l2.05 1.58c.22.11.47.04.59-.18l1.92-3.32c.11-.22.06-.47-.12-.61l-2.03-1.58zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+      </g>
+      <text x="20" y="90" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">3 篇</text>
+
+      <!-- continue card -->
+      <rect x="20" y="104" width="350" height="112" rx="12" fill="#FFFFFF" stroke="#DEDED7" stroke-width="1"/>
+      <text x="36" y="136" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" font-weight="600" fill="#17171A">在通勤路上听见长文</text>
+      <text x="36" y="158" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">少数派 · 40%</text>
+      <rect x="36" y="180" width="230" height="2" fill="#DEDED7"/>
+      <rect x="36" y="180" width="92" height="2" fill="#B23A26"/>
+      <text x="36" y="202" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">0:32 / 1:20</text>
+      <rect x="310" y="156" width="44" height="44" rx="8" fill="#B23A26"/>
+      <path d="M327 170 L327 186 L341 178 Z" fill="#FFFFFF"/>
+
+      <!-- filter tabs -->
+      <text x="20" y="252" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" font-weight="600" fill="#17171A">全部</text>
+      <rect x="20" y="260" width="26" height="2" fill="#B23A26"/>
+      <text x="64" y="252" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">网页</text>
+      <text x="110" y="252" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">粘贴文本</text>
+      <text x="194" y="252" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">已缓存</text>
+
+      <!-- rows -->
+      <text x="20" y="300" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" font-weight="500" fill="#17171A">在通勤路上听见长文</text>
+      <text x="20" y="322" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">少数派 · 1 天前</text>
+      <text x="370" y="322" text-anchor="end" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">40%</text>
+      <g transform="translate(350,292)" stroke="#5B5B57" stroke-width="1.2" fill="none">
+        <path d="M1 3 H13"/><path d="M4 3 V1 H10 V3"/><path d="M2 3 V14 H12 V3"/><path d="M6 6 V11"/><path d="M9 6 V11"/>
+      </g>
+      <line x1="20" y1="360" x2="370" y2="360" stroke="#DEDED7" stroke-width="1"/>
+
+      <text x="20" y="386" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" font-weight="500" fill="#17171A">被折叠的公众号文章</text>
+      <text x="20" y="408" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">微信公众号 · 3 天前</text>
+      <text x="370" y="408" text-anchor="end" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">11%</text>
+      <g transform="translate(350,378)" stroke="#5B5B57" stroke-width="1.2" fill="none">
+        <path d="M1 3 H13"/><path d="M4 3 V1 H10 V3"/><path d="M2 3 V14 H12 V3"/><path d="M6 6 V11"/><path d="M9 6 V11"/>
+      </g>
+      <line x1="20" y1="446" x2="370" y2="446" stroke="#DEDED7" stroke-width="1"/>
+
+      <text x="20" y="472" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" font-weight="500" fill="#17171A">粘贴的深读笔记</text>
+      <text x="20" y="494" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">粘贴文本 · 5 天前</text>
+      <text x="370" y="494" text-anchor="end" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">25%</text>
+      <g transform="translate(350,464)" stroke="#5B5B57" stroke-width="1.2" fill="none">
+        <path d="M1 3 H13"/><path d="M4 3 V1 H10 V3"/><path d="M2 3 V14 H12 V3"/><path d="M6 6 V11"/><path d="M9 6 V11"/>
+      </g>
+
+      <!-- bottom action -->
+      <rect x="20" y="652" width="350" height="48" rx="8" fill="#B23A26"/>
+      <text x="195" y="681" text-anchor="middle" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="15" font-weight="600" fill="#FFFFFF">+  添加内容</text>
+    </g>
+  </g>
+
+  <!-- ============ 02 正在朗读 ============ -->
+  <text x="480" y="26" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" font-weight="500" fill="#5B5B57">02 正在朗读</text>
+  <g transform="translate(480,40)">
+    <rect x="0" y="0" width="390" height="720" rx="24" fill="#F7F6F2" stroke="#C4C4BB" stroke-width="1"/>
+    <g clip-path="url(#phone2)">
+      <text x="20" y="22" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="10" fill="#5B5B57">9:41</text>
+      <rect x="348" y="15" width="18" height="7" rx="2" fill="none" stroke="#5B5B57" stroke-width="1"/>
+      <rect x="366" y="17" width="2" height="3" fill="#5B5B57"/>
+
+      <!-- header -->
+      <path d="M34 52 L22 64 L34 76" fill="none" stroke="#17171A" stroke-width="2"/>
+      <path d="M22 64 H42" fill="none" stroke="#17171A" stroke-width="2"/>
+      <text x="48" y="68" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="22" font-weight="600" fill="#17171A">正在朗读</text>
+
+      <text x="20" y="106" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">少数派</text>
+      <text x="20" y="136" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="24" font-weight="600" fill="#17171A">在通勤路上听见长文</text>
+
+      <!-- notification line -->
+      <line x1="20" y1="184" x2="370" y2="184" stroke="#DEDED7" stroke-width="1"/>
+      <text x="20" y="206" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">通知未开启，锁屏控制不可用</text>
+      <text x="370" y="206" text-anchor="end" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" font-weight="500" fill="#B23A26">开启</text>
+
+      <!-- transcript -->
+      <text x="20" y="246" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" fill="#5B5B57">导语：把长文交给耳朵。</text>
+
+      <text x="20" y="284" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" font-weight="600" fill="#17171A">每天早上七点半，地铁里挤满了</text>
+      <text x="20" y="308" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" font-weight="600" fill="#17171A">低头看手机的人。</text>
+
+      <text x="20" y="358" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" fill="#17171A">把文字变成声音之后，同样的四十分钟</text>
+      <text x="20" y="382" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" fill="#17171A">忽然变得宽裕起来。</text>
+
+      <text x="20" y="432" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" fill="#17171A">技术退到背景里，</text>
+      <text x="20" y="456" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="17" fill="#17171A">留下的只有内容本身。</text>
+
+      <!-- bottom dock -->
+      <rect x="0" y="568" width="390" height="152" fill="#FFFFFF"/>
+      <line x1="0" y1="568" x2="390" y2="568" stroke="#DEDED7" stroke-width="1"/>
+      <text x="20" y="590" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">0:01</text>
+      <text x="370" y="590" text-anchor="end" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">0:08</text>
+      <rect x="20" y="600" width="350" height="2" fill="#DEDED7"/>
+      <rect x="20" y="600" width="86" height="2" fill="#B23A26"/>
+
+      <g transform="translate(82,628)" fill="#17171A">
+        <rect x="0" y="0" width="2" height="14"/>
+        <path d="M14 0 L4 7 L14 14 Z"/>
+      </g>
+      <rect x="169" y="612" width="52" height="52" rx="8" fill="#B23A26"/>
+      <rect x="185" y="627" width="5" height="22" rx="1" fill="#FFFFFF"/>
+      <rect x="199" y="627" width="5" height="22" rx="1" fill="#FFFFFF"/>
+      <g transform="translate(292,628)" fill="#17171A">
+        <path d="M0 0 L10 7 L0 14 Z"/>
+        <rect x="12" y="0" width="2" height="14"/>
+      </g>
+      <g transform="translate(332,630)" fill="none" stroke="#5B5B57" stroke-width="1.2">
+        <circle cx="7" cy="7" r="6"/>
+        <path d="M7 3 V7 L10 9"/>
+      </g>
+      <text x="350" y="641" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" fill="#5B5B57">定时</text>
+
+      <text x="20" y="692" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" font-weight="500" fill="#17171A">1.0×</text>
+      <text x="78" y="692" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">音色 · 温柔女声</text>
+      <text x="370" y="692" text-anchor="end" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">跟随</text>
+    </g>
+  </g>
+
+  <!-- ============ 03 添加内容 ============ -->
+  <text x="255" y="800" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="12" font-weight="500" fill="#5B5B57">03 添加内容</text>
+  <g transform="translate(255,814)">
+    <rect x="0" y="0" width="390" height="720" rx="24" fill="#F7F6F2" stroke="#C4C4BB" stroke-width="1"/>
+    <g clip-path="url(#phone4)">
+      <text x="20" y="22" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="10" fill="#5B5B57">9:41</text>
+      <rect x="348" y="15" width="18" height="7" rx="2" fill="none" stroke="#5B5B57" stroke-width="1"/>
+      <rect x="366" y="17" width="2" height="3" fill="#5B5B57"/>
+
+      <path d="M34 52 L22 64 L34 76" fill="none" stroke="#17171A" stroke-width="2"/>
+      <path d="M22 64 H42" fill="none" stroke="#17171A" stroke-width="2"/>
+      <text x="48" y="68" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="22" font-weight="600" fill="#17171A">添加内容</text>
+
+      <!-- mode tabs -->
+      <text x="20" y="112" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" font-weight="600" fill="#17171A">网页</text>
+      <rect x="20" y="120" width="26" height="2" fill="#B23A26"/>
+      <text x="62" y="112" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">粘贴文本</text>
+      <line x1="20" y1="130" x2="370" y2="130" stroke="#DEDED7" stroke-width="1"/>
+
+      <!-- url field -->
+      <rect x="20" y="144" width="350" height="44" rx="8" fill="#EFEEE8"/>
+      <text x="36" y="171" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="15" fill="#5B5B57">https://…</text>
+      <text x="354" y="171" text-anchor="end" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" font-weight="500" fill="#B23A26">打开</text>
+
+      <!-- empty instruction -->
+      <text x="20" y="236" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="16" fill="#17171A">输入网址，页面会在这里打开。</text>
+      <text x="20" y="262" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="13" fill="#5B5B57">提取后进入预览，可以修改标题和正文。</text>
+
+      <!-- disabled primary action -->
+      <rect x="20" y="652" width="350" height="48" rx="8" fill="#EFEEE8"/>
+      <text x="195" y="681" text-anchor="middle" font-family="Noto Sans CJK SC, Noto Sans CJK, sans-serif" font-size="15" font-weight="600" fill="#8A8A83">提取正文</text>
+    </g>
+  </g>
+</svg>

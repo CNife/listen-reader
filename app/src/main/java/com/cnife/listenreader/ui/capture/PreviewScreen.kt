@@ -1,36 +1,44 @@
 package com.cnife.listenreader.ui.capture
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.L2Status
+import com.cnife.listenreader.model.SegmentationSource
 import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.ReadingService
-import java.util.Locale
+import com.cnife.listenreader.ui.components.PageHeader
+import com.cnife.listenreader.ui.components.PrimaryAction
+import com.cnife.listenreader.ui.components.RuleLine
+import com.cnife.listenreader.ui.components.StatusLine
+import com.cnife.listenreader.ui.theme.Accent
+import com.cnife.listenreader.ui.theme.Ink
+import com.cnife.listenreader.ui.theme.Ink2
+import com.cnife.listenreader.ui.theme.Paper
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PreviewScreen(
     service: ReadingService,
@@ -44,33 +52,49 @@ fun PreviewScreen(
         state.savedResourceId?.let(onSaved)
     }
 
+    val preview = state.preview
+
     Scaffold(
+        containerColor = Paper,
         topBar = {
-            TopAppBar(
-                title = { Text("预览") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
+            PageHeader(title = "预览", onBack = onBack)
+        },
+        bottomBar = {
+            if (preview != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                ) {
+                    PrimaryAction(
+                        text = saveButtonLabel(state.isSaving, preview),
+                        onClick = { service.saveCapture() },
+                        enabled = !state.isSaving,
+                        testTag = "preview-save",
+                    )
+                }
+            }
         },
     ) { padding ->
-        val preview = state.preview
         if (preview == null) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("还没有预览内容，请先粘贴文本。", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "还没有预览内容，请先粘贴文本。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Ink,
+                )
                 state.error?.let { error ->
                     Text(
                         text = error.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Ink2,
                     )
                 }
             }
@@ -82,89 +106,90 @@ fun PreviewScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            OutlinedTextField(
-                value = preview.title,
-                onValueChange = service::updatePreviewTitle,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("preview-title"),
-                label = { Text("标题") },
-                singleLine = true,
-            )
+            Column {
+                Text(
+                    text = "标题",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Ink2,
+                )
+                Spacer(Modifier.height(6.dp))
+                BasicTextField(
+                    value = preview.title,
+                    onValueChange = service::updatePreviewTitle,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("preview-title"),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.titleLarge.copy(color = Ink),
+                    cursorBrush = SolidColor(Accent),
+                )
+                Spacer(Modifier.height(8.dp))
+                RuleLine()
+            }
 
-            OutlinedTextField(
-                value = preview.body,
-                onValueChange = service::updatePreviewBody,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("preview-body"),
-                label = { Text("正文") },
-                minLines = 10,
-                maxLines = 24,
-            )
+            Column(modifier = Modifier.padding(horizontal = 4.dp)) {
+                Text(
+                    text = "正文",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Ink2,
+                )
+                Spacer(Modifier.height(6.dp))
+                BasicTextField(
+                    value = preview.body,
+                    onValueChange = service::updatePreviewBody,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("preview-body"),
+                    textStyle = longTextStyle(),
+                    minLines = 12,
+                    cursorBrush = SolidColor(Accent),
+                )
+                Spacer(Modifier.height(8.dp))
+                RuleLine()
+            }
 
             Text(
-                text = "${preview.charCount} 字 · ${preview.segmentDrafts.size} 句",
-                style = MaterialTheme.typography.titleSmall,
+                text = metaLabel(preview),
+                style = MaterialTheme.typography.bodySmall,
+                color = Ink2,
                 modifier = Modifier.testTag("preview-meta"),
             )
-            state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
-                Text(
-                    text = if (extraction.usedFullPage) {
-                        "已使用页面全文，可编辑正文后保存。"
-                    } else {
-                        "正文可能不完整：${extraction.degradedReason ?: "提取置信度较低"}" +
-                            "（可编辑正文，或使用页面全文）"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.testTag("preview-degraded-hint"),
-                )
-                if (!extraction.usedFullPage) {
-                    Button(
-                        onClick = { service.useFullPage() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("preview-use-full-page"),
-                    ) {
-                        Text("使用页面全文")
-                    }
-                }
-            }
+
             L2StatusSection(
                 preview = preview,
                 onRetryL2 = service::retryL2,
                 onOpenSettings = onOpenSettings,
-            )
-            Text(
-                text = buildString {
-                    append("来源：").append(preview.sourceLabel)
-                    preview.extractor?.let { append(" · 提取：").append(it) }
-                    preview.score?.let { append(" · score ").append(String.format(Locale.ROOT, "%.2f", it)) }
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                extraction = state.extraction,
+                onUseFullPage = service::useFullPage,
             )
 
             state.error?.let { error ->
-                Text(
-                    text = error.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
+                StatusLine(
+                    title = "出错",
+                    description = error.message,
                 )
             }
-
-            Button(
-                onClick = { service.saveCapture() },
-                enabled = !state.isSaving,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(saveButtonLabel(state.isSaving, preview))
-            }
         }
+    }
+}
+
+@Composable
+private fun longTextStyle(): TextStyle = MaterialTheme.typography.bodyLarge.copy(
+    fontSize = 18.sp,
+    lineHeight = 32.sp,
+    fontWeight = FontWeight.Normal,
+    color = Ink,
+)
+
+private fun metaLabel(preview: PreviewState): String = buildString {
+    append(preview.charCount).append(" 字 · ")
+    append(preview.segmentDrafts.size).append(" 句 · ")
+    append("来源：").append(preview.sourceLabel)
+    if (preview.segmentation == SegmentationSource.L2) {
+        append(" · LLM 清洗")
     }
 }
 
@@ -172,6 +197,6 @@ private fun saveButtonLabel(isSaving: Boolean, preview: PreviewState): String = 
     isSaving -> "保存中…"
     preview.l2Status == L2Status.FAILED ||
         preview.l2Status == L2Status.NOT_CONFIGURED ||
-        preview.l2Status == L2Status.RUNNING -> "保存（规则分段）"
+        preview.l2Status == L2Status.RUNNING -> "保存（按规则分段）"
     else -> "保存"
 }

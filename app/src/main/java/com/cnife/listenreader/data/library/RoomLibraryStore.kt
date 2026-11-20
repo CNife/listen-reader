@@ -15,11 +15,11 @@ import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.Segment
 import com.cnife.listenreader.model.SegmentDraft
 import com.cnife.listenreader.model.SourceKind
+import com.cnife.listenreader.model.SourceLabels
 import com.cnife.listenreader.service.StorageUsage
 import com.cnife.listenreader.service.ports.LibraryStore
 import com.cnife.listenreader.service.ports.SettingsStore
 import java.io.File
-import java.net.URI
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineDispatcher
@@ -152,23 +152,10 @@ class RoomLibraryStore(
         }
     }
 
-    override suspend fun snapshotText(resourceId: String): String? {
-        val path = getResource(resourceId)?.snapshotPath
-        val fromResource = path?.let { readSnapshotFile(it) }
-        return fromResource ?: readSnapshotFile(snapshotFile(resourceId).absolutePath)
-    }
-
-    private suspend fun readSnapshotFile(path: String): String? = withContext(ioDispatcher) {
-        runCatching {
-            val file = resolve(path)
-            if (file.isFile) file.readText() else null
-        }.getOrNull()
-    }
-
     override fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File =
         File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
 
-    override fun snapshotFile(resourceId: String): File = File(snapshotRoot, "$resourceId.md")
+    fun snapshotFile(resourceId: String): File = File(snapshotRoot, "$resourceId.md")
 
     override suspend fun deleteUnusedTracks(): Long = withContext(ioDispatcher) {
         val active = dao.resources().mapNotNull { it.activeTrackId }.toSet()
@@ -220,20 +207,9 @@ class RoomLibraryStore(
         StorageUsage(activeBytes, oldBytes)
     }
 
-    private fun resolve(path: String): File {
-        val file = File(path)
-        return if (file.isAbsolute) file else File(filesDir, path)
-    }
-
     private fun directorySize(dir: File): Long {
         if (!dir.exists()) return 0L
         return dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
-    }
-
-    private fun sourceLabel(kind: SourceKind, url: String?): String {
-        if (kind == SourceKind.TEXT) return "粘贴文本"
-        val host = runCatching { URI(url.orEmpty()).host }.getOrNull()
-        return host?.removePrefix("www.")?.takeIf { it.isNotBlank() } ?: "网页"
     }
 }
 
@@ -318,18 +294,13 @@ private fun LibraryItemRow.toItem(): LibraryItem {
         id = id,
         title = title,
         sourceKind = kind,
-        sourceLabel = when (kind) {
-            SourceKind.TEXT -> "粘贴文本"
-            SourceKind.URL -> {
-                val host = runCatching { URI(sourceUrl.orEmpty()).host }.getOrNull()
-                host?.removePrefix("www.")?.takeIf { it.isNotBlank() } ?: "网页"
-            }
-        },
+        sourceLabel = SourceLabels.of(kind, sourceUrl),
         segmentCount = segmentCount,
         durationMs = durationMs,
         hasCachedAudio = activeTrackId != null && segmentCount > 0 && readyClipCount >= segmentCount,
         currentSegmentIndex = currentSegmentIndex,
         currentPositionMs = currentPositionMs,
         lastOpenedAt = lastOpenedAt,
+        createdAt = createdAt,
     )
 }

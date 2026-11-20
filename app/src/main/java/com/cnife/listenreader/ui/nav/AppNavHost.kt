@@ -15,7 +15,6 @@ import com.cnife.listenreader.ui.capture.CaptureScreen
 import com.cnife.listenreader.ui.capture.PreviewScreen
 import com.cnife.listenreader.ui.library.LibraryScreen
 import com.cnife.listenreader.ui.player.PlayerScreen
-import com.cnife.listenreader.ui.player.ReadingScreen
 import com.cnife.listenreader.ui.settings.SettingsScreen
 
 object Routes {
@@ -24,10 +23,8 @@ object Routes {
     const val PREVIEW = "preview"
     const val SETTINGS = "settings"
     const val PLAYER = "player/{resourceId}"
-    const val READER = "reader/{resourceId}"
 
     fun player(resourceId: String) = "player/$resourceId"
-    fun reader(resourceId: String) = "reader/$resourceId"
 }
 
 @Composable
@@ -97,20 +94,6 @@ fun AppNavHost(service: ReadingService) {
             arguments = listOf(navArgument("resourceId") { type = NavType.StringType }),
         ) { entry ->
             PlayerScreen(
-                service = service,
-                resourceId = entry.arguments?.getString("resourceId").orEmpty(),
-                onBack = { navController.popBackStack() },
-                onOpenReader = { resourceId ->
-                    navController.navigate(Routes.reader(resourceId))
-                },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-            )
-        }
-        composable(
-            route = Routes.READER,
-            arguments = listOf(navArgument("resourceId") { type = NavType.StringType }),
-        ) { entry ->
-            ReadingScreen(
                 service = service,
                 resourceId = entry.arguments?.getString("resourceId").orEmpty(),
                 onBack = { navController.popBackStack() },

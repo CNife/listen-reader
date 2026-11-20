@@ -40,9 +40,9 @@ class ShareTextTest {
     }
 
     @Test
-    fun `source label drops the www prefix`() {
+    fun `source label drops www and maps common sites`() {
         assertEquals("example.com", ShareText.sourceLabel("https://www.example.com/post/1"))
-        assertEquals("mp.weixin.qq.com", ShareText.sourceLabel("https://mp.weixin.qq.com/s/abc"))
+        assertEquals("微信公众号", ShareText.sourceLabel("https://mp.weixin.qq.com/s/abc"))
         assertEquals("网页", ShareText.sourceLabel("not a url"))
     }
 }

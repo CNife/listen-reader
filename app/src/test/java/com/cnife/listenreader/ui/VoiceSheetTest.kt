@@ -1,9 +1,8 @@
 package com.cnife.listenreader.ui
 
 import android.app.Application
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -15,6 +14,7 @@ import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.service.StorageUsage
 import com.cnife.listenreader.ui.player.VoiceSheetContent
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -35,7 +35,7 @@ class VoiceSheetTest {
         val selected = mutableListOf<String>()
         val previewed = mutableListOf<String>()
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 VoiceSheetContent(
                     selectedVoice = selectedVoice,
                     state = state,
@@ -52,7 +52,7 @@ class VoiceSheetTest {
         setContent(state = SettingsState(ttsModel = TtsModels.MINI))
 
         assertEquals(27, Voices.entriesForModel(TtsModels.MINI).size)
-        composeRule.onNodeWithText("温柔女声（当前）").assertIsDisplayed()
+        composeRule.onNodeWithTag("voice-option-${Voices.WENROU}").assertIsSelected()
         composeRule.onNodeWithText("磁性男声").assertIsDisplayed()
         composeRule.onNodeWithText("元气少女").assertIsDisplayed()
         composeRule.onNodeWithText("邻家姐姐").assertIsDisplayed()
@@ -70,7 +70,9 @@ class VoiceSheetTest {
         assertEquals(12, Voices.entriesForModel(TtsModels.QWEN_FLASH).size)
         composeRule.onNodeWithText("当前模型：${TtsModels.QWEN_FLASH}").assertIsDisplayed()
         composeRule.onNodeWithText("龙安风悦").assertIsDisplayed()
-        composeRule.onNodeWithText("龙安欢（当前）").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("voice-option-${Voices.LONGANHUAN}")
+            .performScrollTo()
+            .assertIsSelected()
         composeRule.onNodeWithTag("voice-option-${Voices.LOONGJOHN}").performScrollTo().assertIsDisplayed()
     }
 
@@ -97,8 +99,9 @@ class VoiceSheetTest {
             ),
         )
 
-        composeRule.onNodeWithText("正在合成试听音频…").assertIsDisplayed()
-        composeRule.onNodeWithTag("voice-audition-error")
-            .assertTextContains("需要联网合成", substring = true)
+        composeRule.onNodeWithTag("voice-option-${Voices.CIXING}").performScrollTo()
+        composeRule.onNodeWithText("合成中").assertIsDisplayed()
+        composeRule.onNodeWithTag("voice-audition-error").assertExists()
+        composeRule.onNodeWithText("需要联网合成", substring = true).assertIsDisplayed()
     }
 }

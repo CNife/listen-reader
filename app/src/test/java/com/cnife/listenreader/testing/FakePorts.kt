@@ -51,11 +51,6 @@ class FakeLibraryStore(
     /** 让行为测试能模拟删除失败。 */
     var failDelete: Boolean = false
 
-    /** 让行为测试能模拟快照读取失败。 */
-    var failSnapshot: Boolean = false
-
-    private val snapshots = mutableMapOf<String, String>()
-
     var lastOpened: String? = null
     var audioRoot: File = File("build/tmp/audio")
     val progressWrites = mutableListOf<Pair<Int, Long>>()
@@ -100,18 +95,14 @@ class FakeLibraryStore(
             id = resource.id,
             title = resource.title,
             sourceKind = resource.sourceKind,
-            sourceLabel = when (resource.sourceKind) {
-                com.cnife.listenreader.model.SourceKind.TEXT -> "粘贴文本"
-                com.cnife.listenreader.model.SourceKind.URL ->
-                    resource.sourceUrl?.removePrefix("https://")?.removePrefix("http://")
-                        ?.substringBefore('/')?.removePrefix("www.").orEmpty()
-            },
+            sourceLabel = com.cnife.listenreader.model.SourceLabels.of(resource.sourceKind, resource.sourceUrl),
             segmentCount = segments.size,
             durationMs = durationMs,
             hasCachedAudio = activeTrackId != null && segments.isNotEmpty() && readyCount >= segments.size,
             currentSegmentIndex = resource.currentSegmentIndex,
             currentPositionMs = resource.currentPositionMs,
             lastOpenedAt = resource.lastOpenedAt,
+            createdAt = resource.createdAt,
         )
         items.update { current -> current.filterNot { it.id == item.id } + item }
     }
@@ -187,20 +178,8 @@ class FakeLibraryStore(
         items.update { current -> current.filterNot { it.id == resourceId } }
     }
 
-    override suspend fun snapshotText(resourceId: String): String? {
-        if (failSnapshot) throw IllegalStateException("snapshot unreadable")
-        return snapshots[resourceId]
-    }
-
-    /** 写入某 Resource 的 Markdown 快照，模拟离线可读。 */
-    fun setSnapshot(resourceId: String, text: String) {
-        snapshots[resourceId] = text
-    }
-
     override fun audioFile(resourceId: String, trackId: String, segmentIndex: Int): File =
         File(audioRoot, "$resourceId/$trackId/$segmentIndex.mp3")
-
-    override fun snapshotFile(resourceId: String): File = File("build/tmp/sources/$resourceId.md")
 
     val deletedTrackIds = mutableListOf<String>()
 

@@ -9,13 +9,12 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,8 +31,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.cnife.listenreader.ui.components.QuietAction
+import com.cnife.listenreader.ui.components.RuleLine
+import com.cnife.listenreader.ui.theme.Ink2
 
-const val NOTIFICATION_PERMISSION_HINT = "未授予通知权限，锁屏控制不可用"
+const val NOTIFICATION_PERMISSION_HINT = "通知未开启，锁屏控制不可用"
 
 private const val PREFS_NAME = "listen_reader_ui"
 private const val KEY_NOTIFICATION_ASKED = "notification_permission_asked"
@@ -99,30 +101,30 @@ fun NotificationPermissionHint(
     modifier: Modifier = Modifier,
 ) {
     if (!state.required || state.granted) return
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.medium,
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .testTag("notification-permission-hint"),
     ) {
+        RuleLine()
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = NOTIFICATION_PERMISSION_HINT,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Ink2,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(
+            QuietAction(
+                text = "开启",
                 onClick = state.onOpenSettings,
-                modifier = Modifier.testTag("notification-open-settings"),
-            ) {
-                Text("去开启")
-            }
+                testTag = "notification-open-settings",
+            )
         }
     }
 }

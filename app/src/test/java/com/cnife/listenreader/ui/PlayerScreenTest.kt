@@ -1,13 +1,13 @@
 package com.cnife.listenreader.ui
 
 import android.app.Application
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -26,6 +26,7 @@ import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.testing.FakeReadingService
 import com.cnife.listenreader.ui.player.PlayerScreen
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -62,12 +63,11 @@ class PlayerScreenTest {
         onOpenSettings: () -> Unit = {},
     ) {
         composeRule.setContent {
-            MaterialTheme {
+            ListenReaderTheme {
                 PlayerScreen(
                     service = service,
                     resourceId = "r1",
                     onBack = {},
-                    onOpenReader = {},
                     onOpenSettings = onOpenSettings,
                 )
             }
@@ -81,12 +81,12 @@ class PlayerScreenTest {
     }
 
     @Test
-    fun `hero and lyrics render with the current segment highlighted`() {
+    fun `title and lyrics render with the current segment highlighted`() {
         val service = FakeReadingService(initialPlayer = playerState())
         setPlayerScreen(service)
 
         composeRule.onNodeWithTag("player-title").assertTextContains("测试文章")
-        composeRule.onNodeWithTag("player-meta").assertTextContains("温柔女声", substring = true)
+        composeRule.onNodeWithText("粘贴文本").assertIsDisplayed()
         scrollToSegment(0)
         scrollToSegment(1)
         composeRule.onNodeWithTag("player-segment-1").assertIsSelected()
@@ -108,7 +108,7 @@ class PlayerScreenTest {
     }
 
     @Test
-    fun `hero play button toggles playback`() {
+    fun `play button toggles playback`() {
         val service = FakeReadingService(initialPlayer = playerState())
         setPlayerScreen(service)
 
@@ -116,7 +116,7 @@ class PlayerScreenTest {
         composeRule.waitForIdle()
 
         assertTrue(service.player.value.isPlaying)
-        composeRule.onNodeWithText("暂停").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("暂停").assertExists()
 
         composeRule.onNodeWithTag("player-hero-play").performClick()
         composeRule.waitForIdle()
@@ -163,8 +163,8 @@ class PlayerScreenTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("voice-sheet").assertIsDisplayed()
-        composeRule.onNodeWithText("切换音色").assertIsDisplayed()
-        composeRule.onNodeWithText("温柔女声（当前）").assertIsDisplayed()
+        composeRule.onNodeWithText("音色").assertIsDisplayed()
+        composeRule.onNodeWithTag("voice-option-${Voices.WENROU}").assertIsSelected()
     }
 
     @Test

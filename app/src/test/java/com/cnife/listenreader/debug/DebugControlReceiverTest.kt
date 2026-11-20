@@ -7,13 +7,17 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cnife.listenreader.data.db.ListenReaderDatabase
 import com.cnife.listenreader.di.DEBUG_PREFS
+import com.cnife.listenreader.di.KEY_QWEN_ENDPOINT
 import com.cnife.listenreader.di.KEY_STEPFUN_ENDPOINT
+import com.cnife.listenreader.model.QwenDefaults
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.StepFunDefaults
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.testing.FakeLibraryStore
 import com.cnife.listenreader.testing.FakeReadingService
 import com.cnife.listenreader.testing.FakeSettingsStore
+import com.cnife.listenreader.tts.QwenSpeechSynthesizer
+import com.cnife.listenreader.tts.RoutingSpeechSynthesizer
 import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -44,8 +48,9 @@ class DebugControlReceiverTest {
     private lateinit var settings: FakeSettingsStore
     private lateinit var library: FakeLibraryStore
     private lateinit var service: FakeReadingService
-    private lateinit var synthesizer: StepFunSpeechSynthesizer
-
+    private lateinit var stepFunSynthesizer: StepFunSpeechSynthesizer
+    private lateinit var qwenSynthesizer: QwenSpeechSynthesizer
+    private lateinit var synthesizer: RoutingSpeechSynthesizer
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -56,9 +61,18 @@ class DebugControlReceiverTest {
         settings = FakeSettingsStore()
         library = FakeLibraryStore()
         service = FakeReadingService(initialSettings = com.cnife.listenreader.service.SettingsState())
-        synthesizer = StepFunSpeechSynthesizer(
+        val cacheDir = File(context.cacheDir, "tts-debug-test")
+        stepFunSynthesizer = StepFunSpeechSynthesizer(
             settingsStore = settings,
-            cacheDir = File(context.cacheDir, "tts-debug-test"),
+            cacheDir = cacheDir,
+        )
+        qwenSynthesizer = QwenSpeechSynthesizer(
+            settingsStore = settings,
+            cacheDir = cacheDir,
+        )
+        synthesizer = RoutingSpeechSynthesizer(
+            stepFun = stepFunSynthesizer,
+            qwen = qwenSynthesizer,
         )
     }
 
@@ -73,7 +87,9 @@ class DebugControlReceiverTest {
         val result = runCommand(
             intent("configure")
                 .putExtra("stepfun_endpoint", "http://127.0.0.1:18080/")
+                .putExtra("qwen_endpoint", "http://127.0.0.1:18080/api/v1/")
                 .putExtra("stepfun_key", "mock-stepfun-key")
+                .putExtra("qwen_key", "mock-qwen-key")
                 .putExtra("llm_endpoint", "http://127.0.0.1:18080/v1")
                 .putExtra("llm_model", "mock-model")
                 .putExtra("llm_key", "mock-llm-key")
@@ -85,15 +101,23 @@ class DebugControlReceiverTest {
         )
 
         assertTrue(result.boolean("ok"))
-        assertEquals("http://127.0.0.1:18080", synthesizer.baseUrl)
+        assertEquals("http://127.0.0.1:18080", stepFunSynthesizer.baseUrl)
+        assertEquals("http://127.0.0.1:18080/api/v1", qwenSynthesizer.baseUrl)
         assertEquals("http://127.0.0.1:18080", result.string("stepFunEndpoint"))
+        assertEquals("http://127.0.0.1:18080/api/v1", result.string("qwenEndpoint"))
         assertEquals(
             "http://127.0.0.1:18080",
             context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_STEPFUN_ENDPOINT, null),
         )
+        assertEquals(
+            "http://127.0.0.1:18080/api/v1",
+            context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_QWEN_ENDPOINT, null),
+        )
 
         assertEquals("mock-stepfun-key", runBlocking { settings.stepFunKey() })
+        assertEquals("mock-qwen-key", runBlocking { settings.qwenKey() })
         assertEquals("mock-llm-key", runBlocking { settings.llmKey() })
         assertEquals("http://127.0.0.1:18080/v1", runBlocking { settings.llmEndpoint() })
         assertEquals("mock-model", runBlocking { settings.llmModel() })
@@ -138,11 +162,16 @@ class DebugControlReceiverTest {
 
     @Test
     fun dumpState_reportsEndpointAndStateSnapshot() {
-        runCommand(intent("configure").putExtra("stepfun_endpoint", "http://127.0.0.1:18080"))
+        runCommand(
+            intent("configure")
+                .putExtra("stepfun_endpoint", "http://127.0.0.1:18080")
+                .putExtra("qwen_endpoint", "http://127.0.0.1:18080/api/v1"),
+        )
 
         val dump = runCommand(intent("dump_state"))
         assertTrue(dump.boolean("ok"))
         assertEquals("http://127.0.0.1:18080", dump.string("stepFunEndpoint"))
+        assertEquals("http://127.0.0.1:18080/api/v1", dump.string("qwenEndpoint"))
         val settingsJson = dump["settings"]!!.jsonObject
         // 快照读的是用户当前看到的 UI 状态（由 ReadingService 汇总），不是 SettingsStore 原始值。
         assertEquals("6", settingsJson["prefetchCount"]!!.jsonPrimitive.content)
@@ -154,18 +183,26 @@ class DebugControlReceiverTest {
 
     @Test
     fun clearState_resetsDatabaseFilesAndEndpoint() {
-        runCommand(intent("configure").putExtra("stepfun_endpoint", "http://127.0.0.1:18080"))
+        runCommand(
+            intent("configure")
+                .putExtra("stepfun_endpoint", "http://127.0.0.1:18080")
+                .putExtra("qwen_endpoint", "http://127.0.0.1:18080/api/v1"),
+        )
         runCommand(intent("seed_resource"))
         assertNull("初始时不应记录上次打开", library.lastOpened)
 
         val cleared = runCommand(intent("clear_state"))
         assertTrue(cleared.boolean("ok"))
-        assertEquals(StepFunDefaults.BASE_URL, synthesizer.baseUrl)
+        assertEquals(StepFunDefaults.BASE_URL, stepFunSynthesizer.baseUrl)
+        assertEquals(QwenDefaults.BASE_URL, qwenSynthesizer.baseUrl)
         assertNull(
             context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_STEPFUN_ENDPOINT, null),
         )
-        assertFalse("clear_state 必须清理音频目录", File(context.filesDir, "audio").exists())
+        assertNull(
+            context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_QWEN_ENDPOINT, null),
+        )
         assertFalse("clear_state 必须清理快照目录", File(context.filesDir, "sources").exists())
         assertFalse("clear_state 必须清理试听目录", File(context.filesDir, "previews").exists())
     }

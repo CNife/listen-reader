@@ -247,7 +247,7 @@ class SleepTimerTest {
     private fun track() = AudioTrack(
         id = TRACK_ID,
         resourceId = RESOURCE_ID,
-        model = TtsModels.AUDIO3,
+        model = TtsModels.MINI,
         voice = Voices.WENROU,
         createdAt = 1L,
     )

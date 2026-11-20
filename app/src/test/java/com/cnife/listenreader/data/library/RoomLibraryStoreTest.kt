@@ -217,7 +217,7 @@ class RoomLibraryStoreTest {
         oldFile.parentFile?.mkdirs()
         oldFile.writeText("old audio")
 
-        val newTrack = AudioTrack("track-2", id, TtsModels.AUDIO3, Voices.WENROU, 2_000)
+        val newTrack = AudioTrack("track-2", id, TtsModels.QWEN_FLASH, Voices.LONGANHUAN, 2_000)
         store.createTrack(newTrack)
         store.setActiveTrack(id, newTrack.id)
 
@@ -282,7 +282,7 @@ class RoomLibraryStoreTest {
         val id = "r1"
         store.createResource(resource(id), TEXT_BODY, null)
         val oldTrack = store.getTracks(id).single()
-        val newTrack = AudioTrack("track-2", id, TtsModels.AUDIO3, Voices.WENROU, 2_000)
+        val newTrack = AudioTrack("track-2", id, TtsModels.QWEN_FLASH, Voices.LONGANHUAN, 2_000)
         store.createTrack(newTrack)
         store.setActiveTrack(id, newTrack.id)
 

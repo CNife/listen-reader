@@ -333,8 +333,8 @@ kill-ai-slop 的第 35 条警告「奶油底 + 展示衬线 + 深色强调 + 大
 
 这次改动会触及约 30 个 Kotlin 文件（含新增组件与测试），超过 8 个；建议一个 PR 承载完整视觉切换，提交按 4 组拆分，避免发布半套皮肤。
 
-- 主题：`ui/theme/Color.kt`、`Theme.kt`、`Type.kt`，新增 `Dimens.kt`。
-- 基础组件：新增 `ui/components/PageHeader.kt`、`TextTabs.kt`、`Controls.kt`（主按钮 / 文字动作 / 字段）、`StatusLine.kt`、`ProgressLine.kt`、`ChoiceRow.kt`；改写 `EmptyState.kt`。
+- 主题：`ui/theme/Color.kt`、`Theme.kt`、`Type.kt`，新增 `Shapes.kt`（8/12dp 圆角层级）。
+- 基础组件：新增 `ui/components/PageHeader.kt`（页头 / masthead / `TextTabs`）、`Controls.kt`（主按钮 / 文字动作 / 字段 / `ChoiceRow`）、`Feedback.kt`（`StatusLine` / `ProgressLine` / `RuleLine`）；改写 `EmptyState.kt`。
 - 资料库：`ui/library/LibraryScreen.kt`、`ContinueCard.kt`、`DeleteResourceDialog.kt`。
 - 添加 / 预览：`ui/capture/CaptureScreen.kt`、`PreviewScreen.kt`、`L2StatusSection.kt`。
 - 播放：`ui/player/PlayerScreen.kt`、`MiniPlayer.kt`（拆成 `PlayerDock`）、`VoiceSheet.kt`、`SleepTimerMenu.kt`、`NotificationPermission.kt`；删除 `ReadingScreen.kt` / `ReaderAudioBar`、播放器标题栏的阅读入口与相关状态 / 字符串 / 测试。

@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.cnife.listenreader.model.LlmDefaults
 import com.cnife.listenreader.model.ThemeMode
+import com.cnife.listenreader.model.TtsModels
+import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ports.AppSettings
 import com.cnife.listenreader.service.ports.SettingsStore
 import kotlinx.coroutines.flow.Flow
@@ -63,6 +65,18 @@ class DataStoreSettingsStore(
     override suspend fun stepFunKey(): String? =
         keyStore.decrypt(dataStore.data.first()[Keys.STEPFUN_KEY])
 
+    override suspend fun setQwenKey(key: String) {
+        if (key.isBlank()) {
+            dataStore.edit { it.remove(Keys.QWEN_KEY) }
+            return
+        }
+        val encrypted = keyStore.encrypt(key.trim())
+            ?: throw IllegalStateException("无法加密千问 Key")
+        dataStore.edit { it[Keys.QWEN_KEY] = encrypted }
+    }
+
+    override suspend fun qwenKey(): String? =
+        keyStore.decrypt(dataStore.data.first()[Keys.QWEN_KEY])
     override suspend fun setLlmConfig(endpoint: String, model: String, key: String?) {
         val trimmed = key?.takeIf { it.isNotBlank() }?.trim()
         val encrypted = trimmed?.let { keyStore.encrypt(it) }
@@ -100,22 +114,26 @@ private object Keys {
     val LLM_ENDPOINT = stringPreferencesKey("llmEndpoint")
     val LLM_MODEL = stringPreferencesKey("llmModel")
     val STEPFUN_KEY = stringPreferencesKey("stepFunKeyEncrypted")
+    val QWEN_KEY = stringPreferencesKey("qwenKeyEncrypted")
     val LLM_KEY = stringPreferencesKey("llmKeyEncrypted")
 }
 
 private fun Preferences.toAppSettings(keyStore: EncryptedKeyStore): AppSettings {
     val defaults = AppSettings()
+    val normalizedModel = TtsModels.normalize(this[Keys.TTS_MODEL])
+    val normalizedVoice = Voices.normalizeForModel(normalizedModel, this[Keys.VOICE])
     return AppSettings(
         themeMode = this[Keys.THEME]
             ?.let { stored -> runCatching { ThemeMode.valueOf(stored) }.getOrNull() }
             ?: ThemeMode.SYSTEM,
-        ttsModel = this[Keys.TTS_MODEL] ?: defaults.ttsModel,
-        voice = this[Keys.VOICE] ?: defaults.voice,
+        ttsModel = normalizedModel,
+        voice = normalizedVoice,
         prefetchCount = (this[Keys.PREFETCH] ?: defaults.prefetchCount).coerceIn(0, 8),
         playbackSpeed = (this[Keys.PLAYBACK_SPEED] ?: defaults.playbackSpeed).coerceIn(0.5f, 2.0f),
         llmEndpoint = this[Keys.LLM_ENDPOINT] ?: LlmDefaults.ENDPOINT,
         llmModel = this[Keys.LLM_MODEL] ?: LlmDefaults.MODEL,
         stepFunKeyConfigured = keyStore.decrypt(this[Keys.STEPFUN_KEY]) != null,
+        qwenKeyConfigured = keyStore.decrypt(this[Keys.QWEN_KEY]) != null,
         llmKeyConfigured = keyStore.decrypt(this[Keys.LLM_KEY]) != null,
     )
 }

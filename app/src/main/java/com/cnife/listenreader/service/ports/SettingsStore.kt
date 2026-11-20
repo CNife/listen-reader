@@ -3,6 +3,7 @@ package com.cnife.listenreader.service.ports
 import com.cnife.listenreader.model.LlmDefaults
 import com.cnife.listenreader.model.ThemeMode
 import com.cnife.listenreader.model.TtsModels
+import com.cnife.listenreader.model.TtsVendor
 import com.cnife.listenreader.model.Voices
 import kotlinx.coroutines.flow.Flow
 
@@ -15,6 +16,8 @@ interface SettingsStore {
     suspend fun setPlaybackSpeed(speed: Float)
     suspend fun setStepFunKey(key: String)
     suspend fun stepFunKey(): String?
+    suspend fun setQwenKey(key: String)
+    suspend fun qwenKey(): String?
     suspend fun setLlmConfig(endpoint: String, model: String, key: String?)
     suspend fun llmEndpoint(): String
     suspend fun llmModel(): String
@@ -30,5 +33,11 @@ data class AppSettings(
     val llmEndpoint: String = LlmDefaults.ENDPOINT,
     val llmModel: String = LlmDefaults.MODEL,
     val stepFunKeyConfigured: Boolean = false,
+    val qwenKeyConfigured: Boolean = false,
     val llmKeyConfigured: Boolean = false,
-)
+) {
+    fun isTtsKeyConfiguredFor(model: String = ttsModel): Boolean = when (TtsModels.vendorOf(model)) {
+        TtsVendor.QWEN -> qwenKeyConfigured
+        TtsVendor.STEPFUN -> stepFunKeyConfigured
+    }
+}

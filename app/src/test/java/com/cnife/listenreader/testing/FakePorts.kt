@@ -257,8 +257,8 @@ class FakeSettingsStore(
 ) : SettingsStore {
     private val state = MutableStateFlow(initial)
     private var stepFunKey: String? = null
+    private var qwenKey: String? = null
     private var llmKey: String? = null
-
     override val settings: Flow<AppSettings> = state
 
     val current: AppSettings get() = state.value
@@ -290,6 +290,12 @@ class FakeSettingsStore(
 
     override suspend fun stepFunKey(): String? = stepFunKey
 
+    override suspend fun setQwenKey(key: String) {
+        qwenKey = key.ifBlank { null }
+        state.update { it.copy(qwenKeyConfigured = qwenKey != null) }
+    }
+
+    override suspend fun qwenKey(): String? = qwenKey
     override suspend fun setLlmConfig(endpoint: String, model: String, key: String?) {
         llmKey = key
         state.update {

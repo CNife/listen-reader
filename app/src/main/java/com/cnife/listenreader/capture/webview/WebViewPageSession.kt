@@ -115,7 +115,7 @@ class WebViewPageSession(
         return true
     }
 
-    override suspend fun extract(): PageExtraction = runL1()
+    suspend fun extract(): PageExtraction = runL1()
 
     /**
      * 先跑 L1；needsExpand 时只点击可见的展开类元素，每轮点击后滚动触发懒加载、

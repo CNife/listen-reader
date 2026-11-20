@@ -66,6 +66,10 @@ class Metrics:
             self.active_tts -= 1
             return self.active_tts
 
+    def llm_hit(self) -> None:
+        with self._lock:
+            self.llm_requests += 1
+
     def release_hit(self) -> int:
         with self._lock:
             self.release_requests += 1
@@ -118,6 +122,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/mock-apk/"):
             self._send_bytes(200, "application/vnd.android.package-archive", b"mock-apk")
+            return
         if path.startswith("/mock-audio/"):
             self._send_bytes(200, "audio/mpeg", self.tts_fixture.read_bytes())
             return

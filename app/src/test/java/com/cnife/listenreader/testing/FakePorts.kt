@@ -382,7 +382,7 @@ class FakePageSession : PageSession {
         return canGoBack
     }
 
-    override suspend fun extract(): PageExtraction {
+    suspend fun extract(): PageExtraction {
         extractionError?.let { throw it }
         return extraction
     }

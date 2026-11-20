@@ -100,6 +100,8 @@ class ArchitectureContractTest {
                 val autoCheckUpdate: Boolean = true,
             ) {
                 fun isKeyConfiguredFor(model: String): Boolean = false
+
+                private suspend fun helper(): Boolean = true
             }
         """.trimIndent()
         val settingsProduction = """
@@ -115,6 +117,8 @@ class ArchitectureContractTest {
                 listOf(ProductionFile("SettingsSetup.kt", stripComments(settingsProduction).lines())),
             ),
         )
+
+        // 私有帮助函数（含 suspend/inline 等隔开修饰符变体）不属于公开接口面，不得误报死成员。
     }
 
     @Test
@@ -236,9 +240,16 @@ class ArchitectureContractTest {
     private fun loosePublicFuns(text: String, ports: List<PortInterface>): List<String> =
         FUN_DECL.findAll(text)
             .filterNot { match -> ports.any { match.range.first in it.bodyStart..it.bodyEnd } }
+            .filterNot { match -> nonPublicDeclaration(text, match.range.first) }
             .map { it.groupValues[1] }
             .distinct()
             .toList()
+
+    /** 声明行中 fun 关键字之前出现 private/protected 修饰符（含 suspend/inline 等隔开变体）。 */
+    private fun nonPublicDeclaration(text: String, funStart: Int): Boolean {
+        val lineStart = text.lastIndexOf('\n', maxOf(0, funStart - 1)).let { if (it < 0) 0 else it + 1 }
+        return NON_PUBLIC_MODIFIER.containsMatchIn(text.substring(lineStart, funStart))
+    }
 
     private fun matchingBrace(text: String, openIndex: Int): Int {
         var depth = 0
@@ -306,7 +317,8 @@ class ArchitectureContractTest {
         val BLOCK_COMMENT = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
         val INTERFACE_DECL = Regex("""interface\s+(\w+)""")
         val MEMBER_DECL = Regex("""\b(?:fun|val)\s+(\w+)""")
-        val FUN_DECL = Regex("""(?<!private\s)(?<!protected\s)\bfun\s+(\w+)""")
+        val FUN_DECL = Regex("""\bfun\s+(\w+)""")
+        val NON_PUBLIC_MODIFIER = Regex("""\b(private|protected)\b""")
         val SELECTOR_FIELDS = listOf(
             "titleSelector",
             "contentSelector",

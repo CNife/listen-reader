@@ -85,6 +85,27 @@ class GitHubReleaseCheckerTest {
     }
 
     @Test
+    fun `renamed apk asset is not used and falls back to the html page`() = runBlocking {
+        enqueue(
+            """
+            {
+              "tag_name": "v0.4.0",
+              "html_url": "https://github.com/CNife/listen-reader/releases/tag/v0.4.0",
+              "body": "",
+              "assets": [
+                {"name": "listen-reader-0.3.9.apk", "browser_download_url": "https://example.test/download/listen-reader-0.3.9.apk"}
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val release = checker().latestRelease()
+
+        assertEquals("0.4.0", release.version)
+        assertEquals("https://github.com/CNife/listen-reader/releases/tag/v0.4.0", release.url)
+    }
+
+    @Test
     fun `rate limit maps to a readable message`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(403))
 

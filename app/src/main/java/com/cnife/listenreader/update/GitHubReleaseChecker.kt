@@ -57,13 +57,9 @@ class GitHubReleaseChecker(
         val assets = root["assets"]?.jsonArray?.mapNotNull { it as? JsonObject }.orEmpty()
         val apkUrl = assets
             .firstOrNull { asset ->
-                val name = asset.stringOrNull("name").orEmpty()
-                name == "listen-reader-$version.apk"
+                asset.stringOrNull("name") == "listen-reader-$version.apk"
             }
             ?.stringOrNull("browser_download_url")
-            ?: assets
-                .firstOrNull { asset -> asset.stringOrNull("name").orEmpty().endsWith(APK_SUFFIX) }
-                ?.stringOrNull("browser_download_url")
         val url = apkUrl?.takeIf { it.isNotBlank() }
             ?: root.stringOrNull("html_url").orEmpty()
         if (url.isBlank()) throw UpdateCheckException("GitHub Release 缺少下载地址，请稍后重试")
@@ -84,7 +80,6 @@ class GitHubReleaseChecker(
     companion object {
         const val RELEASE_API_URL = "https://api.github.com/repos/CNife/listen-reader/releases/latest"
         private const val USER_AGENT = "listen-reader"
-        private const val APK_SUFFIX = ".apk"
 
         fun defaultHttpClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)

@@ -10,10 +10,6 @@ object TtsModels {
     const val QWEN_FLASH = "qwen-audio-3.0-tts-flash"
     const val DEFAULT = MINI
     val ALL = listOf(MINI, QWEN_FLASH)
-    val DISPLAY = mapOf(
-        MINI to "step-tts-mini（阶跃 · 默认）",
-        QWEN_FLASH to "qwen-audio-3.0-tts-flash（千问 · 备选）",
-    )
 
     fun vendorOf(model: String): TtsVendor = when (model) {
         QWEN_FLASH -> TtsVendor.QWEN
@@ -89,7 +85,6 @@ object Voices {
     )
 
     val CATALOG: List<VoiceCatalogEntry> = STEPFUN_MINI_VOICES + QWEN_FLASH_VOICES
-    val ALL: List<String> = CATALOG.map { it.id }
     val DISPLAY: Map<String, String> = CATALOG.associate { it.id to it.name }
 
     fun entriesForModel(model: String): List<VoiceCatalogEntry> = when (TtsModels.vendorOf(model)) {

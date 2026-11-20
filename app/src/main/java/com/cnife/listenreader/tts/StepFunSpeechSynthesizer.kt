@@ -136,7 +136,6 @@ class StepFunSpeechSynthesizer(
     }
 
     private fun httpError(code: Int): SpeechException {
-        // see httpError body below
         log("stepfun http $code")
         return when {
             code == 401 -> SpeechException(ErrorKind.AUTH, "StepFun Key 无效或已过期，请到设置重新填写")

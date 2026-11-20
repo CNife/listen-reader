@@ -30,7 +30,7 @@
 
 推送形如 `v1.2.3` 的 tag 会触发 `.github/workflows/release.yml`：构建已签名 APK，校验签名、对齐、包名与版本，然后创建 GitHub Release 并附带 `listen-reader-<version>.apk` 与 `SHA256SUMS`。
 
-`versionName` 取 tag 去掉 `v`；`versionCode = major*1000000 + minor*1000 + patch`，所以 minor 与 patch 都必须小于 1000，且 tag 只能递增。
+`versionName` 取 tag 去掉 `v`；`versionCode = major*1000000 + minor*1000 + patch`，所以 minor 与 patch 都必须小于 1000，且 tag 只能递增。三段数字不允许前导零（如 `v1.02.3` 会被拒绝），保证 versionCode 与 versionName 一一对应。
 
 首次发版前，在仓库 Settings → Secrets and variables → Actions 配置四个 secrets：
 

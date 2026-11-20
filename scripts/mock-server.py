@@ -15,6 +15,9 @@
 * ``POST /v1/chat/completions``：OpenAI 兼容 LLM 替身，返回确定性的朗读分段文本。
 * ``GET /fixtures/<name>`` 与 ``GET /mp.weixin.qq.com/s/<name>``：把
   ``app/src/androidTest/assets/fixtures/*.html`` 当网页提供，覆盖通用网页与公众号模板。
+* ``GET /releases/latest``：GitHub Release 替身；``--release-apk-name`` 传空字符串
+  即可驱动「附件缺失 → 回退 html_url」，``GET /healthz`` 的 ``release_requests``
+  用于观测 24h 冷却期是否真的没有出站。
 
 用法::
 
@@ -49,6 +52,7 @@ class Metrics:
         self.max_active_tts = 0
         self.tts_requests = 0
         self.llm_requests = 0
+        self.release_requests = 0
 
     def tts_start(self) -> tuple[int, int]:
         with self._lock:
@@ -62,10 +66,10 @@ class Metrics:
             self.active_tts -= 1
             return self.active_tts
 
-    def llm_hit(self) -> int:
+    def release_hit(self) -> int:
         with self._lock:
-            self.llm_requests += 1
-            return self.llm_requests
+            self.release_requests += 1
+            return self.release_requests
 
     def snapshot(self) -> dict[str, object]:
         with self._lock:
@@ -75,6 +79,7 @@ class Metrics:
                 "max_active_tts": self.max_active_tts,
                 "tts_requests": self.tts_requests,
                 "llm_requests": self.llm_requests,
+                "release_requests": self.release_requests,
             }
 
 
@@ -93,6 +98,8 @@ class Handler(BaseHTTPRequestHandler):
     tts_delay_ms = 0
     llm_delay_ms = 0
     tts_fixture: Path = DEFAULT_FIXTURE
+    release_version = "0.3.0"
+    release_apk_name = "listen-reader-0.3.0.apk"
 
     def log_message(self, fmt: str, *args: object) -> None:
         # 默认把每条请求打到 stderr；这里压掉，只保留我们自己打的 START/END 行。
@@ -103,6 +110,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/healthz":
             self._send_json(200, METRICS.snapshot())
             return
+        # 更新检查替身：--release-apk-name 置空即可驱动「附件缺失 → 回退 html_url」。
+        if path.endswith("/releases/latest"):
+            METRICS.release_hit()
+            log_line(f"RELEASE {self.release_version} apk={self.release_apk_name or '-'}")
+            self._send_json(200, self._release_payload())
+            return
+        if path.startswith("/mock-apk/"):
+            self._send_bytes(200, "application/vnd.android.package-archive", b"mock-apk")
         if path.startswith("/mock-audio/"):
             self._send_bytes(200, "audio/mpeg", self.tts_fixture.read_bytes())
             return
@@ -189,6 +204,26 @@ class Handler(BaseHTTPRequestHandler):
         }
         self._send_json(200, response)
 
+    def _release_payload(self) -> dict[str, object]:
+        host = self.headers.get("Host") or "127.0.0.1:18080"
+        payload: dict[str, object] = {
+            "tag_name": f"v{self.release_version}",
+            "html_url": (
+                "https://github.com/CNife/listen-reader/releases/tag/"
+                f"v{self.release_version}"
+            ),
+            "body": "mock release notes：验证更新提示、忽略持久化与手动检查。",
+            "assets": [],
+        }
+        if self.release_apk_name:
+            payload["assets"] = [
+                {
+                    "name": self.release_apk_name,
+                    "browser_download_url": f"http://{host}/mock-apk/{self.release_apk_name}",
+                }
+            ]
+        return payload
+
     # --- 工具 ---
 
     def _fixture_for(self, path: str) -> Path | None:
@@ -257,6 +292,12 @@ def main() -> None:
     parser.add_argument("--tts-delay-ms", type=int, default=0)
     parser.add_argument("--llm-delay-ms", type=int, default=0)
     parser.add_argument("--tts-fixture", type=Path, default=DEFAULT_FIXTURE)
+    parser.add_argument("--release-version", default="0.3.0")
+    parser.add_argument(
+        "--release-apk-name",
+        default="listen-reader-0.3.0.apk",
+        help="Release 附件名；传空字符串可验证回退 html_url",
+    )
     args = parser.parse_args()
 
     if not args.tts_fixture.is_file():
@@ -265,6 +306,8 @@ def main() -> None:
     Handler.tts_delay_ms = args.tts_delay_ms
     Handler.llm_delay_ms = args.llm_delay_ms
     Handler.tts_fixture = args.tts_fixture
+    Handler.release_version = args.release_version
+    Handler.release_apk_name = args.release_apk_name
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True

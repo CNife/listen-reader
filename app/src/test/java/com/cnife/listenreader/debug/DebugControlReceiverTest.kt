@@ -9,6 +9,7 @@ import com.cnife.listenreader.data.db.ListenReaderDatabase
 import com.cnife.listenreader.di.DEBUG_PREFS
 import com.cnife.listenreader.di.KEY_QWEN_ENDPOINT
 import com.cnife.listenreader.di.KEY_STEPFUN_ENDPOINT
+import com.cnife.listenreader.di.KEY_UPDATE_ENDPOINT
 import com.cnife.listenreader.model.QwenDefaults
 import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.model.StepFunDefaults
@@ -19,6 +20,7 @@ import com.cnife.listenreader.testing.FakeSettingsStore
 import com.cnife.listenreader.tts.QwenSpeechSynthesizer
 import com.cnife.listenreader.tts.RoutingSpeechSynthesizer
 import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
+import com.cnife.listenreader.update.GitHubReleaseChecker
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -51,6 +53,8 @@ class DebugControlReceiverTest {
     private lateinit var stepFunSynthesizer: StepFunSpeechSynthesizer
     private lateinit var qwenSynthesizer: QwenSpeechSynthesizer
     private lateinit var synthesizer: RoutingSpeechSynthesizer
+    private lateinit var updateChecker: GitHubReleaseChecker
+
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -74,6 +78,7 @@ class DebugControlReceiverTest {
             stepFun = stepFunSynthesizer,
             qwen = qwenSynthesizer,
         )
+        updateChecker = GitHubReleaseChecker()
     }
 
     @After
@@ -105,6 +110,7 @@ class DebugControlReceiverTest {
         assertEquals("http://127.0.0.1:18080/api/v1", qwenSynthesizer.baseUrl)
         assertEquals("http://127.0.0.1:18080", result.string("stepFunEndpoint"))
         assertEquals("http://127.0.0.1:18080/api/v1", result.string("qwenEndpoint"))
+        assertEquals(GitHubReleaseChecker.RELEASE_API_URL, result.string("updateEndpoint"))
         assertEquals(
             "http://127.0.0.1:18080",
             context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
@@ -126,6 +132,25 @@ class DebugControlReceiverTest {
         assertEquals(ThemeMode.DARK, settings.current.themeMode)
         assertEquals(4, settings.current.prefetchCount)
         assertEquals(1.25f, settings.current.playbackSpeed)
+    }
+
+    @Test
+    fun configure_updateEndpointRedirectsCheckerAndPersists() {
+        val mockUrl = "http://127.0.0.1:18080/repos/CNife/listen-reader/releases/latest"
+        val result = runCommand(intent("configure").putExtra("update_endpoint", mockUrl))
+
+        assertTrue(result.boolean("ok"))
+        assertEquals(mockUrl, updateChecker.releaseApiUrl)
+        assertEquals(mockUrl, result.string("updateEndpoint"))
+        assertEquals(
+            mockUrl,
+            context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_UPDATE_ENDPOINT, null),
+        )
+
+        // 空串复原生产端点，否则后续实机调试会一直打本地 mock。
+        runCommand(intent("configure").putExtra("update_endpoint", ""))
+        assertEquals(GitHubReleaseChecker.RELEASE_API_URL, updateChecker.releaseApiUrl)
     }
 
     @Test
@@ -172,6 +197,10 @@ class DebugControlReceiverTest {
         assertTrue(dump.boolean("ok"))
         assertEquals("http://127.0.0.1:18080", dump.string("stepFunEndpoint"))
         assertEquals("http://127.0.0.1:18080/api/v1", dump.string("qwenEndpoint"))
+        assertEquals(GitHubReleaseChecker.RELEASE_API_URL, dump.string("updateEndpoint"))
+        val updateJson = dump["settings"]!!.jsonObject["update"]!!.jsonObject
+        assertEquals("true", updateJson["autoCheck"]!!.jsonPrimitive.content)
+        assertEquals("Idle", updateJson["check"]!!.jsonPrimitive.content)
         val settingsJson = dump["settings"]!!.jsonObject
         // 快照读的是用户当前看到的 UI 状态（由 ReadingService 汇总），不是 SettingsStore 原始值。
         assertEquals("6", settingsJson["prefetchCount"]!!.jsonPrimitive.content)
@@ -195,6 +224,7 @@ class DebugControlReceiverTest {
         assertTrue(cleared.boolean("ok"))
         assertEquals(StepFunDefaults.BASE_URL, stepFunSynthesizer.baseUrl)
         assertEquals(QwenDefaults.BASE_URL, qwenSynthesizer.baseUrl)
+        assertEquals(GitHubReleaseChecker.RELEASE_API_URL, updateChecker.releaseApiUrl)
         assertNull(
             context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_STEPFUN_ENDPOINT, null),
@@ -202,6 +232,10 @@ class DebugControlReceiverTest {
         assertNull(
             context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_QWEN_ENDPOINT, null),
+        )
+        assertNull(
+            context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_UPDATE_ENDPOINT, null),
         )
         assertFalse("clear_state 必须清理快照目录", File(context.filesDir, "sources").exists())
         assertFalse("clear_state 必须清理试听目录", File(context.filesDir, "previews").exists())
@@ -224,6 +258,7 @@ class DebugControlReceiverTest {
             database = database,
             readingService = service,
             synthesizer = synthesizer,
+            updateChecker = updateChecker,
         )
     }.let { Json.parseToJsonElement(it).jsonObject }
 

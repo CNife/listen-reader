@@ -40,7 +40,7 @@ ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} \
 `build.gradle.kts`、`StepFunDefaults.BASE_URL` 或注入系统根证书；仓库已提供三条通道：
 
 - `-PappIdSuffix`：隔离包名，测试包与常用手机上的正式版并存
-- `scripts/mock-server.py`：本地 HTTP mock（StepFun / 千问 TTS、OpenAI 兼容 LLM、fixtures 网页）
+- `scripts/mock-server.py`：本地 HTTP mock（StepFun / 千问 TTS、OpenAI 兼容 LLM、GitHub Release、fixtures 网页）
 - `DebugControlReceiver`：debug 构建里的 `adb broadcast` 控制口，注入配置与抓取状态快照
 
 ### 2.1 构建并安装隔离包
@@ -54,6 +54,9 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 `com.cnife.listenreader.nmtest`。不加 `-PappIdSuffix` 时仍产出 `com.cnife.listenreader`，
 工作区保持干净（隔离包名来自构建参数，不是源码改动）。
 
+无显示器环境用 `emulator -avd <name> -no-window -no-audio &` 起 AVD；等
+`adb devices` 里出现 `device`（不是 `offline`）再继续。
+
 ### 2.2 启动 mock 与端口映射
 
 ```bash
@@ -63,8 +66,13 @@ curl -sf http://127.0.0.1:18080/healthz
 ```
 
 `--tts-delay-ms` 控制合成耗时；`GET /healthz` 返回 `active_tts` / `max_active_tts` /
-`tts_requests` / `llm_requests`，是「预取是否真的并行」的直接证据。服务端日志逐行打印
-`START active=… max=…` 与 `END active=…`。
+`tts_requests` / `llm_requests` / `release_requests`，是「预取是否真的并行」「更新检查是否
+真的在冷却期出站」的直接证据。服务端日志逐行打印 `START active=… max=…`、
+`END active=…` 与 `RELEASE 0.3.0 apk=…`。
+
+`/releases/latest` 是 GitHub Release 替身，默认返回 `v0.3.0` 与附件
+`listen-reader-0.3.0.apk`；`--release-apk-name ""` 让它不带附件，用来驱动「附件缺失回退
+`html_url`」这条只能靠真实仓库权限才能验证的边界。
 
 可提供的网页 fixture（来自 `app/src/androidTest/assets/fixtures/`）：
 
@@ -95,6 +103,7 @@ $ADB --es cmd configure \
   --es llm_endpoint http://127.0.0.1:18080/v1 \
   --es llm_model mock-model \
   --es llm_key mock-llm-key \
+  --es update_endpoint http://127.0.0.1:18080/repos/CNife/listen-reader/releases/latest \
   --ei prefetch_count 6 --es theme dark
 
 # 预置一条可直接打开的朗读资源（默认 4 句，open=true 直接进播放页）
@@ -112,7 +121,7 @@ $ADB --es cmd clear_state
 
 | `cmd` | 作用 | 关键 extra |
 | --- | --- | --- |
-| `configure` | 覆写 StepFun / 千问端点并写设置 | `stepfun_endpoint`、`stepfun_key`、`qwen_endpoint`、`qwen_key`、`llm_endpoint`、`llm_model`、`llm_key`、`tts_model`、`voice`、`theme`、`prefetch_count`(int)、`playback_speed`(float) |
+| `configure` | 覆写 StepFun / 千问 / 更新源端点并写设置 | `stepfun_endpoint`、`stepfun_key`、`qwen_endpoint`、`qwen_key`、`llm_endpoint`、`llm_model`、`llm_key`、`update_endpoint`、`tts_model`、`voice`、`theme`、`prefetch_count`(int)、`playback_speed`(float) |
 | `seed_resource` | 落一条 Resource + 规则分段 | `title`、`text`、`source_kind`（`TEXT`/`URL`）、`source_url`、`open`(bool) |
 | `dump_state` | 输出单行 JSON 状态快照 | — |
 | `clear_state` | 清库、清音频/快照/试听目录、复原端点 | — |
@@ -120,11 +129,12 @@ $ADB --es cmd clear_state
 所有命令都输出一行 JSON（`TAG=ListenReaderDebug`），失败也只会是
 `{"ok":false,"cmd":"…","error":"…"}`，不会让应用崩溃。
 
-`dump_state` 字段：`stepFunEndpoint`、`qwenEndpoint`、`library`（`isLoading`/`itemCount`/`continueId`/`error`）、
+`dump_state` 字段：`stepFunEndpoint`、`qwenEndpoint`、`updateEndpoint`、`library`（`isLoading`/`itemCount`/`continueId`/`error`）、
 `player`（`resourceId`/`title`/`currentIndex`/`isPlaying`/`isPreparing`/`segmentCount`/
 `readyClipCount`/`generatingClipCount`/`failedClipCount`/`error`）、`capture`（`mode`/`url`/
 `isExtracting`/`l2Status`/`previewSegmentCount`/`savedResourceId`/`error`）、
-`settings`（主题、TTS 模型、音色、预取档位、BYOK 配置态）、`segments`。
+`settings`（主题、TTS 模型、音色、预取档位、BYOK 配置态，以及 `update`：`currentVersion`/
+`autoCheck`/`releaseVersion`/`releaseUrl`/`ignored`/`check`）、`segments`。
 
 ### 2.4 驱动 UI
 
@@ -133,7 +143,7 @@ $ADB --es cmd clear_state
 ```bash
 hs use                  # 选择设备
 hs ui                   # 列可点节点
-hs see                  # 截图（多模态可直接看）
+hs see /tmp/screen.png  # 截图存盘；本机没有 handsets-viewer 时裸 `hs see` 会失败
 hs tap "添加内容"     # 按文字点击
 hs logs --follow
 ```
@@ -143,7 +153,7 @@ hs logs --follow
 ```bash
 adb uninstall com.cnife.listenreader.nmtest
 adb reverse --remove-all
-pkill -f "scripts/mock-server.py"
+pkill -f "[s]cripts/mock-server.py"   # 方括号模式不匹配自身命令行，避免 pkill 杀掉当前 shell
 ./gradlew --stop
 adb shell am force-stop com.cnife.listenreader
 git status --porcelain   # 应无遗留的构建脚本或源码改动
@@ -166,8 +176,8 @@ git status --porcelain   # 应无遗留的构建脚本或源码改动
 `l3.js` 和 `templates.json` 加载进 jsdom，所以三条提取路径（模板、Readability、密度）都在覆盖内，
 且 fixture 里的 `onclick` 会真的执行。
 
-前置：Node 24+，仓库根执行一次 `npm ci`（jsdom 是 devDependency）。缺依赖时测试会直接报
-「请在仓库根目录执行 `npm ci`」。
+前置：Node 24+。jsdom 是 devDependency，由 `app/build.gradle.kts` 的 `installJsTestDeps`
+任务自动 `npm ci`（依赖未变时 UP-TO-DATE）；新 worktree 首次跑测试不再需要手工装。
 
 调试提取逻辑时可以绕过 Gradle 直接开会话（stdin 一行命令、stdout 一行结果）：
 

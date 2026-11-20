@@ -86,7 +86,14 @@ class AppContainer(context: Context) {
     private val appVersion: String =
         appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName.orEmpty()
 
-    private val updateChecker = GitHubReleaseChecker()
+    /** debug 接收器持久化的更新源端点覆写；未设置时回到 GitHub 正式版接口。 */
+    private val initialReleaseApiUrl =
+        appContext.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_UPDATE_ENDPOINT, null)
+            ?.takeIf { it.isNotBlank() }
+            ?: GitHubReleaseChecker.RELEASE_API_URL
+
+    internal val updateChecker = GitHubReleaseChecker(releaseApiUrl = initialReleaseApiUrl)
 
     val readingService: ReadingService = DefaultReadingService(
         pageSession = WebViewPageSession(appContext),
@@ -112,3 +119,6 @@ internal const val KEY_STEPFUN_ENDPOINT = "stepfun_endpoint"
 
 /** debug 自验证通道持久化的千问端点键。 */
 internal const val KEY_QWEN_ENDPOINT = "qwen_endpoint"
+
+/** debug 自验证通道持久化的更新源端点键。 */
+internal const val KEY_UPDATE_ENDPOINT = "update_endpoint"

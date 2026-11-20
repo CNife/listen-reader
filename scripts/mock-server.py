@@ -15,9 +15,9 @@
 * ``POST /v1/chat/completions``：OpenAI 兼容 LLM 替身，返回确定性的朗读分段文本。
 * ``GET /fixtures/<name>`` 与 ``GET /mp.weixin.qq.com/s/<name>``：把
   ``app/src/androidTest/assets/fixtures/*.html`` 当网页提供，覆盖通用网页与公众号模板。
-* ``GET /releases/latest``：GitHub Release 替身；``--release-apk-name`` 传空字符串
-  即可驱动「附件缺失 → 回退 html_url」，``GET /healthz`` 的 ``release_requests``
-  用于观测 24h 冷却期是否真的没有出站。
+* ``GET /releases/latest``：GitHub Release 替身；``--release-version`` 调版本号，
+  ``--release-apk-name`` 传空字符串即可驱动「附件缺失 → 回退 html_url」，
+  ``GET /healthz`` 的 ``release_requests`` 用于观测 24h 冷却期是否真的没有出站。
 
 用法::
 

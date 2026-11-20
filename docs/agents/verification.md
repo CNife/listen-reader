@@ -71,8 +71,8 @@ curl -sf http://127.0.0.1:18080/healthz
 `END active=…` 与 `RELEASE 0.3.0 apk=…`。
 
 `/releases/latest` 是 GitHub Release 替身，默认返回 `v0.3.0` 与附件
-`listen-reader-0.3.0.apk`；`--release-apk-name ""` 让它不带附件，用来驱动「附件缺失回退
-`html_url`」这条只能靠真实仓库权限才能验证的边界。
+`listen-reader-0.3.0.apk`（`--release-version` 可调版本号）；`--release-apk-name ""`
+让它不带附件，用来驱动「附件缺失回退 `html_url`」这条只能靠真实仓库权限才能验证的边界。
 
 可提供的网页 fixture（来自 `app/src/androidTest/assets/fixtures/`）：
 

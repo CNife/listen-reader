@@ -35,7 +35,7 @@ import kotlinx.serialization.json.put
  * 用法（见 `docs/agents/verification.md`）：
  * ```
  * adb shell am broadcast -a com.cnife.listenreader.DEBUG_CONTROL \
- *     --es cmd configure --es stepfun_endpoint http://127.0.0.1:18080
+ *     --es cmd configure --es stepfun_endpoint http://127.0.0.1:18080/v1
  * adb logcat -d -s ListenReaderDebug:I
  * ```
  *

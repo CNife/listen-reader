@@ -81,7 +81,7 @@ ADB="adb shell am broadcast -a com.cnife.listenreader.DEBUG_CONTROL -p $PKG"
 
 # 指向本地 mock（空串可复原生产端点）
 $ADB --es cmd configure \
-  --es stepfun_endpoint http://127.0.0.1:18080 \
+  --es stepfun_endpoint http://127.0.0.1:18080/v1 \
   --es stepfun_key mock-stepfun-key \
   --es llm_endpoint http://127.0.0.1:18080/v1 \
   --es llm_model mock-model \

@@ -19,7 +19,7 @@
     python3 scripts/mock-server.py --port 18080 --tts-delay-ms 300
     adb reverse tcp:18080 tcp:18080
     adb shell am broadcast -a com.cnife.listenreader.DEBUG_CONTROL \\
-        --es cmd configure --es stepfun_endpoint http://127.0.0.1:18080
+        --es cmd configure --es stepfun_endpoint http://127.0.0.1:18080/v1
 
 ``GET /healthz`` 返回当前并发与历史峰值，供 Agent 用一条 curl 取断言证据。
 """

@@ -4,6 +4,8 @@ import android.content.Context
 import android.view.View
 import android.widget.FrameLayout
 import com.cnife.listenreader.core.RuleSegmenter
+import com.cnife.listenreader.data.library.LibraryItemStats
+import com.cnife.listenreader.data.library.toLibraryItem
 import com.cnife.listenreader.model.AudioClip
 import com.cnife.listenreader.model.AudioTrack
 import com.cnife.listenreader.model.ClipStatus
@@ -83,25 +85,16 @@ class FakeLibraryStore(
 
     private fun upsertItem(resource: Resource) {
         val segments = segmentsByResource[resource.id].orEmpty()
-        val activeTrackId = resource.activeTrackId
-        val readyCount = activeTrackId?.let { id ->
-            clipsByTrack[id].orEmpty().count { it.status == ClipStatus.READY }
-        } ?: 0
-        val durationMs = activeTrackId?.let { id ->
-            clipsByTrack[id].orEmpty().filter { it.status == ClipStatus.READY }.sumOf { it.durationMs }
-        } ?: 0L
-        val item = LibraryItem(
-            id = resource.id,
-            title = resource.title,
-            sourceKind = resource.sourceKind,
-            sourceLabel = com.cnife.listenreader.model.SourceLabels.of(resource.sourceKind, resource.sourceUrl),
-            segmentCount = segments.size,
-            durationMs = durationMs,
-            hasCachedAudio = activeTrackId != null && segments.isNotEmpty() && readyCount >= segments.size,
-            currentSegmentIndex = resource.currentSegmentIndex,
-            currentPositionMs = resource.currentPositionMs,
-            lastOpenedAt = resource.lastOpenedAt,
-            createdAt = resource.createdAt,
+        val readyClips = resource.activeTrackId
+            ?.let { clipsByTrack[it] }
+            .orEmpty()
+            .filter { it.status == ClipStatus.READY }
+        val item = resource.toLibraryItem(
+            LibraryItemStats(
+                segmentCount = segments.size,
+                readyClipCount = readyClips.size,
+                durationMs = readyClips.sumOf { it.durationMs },
+            ),
         )
         items.update { current -> current.filterNot { it.id == item.id } + item }
     }

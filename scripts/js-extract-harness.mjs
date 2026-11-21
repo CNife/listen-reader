@@ -80,7 +80,9 @@ const templates = JSON.parse(readFileSync(path.join(EXTRACT_DIR, "templates.json
 const consoleErrors = [];
 const virtualConsole = new VirtualConsole();
 virtualConsole.on("jsdomError", (error) => {
-  if (!String(error.message).includes("Not implemented")) consoleErrors.push(String(error.message));
+  const message = String(error && error.message ? error.message : error);
+  const navigationUnsupported = message.includes("Not implemented") && message.includes("navigation");
+  if (!navigationUnsupported) consoleErrors.push(message);
 });
 
 const dom = new JSDOM(html, {
@@ -167,6 +169,8 @@ for await (const line of rl) {
 
 try {
   window.close();
-} catch {
+} catch (error) {
+  process.stderr.write(`关闭 jsdom 失败：${error && error.message ? error.message : error}\n`);
+  process.exit(1);
 }
 process.exit(0);

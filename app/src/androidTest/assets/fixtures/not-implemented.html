@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>jsdom 错误过滤</title>
+</head>
+<body>
+<article>
+  <p>用于验证非 navigation 的 Not implemented 错误不会被 harness 丢弃，而 navigation 噪声仍然被忽略。</p>
+</article>
+<script>
+  window.print();
+</script>
+<script>
+  location.href = "https://example.com/elsewhere";
+</script>
+</body>
+</html>

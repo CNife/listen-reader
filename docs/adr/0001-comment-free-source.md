@@ -95,7 +95,7 @@
 - 审计中识别出的敷衍实现由以下 issue 跟踪修复，而不是继续用注释容忍：
   - #24 L1 静默吞掉模板非法选择器
   - #25 jsdom harness 过滤所有 `Not implemented` 错误
-  - #26 `readDurationMs` 失败静默返回 0
+  - #26 `readDurationMs` 失败静默返回 0（已修复：时长不可读时改抛可重试的 `SpeechException`）
   - #27 L3 点击前滚动失败被吞掉
   - #28 `FakePorts` 手抄生产映射
 - 视觉规格以 `docs/design/ui-v2.md` 为唯一来源，Compose 代码不再复述 dp、字号与配色理由。

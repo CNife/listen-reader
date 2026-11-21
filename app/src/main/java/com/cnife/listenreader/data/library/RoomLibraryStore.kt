@@ -15,7 +15,6 @@ import com.cnife.listenreader.model.Resource
 import com.cnife.listenreader.model.Segment
 import com.cnife.listenreader.model.SegmentDraft
 import com.cnife.listenreader.model.SourceKind
-import com.cnife.listenreader.model.SourceLabels
 import com.cnife.listenreader.service.StorageUsage
 import com.cnife.listenreader.service.ports.LibraryStore
 import com.cnife.listenreader.service.ports.SettingsStore
@@ -281,19 +280,26 @@ private fun AudioClip.toEntity(): AudioClipEntity = AudioClipEntity(
     error = error,
 )
 
-private fun LibraryItemRow.toItem(): LibraryItem {
-    val kind = SourceKind.valueOf(sourceKind)
-    return LibraryItem(
-        id = id,
-        title = title,
-        sourceKind = kind,
-        sourceLabel = SourceLabels.of(kind, sourceUrl),
+private fun LibraryItemRow.toResource(): Resource = Resource(
+    id = id,
+    title = title,
+    sourceKind = SourceKind.valueOf(sourceKind),
+    sourceUrl = sourceUrl,
+    byline = null,
+    publishedAt = null,
+    extractor = null,
+    snapshotPath = null,
+    currentSegmentIndex = currentSegmentIndex,
+    currentPositionMs = currentPositionMs,
+    activeTrackId = activeTrackId,
+    createdAt = createdAt,
+    lastOpenedAt = lastOpenedAt,
+)
+
+private fun LibraryItemRow.toItem(): LibraryItem = toResource().toLibraryItem(
+    LibraryItemStats(
         segmentCount = segmentCount,
+        readyClipCount = readyClipCount,
         durationMs = durationMs,
-        hasCachedAudio = activeTrackId != null && segmentCount > 0 && readyClipCount >= segmentCount,
-        currentSegmentIndex = currentSegmentIndex,
-        currentPositionMs = currentPositionMs,
-        lastOpenedAt = lastOpenedAt,
-        createdAt = createdAt,
-    )
-}
+    ),
+)

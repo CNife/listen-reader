@@ -93,7 +93,7 @@
 - 阅读代码时不再需要在真假注释之间做判断；需要「为什么」时查 ADR。
 - `CommentPolicyTest` 在每次 `:app:testDebugUnitTest` 与 CI 中执行，注释预算无法悄悄上涨。
 - 审计中识别出的敷衍实现由以下 issue 跟踪修复，而不是继续用注释容忍：
-  - #24 L1 静默吞掉模板非法选择器
+  - #24 L1 静默吞掉模板非法选择器（已修复：非法选择器记入提取诊断 `diagnostics`，内置模板由 `JsExtractorContractTest` 经 jsdom 强制校验）
   - #25 jsdom harness 过滤所有 `Not implemented` 错误
   - #26 `readDurationMs` 失败静默返回 0（已修复：时长不可读时改抛可重试的 `SpeechException`）
   - #27 L3 点击前滚动失败被吞掉

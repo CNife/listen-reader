@@ -162,6 +162,31 @@ class JsExtractorContractTest {
         }
     }
 
+    @Test
+    fun l3Expand_fallsBackToScrollToWhenScrollIntoViewFails() {
+        withSession("wechat-expand.html", "https://mp.weixin.qq.com/s/fold") { session ->
+            val picked = L3Rules.pick(session.collectCandidates(), emptySet())
+            assertTrue("必须有可安全点击的展开控件", picked != null)
+            session.call(buildJsonObject { put("op", "fail-scroll-into-view") })
+
+            val response = session.clickResponse(picked!!.index)
+
+            assertEquals("true", response["clicked"]!!.jsonPrimitive.content)
+            assertEquals("scrollIntoView 失败后必须用 scrollTo 兜底", 1, response["scrollCalls"]!!.jsonPrimitive.int)
+        }
+    }
+
+    @Test
+    fun l3Expand_reportsScrollFailureInsteadOfClaimingClick() {
+        withSession("wechat-expand.html", "https://mp.weixin.qq.com/s/fold") { session ->
+            val picked = L3Rules.pick(session.collectCandidates(), emptySet())
+            assertTrue("必须有可安全点击的展开控件", picked != null)
+            session.call(buildJsonObject { put("op", "fail-scroll-all") })
+
+            assertEquals("scroll_failed", session.click(picked!!.index))
+        }
+    }
+
     private fun withSession(name: String, url: String, block: (ExtractSession) -> Unit) {
         startSession(name, url).use(block)
     }
@@ -262,11 +287,14 @@ class JsExtractorContractTest {
         }
     }
 
-    private fun ExtractSession.click(index: Int): String =
+    private fun ExtractSession.clickResponse(index: Int): JsonObject =
         call(buildJsonObject {
             put("op", "click")
             put("index", index)
-        })["clicked"]!!.jsonPrimitive.content
+        })
+
+    private fun ExtractSession.click(index: Int): String =
+        clickResponse(index)["clicked"]!!.jsonPrimitive.content
 
     private fun JsonObject.string(key: String): String = this[key]!!.jsonPrimitive.content
     private fun JsonObject.boolean(key: String): Boolean = this[key]!!.jsonPrimitive.boolean

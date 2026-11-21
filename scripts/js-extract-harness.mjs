@@ -36,7 +36,20 @@ const SHIM = `
   Element.prototype.getClientRects = function () {
     return hidden(this) ? [] : [this.getBoundingClientRect()];
   };
-  Element.prototype.scrollIntoView = function () {};
+
+  window.__listenReaderFailScrollIntoView = false;
+  window.__listenReaderFailScroll = false;
+  window.__listenReaderScrollCalls = [];
+
+  Element.prototype.scrollIntoView = function () {
+    if (window.__listenReaderFailScrollIntoView || window.__listenReaderFailScroll) {
+      throw new Error("scrollIntoView blocked");
+    }
+  };
+  window.scrollTo = function (x, y) {
+    if (window.__listenReaderFailScroll) throw new Error("scrollTo blocked");
+    window.__listenReaderScrollCalls.push([x, y]);
+  };
 
   Object.defineProperty(Element.prototype, "innerText", {
     configurable: true,
@@ -168,7 +181,18 @@ function handle(command) {
     case "collect":
       return { ok: true, candidates: callCollect(command.phrases) };
     case "click":
-      return { ok: true, clicked: window.__listenReaderL3Click(command.index) };
+      return {
+        ok: true,
+        clicked: window.__listenReaderL3Click(command.index),
+        scrollCalls: window.__listenReaderScrollCalls.length,
+      };
+    case "fail-scroll-into-view":
+      window.__listenReaderFailScrollIntoView = true;
+      return { ok: true };
+    case "fail-scroll-all":
+      window.__listenReaderFailScrollIntoView = true;
+      window.__listenReaderFailScroll = true;
+      return { ok: true };
     case "close":
       return { ok: true };
     default:

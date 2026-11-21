@@ -96,6 +96,6 @@
   - #24 L1 静默吞掉模板非法选择器（已修复：非法选择器记入提取诊断 `diagnostics`，内置模板由 `JsExtractorContractTest` 经 jsdom 强制校验）
   - #25 jsdom harness 过滤所有 `Not implemented` 错误
   - #26 `readDurationMs` 失败静默返回 0（已修复：时长不可读时改抛可重试的 `SpeechException`）
-  - #27 L3 点击前滚动失败被吞掉
+  - #27 L3 点击前滚动失败被吞掉（已修复：scrollIntoView 失败用 scrollTo 兜底，仍失败返回 `scroll_failed` 不假装点击成功）
   - #28 `FakePorts` 手抄生产映射
 - 视觉规格以 `docs/design/ui-v2.md` 为唯一来源，Compose 代码不再复述 dp、字号与配色理由。

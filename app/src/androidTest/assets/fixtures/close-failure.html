@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>关闭失败</title>
+</head>
+<body>
+<p>用于验证 harness 在 window.close 抛错时写入 stderr 并以非零码退出。</p>
+<script>
+  window.close = function () { throw new Error("close boom"); };
+</script>
+</body>
+</html>

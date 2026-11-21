@@ -113,10 +113,44 @@ class JsExtractorContractTest {
         startSession(name, url).use(block)
     }
 
+    @Test
+    fun `harness reports jsdom errors that are not navigation`() {
+        withSession("not-implemented.html", "https://example.com/not-implemented") { session ->
+            val errors = session.call(buildJsonObject { put("op", "meta") })["consoleErrors"]!!
+                .jsonArray.map { it.jsonPrimitive.content }
+
+            assertTrue(
+                "window.print 的 Not implemented 必须进入 consoleErrors：$errors",
+                errors.any { it.contains("print") },
+            )
+            assertFalse("navigation 未实现属于 harness 预期噪声：$errors", errors.any { it.contains("navigation") })
+        }
+    }
+
+    @Test
+    fun `harness reports window close failures instead of swallowing them`() {
+        val stderr = File.createTempFile("js-extract-close", ".log")
+        val process = startHarness("close-failure.html", "https://example.com/close", stderr)
+        process.outputStream.bufferedWriter().use { writer ->
+            writer.write("""{"op":"close"}""")
+            writer.newLine()
+        }
+        val stdout = process.inputStream.bufferedReader().readText()
+        assertTrue("关闭失败时 harness 必须退出", process.waitFor(10, TimeUnit.SECONDS))
+
+        assertEquals(1, process.exitValue())
+        assertTrue("close 命令本身仍需返回结果：$stdout", stdout.contains("\"ok\":true"))
+        assertTrue("close 异常必须写入 stderr", stderr.readText().contains("close boom"))
+        stderr.delete()
+    }
+
     private fun startSession(fixture: String, url: String): ExtractSession {
-        val root = repoRoot()
         val stderr = File.createTempFile("js-extract-harness", ".log")
-        val process = try {
+        return ExtractSession(startHarness(fixture, url, stderr), stderr)
+    }
+
+    private fun startHarness(fixture: String, url: String, stderr: File): Process =
+        try {
             ProcessBuilder(
                 "node",
                 "scripts/js-extract-harness.mjs",
@@ -124,13 +158,11 @@ class JsExtractorContractTest {
                 fixture,
                 "--url",
                 url,
-            ).directory(root).redirectError(stderr).start()
+            ).directory(repoRoot()).redirectError(stderr).start()
         } catch (error: IOException) {
             stderr.delete()
             throw AssertionError("需要 Node.js 才能运行网页提取回归：${error.message}", error)
         }
-        return ExtractSession(process, stderr)
-    }
 
     private fun repoRoot(): File =
         generateSequence(File("").absoluteFile) { it.parentFile }

@@ -6,7 +6,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** L3 候选过滤是纯函数，覆盖安全边界，避免把登录/付费/表单元素点下去。 */
 class L3RulesTest {
 
     private fun candidate(

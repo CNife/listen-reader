@@ -98,7 +98,6 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "ListenReaderMock/1.0"
     protocol_version = "HTTP/1.1"
 
-    # --- 配置 ---
     tts_delay_ms = 0
     llm_delay_ms = 0
     tts_fixture: Path = DEFAULT_FIXTURE
@@ -106,7 +105,6 @@ class Handler(BaseHTTPRequestHandler):
     release_apk_name = "listen-reader-0.3.0.apk"
 
     def log_message(self, fmt: str, *args: object) -> None:
-        # 默认把每条请求打到 stderr；这里压掉，只保留我们自己打的 START/END 行。
         return
 
     def do_GET(self) -> None:
@@ -114,7 +112,6 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/healthz":
             self._send_json(200, METRICS.snapshot())
             return
-        # 更新检查替身：--release-apk-name 置空即可驱动「附件缺失 → 回退 html_url」。
         if path.endswith("/releases/latest"):
             METRICS.release_hit()
             log_line(f"RELEASE {self.release_version} apk={self.release_apk_name or '-'}")
@@ -143,8 +140,6 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_llm(body)
         else:
             self._send_json(404, {"ok": False, "error": f"no route for {path}"})
-
-    # --- 路由实现 ---
 
     def _handle_tts(self, body: bytes) -> None:
         payload = self._json_body(body)
@@ -228,8 +223,6 @@ class Handler(BaseHTTPRequestHandler):
                 }
             ]
         return payload
-
-    # --- 工具 ---
 
     def _fixture_for(self, path: str) -> Path | None:
         name = path.rsplit("/", 1)[-1]

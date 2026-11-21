@@ -10,10 +10,6 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
-/**
- * GitHub Releases API 的响应契约：发版工作流发布的附件名为 `listen-reader-<version>.apk`
- * 与 `SHA256SUMS`；`/releases/latest` 只返回非 Draft、非 Pre-release 的正式版。
- */
 class GitHubReleaseCheckerTest {
 
     private lateinit var server: MockWebServer

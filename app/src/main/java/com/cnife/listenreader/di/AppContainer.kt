@@ -23,12 +23,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-/**
- * 手工组合根：生产装配在此完成，测试可直接构造 fake ReadingService。
- *
- * 依赖字段为 `internal`：debug 源集的自验证接收器（`debug/DebugControlReceiver`）
- * 需要运行期注入 mock 端点、预置资源与抓取状态快照；release 构建不包含该接收器。
- */
 class AppContainer(context: Context) {
 
     private val appContext = context.applicationContext
@@ -50,14 +44,12 @@ class AppContainer(context: Context) {
         settingsStore = settingsStore,
     )
 
-    /** debug 接收器持久化的 StepFun 端点覆写；未设置时回到生产默认值。 */
     private val initialStepFunBaseUrl =
         appContext.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
             .getString(KEY_STEPFUN_ENDPOINT, null)
             ?.takeIf { it.isNotBlank() }
             ?: StepFunDefaults.BASE_URL
 
-    /** debug 接收器持久化的千问端点覆写；未设置时回到生产默认值。 */
     private val initialQwenBaseUrl =
         appContext.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
             .getString(KEY_QWEN_ENDPOINT, null)
@@ -82,11 +74,9 @@ class AppContainer(context: Context) {
     private val auditionPlayer = MediaPlayerAuditionPlayer()
     private val previewDir = File(appContext.filesDir, "previews")
 
-    /** 安装包的 versionName；发版时由 tag 映射，更新检查用它判断远端是否更高。 */
     private val appVersion: String =
         appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName.orEmpty()
 
-    /** debug 接收器持久化的更新源端点覆写；未设置时回到 GitHub 正式版接口。 */
     private val initialReleaseApiUrl =
         appContext.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
             .getString(KEY_UPDATE_ENDPOINT, null)
@@ -111,14 +101,10 @@ class AppContainer(context: Context) {
     )
 }
 
-/** debug 自验证通道的共享偏好文件名。 */
 internal const val DEBUG_PREFS = "listen_reader_debug"
 
-/** debug 自验证通道持久化的 StepFun 端点键。 */
 internal const val KEY_STEPFUN_ENDPOINT = "stepfun_endpoint"
 
-/** debug 自验证通道持久化的千问端点键。 */
 internal const val KEY_QWEN_ENDPOINT = "qwen_endpoint"
 
-/** debug 自验证通道持久化的更新源端点键。 */
 internal const val KEY_UPDATE_ENDPOINT = "update_endpoint"

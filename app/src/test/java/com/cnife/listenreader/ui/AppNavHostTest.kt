@@ -173,7 +173,6 @@ class AppNavHostTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("preview-title").assertTextContains("网页标题")
 
-        // 从预览返回采集页编辑后再提取，仍应回到预览而不是停在采集页。
         composeRule.onNodeWithContentDescription("返回").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("capture-extract").assertIsDisplayed()

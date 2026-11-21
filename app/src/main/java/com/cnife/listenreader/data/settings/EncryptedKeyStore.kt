@@ -9,16 +9,11 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** 可替换的加解密实现；测试用假实现，生产用 Android Keystore。 */
 interface KeyEncryptor {
     fun encrypt(plain: String): String?
     fun decrypt(token: String): String?
 }
 
-/**
- * API key 的 Keystore 加密封装：AES/GCM 密文（含 IV）以 Base64 存入 DataStore。
- * 任何异常都吞掉并返回 null —— 解密失败等价于「未配置」，不崩溃。
- */
 class EncryptedKeyStore(private val encryptor: KeyEncryptor = KeystoreKeyEncryptor()) {
 
     fun encrypt(plain: String): String? =

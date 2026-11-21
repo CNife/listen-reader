@@ -3,11 +3,6 @@ package com.cnife.listenreader.core
 import com.cnife.listenreader.model.SegmentDraft
 import com.cnife.listenreader.model.SegmentKind
 
-/**
- * 确定性规则分段：标题与 Markdown 标题整行为 HEADING，正文按段落 → 句末标点/换行切句，
- * 单句超过 [MAX_SEGMENT_CHARS] 时在标点处再切；少于 [MIN_SEGMENT_CHARS] 的极短句并入相邻句。
- * 纯函数，无状态。
- */
 object RuleSegmenter {
 
     const val MAX_SEGMENT_CHARS = 220
@@ -67,7 +62,6 @@ object RuleSegmenter {
         return mergeShort(sentences).map { SegmentDraft(it, kind) }
     }
 
-    /** 按句末标点切句；换行由外层按行处理，因此换行同样是边界。 */
     private fun splitSentences(line: String): List<String> {
         val out = mutableListOf<String>()
         val buffer = StringBuilder()
@@ -94,7 +88,6 @@ object RuleSegmenter {
         return out
     }
 
-    /** 超长句在标点处再切，找不到合适标点时按硬上限切。 */
     private fun splitLong(sentence: String): List<String> {
         if (sentence.length <= MAX_SEGMENT_CHARS) return listOf(sentence)
 

@@ -1,14 +1,5 @@
 package com.cnife.listenreader.capture.webview
 
-/**
- * L3 规则展开的安全判定。
- *
- * 页内脚本只负责收集「文本像展开按钮」的元素及其可见性/表单信息；
- * 是否允许点击完全由这里的纯函数决定，便于 JVM 单元测试：
- * - 只点击可见元素；
- * - 排除表单、提交按钮、登录/付费/关注/下载类元素；
- * - 外链（会离开当前文章）一律不点。
- */
 data class L3Candidate(
     val index: Int,
     val tag: String,
@@ -27,7 +18,6 @@ data class L3Candidate(
 
 object L3Rules {
 
-    /** 与 spec 一致的展开类文案；顺序即优先级。 */
     val PHRASES = listOf("展开全文", "展开阅读全文", "阅读全文", "继续阅读", "显示更多", "展开")
 
     private val BLOCKED_WORDS = listOf(
@@ -38,7 +28,6 @@ object L3Rules {
 
     private val BLOCKED_TAGS = setOf("input", "textarea", "select", "option", "form")
 
-    /** 文本是否像展开按钮；「展开」必须单独成词，避免误点「展开更多评论」之类。 */
     fun matchesPhrase(text: String): Boolean {
         val normalized = text.replace(Regex("\\s+"), "")
         if (normalized.isEmpty() || normalized.length > 40) return false
@@ -64,13 +53,11 @@ object L3Rules {
         if (BLOCKED_WORDS.any { text.contains(it.lowercase()) }) return false
         val href = candidate.href?.trim().orEmpty()
         if (href.isNotEmpty() && href != "#" && !href.startsWith("javascript:") && !href.startsWith("#")) {
-            // 任何会导航到其他页面的链接都不点：L3 只在当前文章内展开。
             return false
         }
         return true
     }
 
-    /** 一轮只点一个；优先进「最内层」元素，避免点到包裹层。已点过的不再点。 */
     fun pick(candidates: List<L3Candidate>, clickedKeys: Set<String>): L3Candidate? =
         candidates
             .filter { isSafe(it) && it.key !in clickedKeys }

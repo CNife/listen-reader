@@ -21,7 +21,6 @@ private val LightColors = lightColorScheme(
     onTertiary = LightPaper,
     tertiaryContainer = LightSunken,
     onTertiaryContainer = LightInk,
-    // 错误不另立色板：状态词与正文同级，靠文案说明。
     error = LightInk,
     onError = LightCardSurface,
     errorContainer = LightSunken,

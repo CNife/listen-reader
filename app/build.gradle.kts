@@ -7,8 +7,6 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
-// 发版签名：CI 从 secrets 注入四个环境变量；本地不设置时仍可构建未签名包。
-// 只设置一部分说明配置有误，直接失败，避免把未签名包装进发布流程。
 val releaseSigning = listOf(
     "RELEASE_KEYSTORE",
     "RELEASE_KEYSTORE_PASSWORD",
@@ -39,13 +37,11 @@ android {
         applicationId = "com.cnife.listenreader"
         minSdk = 26
         targetSdk = 35
-        // 发版 CI 按 tag 覆盖；默认值与 v0.1.0 的映射一致。
         versionCode = providers.gradleProperty("versionCode").map { it.toInt() }.getOrElse(1000)
         versionName = providers.gradleProperty("versionName").getOrElse("0.1.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // 自验证通道：-PappIdSuffix 生成可与正式版并存的隔离包，无需改源码。
         val appIdSuffix = providers.gradleProperty("appIdSuffix").orNull?.trim().orEmpty()
         if (appIdSuffix.isNotEmpty()) {
             applicationIdSuffix = if (appIdSuffix.startsWith(".")) appIdSuffix else ".$appIdSuffix"
@@ -140,9 +136,6 @@ dependencies {
     androidTestImplementation(libs.compose.ui.test.junit4)
 }
 
-// JsExtractorContractTest 在 jsdom 里真实执行提取脚本；新 worktree 没有 node_modules 时
-// 会以「请在仓库根目录执行 npm ci」假失败，逼 Agent 先诊断再手工补装。
-// 把安装下沉成构建的增量前置：依赖未变时 UP-TO-DATE（0ms），新 worktree 自动补齐。
 val installJsTestDeps = tasks.register<Exec>("installJsTestDeps") {
     description = "安装 jsdom 等 JS 测试依赖（js-extract-harness 用）"
     workingDir = rootProject.projectDir

@@ -2,10 +2,6 @@ package com.cnife.listenreader.model
 
 import java.net.URI
 
-/**
- * 来源展示名：只对常见站点做友好映射，其余保留去掉 `www.` 的 host。
- * 数据层、播放器和采集预览共用，避免同一篇内容在不同页面显示不同来源。
- */
 object SourceLabels {
 
     const val TEXT = "粘贴文本"

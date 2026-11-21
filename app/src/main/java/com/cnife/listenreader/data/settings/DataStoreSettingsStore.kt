@@ -24,10 +24,6 @@ import kotlinx.coroutines.flow.map
 private val Context.settingsDataStore: DataStore<Preferences> by
     preferencesDataStore(name = "listen-reader-settings")
 
-/**
- * 全局设置持久化：普通值直接进 Preferences，API key 经 [EncryptedKeyStore] 加密后存入。
- * 解密失败按未配置处理。
- */
 class DataStoreSettingsStore(
     private val dataStore: DataStore<Preferences>,
     private val keyStore: EncryptedKeyStore = EncryptedKeyStore(),

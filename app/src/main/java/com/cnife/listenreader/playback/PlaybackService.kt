@@ -9,7 +9,6 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.cnife.listenreader.MainActivity
 
-/** Media3 播放宿主；Media3PlaybackEngine 通过 MediaController 与它通信。 */
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null

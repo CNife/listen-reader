@@ -11,14 +11,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * 架构与资源契约：把 .no-mistakes.yaml 依赖 AI Review 反复发现的规则
- * （服务层禁用 runBlocking、端口不留死成员、Room Schema 同步、模板正则有效）
- * 变成确定性的 JVM 单测，在编码阶段就给出可执行的失败信号。
- */
 class ArchitectureContractTest {
 
-    /** 兼容从仓库根目录（`./gradlew`）与从 `:app` 子目录运行两种情形。 */
     private fun appModuleDir(): File =
         if (File("src/main").exists()) File(".") else File("app")
 
@@ -57,7 +51,6 @@ class ArchitectureContractTest {
 
     @Test
     fun portMemberDetector_flagsImplementerSelfCallsAndPortDataClassFuns() {
-        // 回归 PR #21：实现类内部调用自己的端口成员曾把死成员伪装成「有消费者」。
         val libraryPort = """
             interface LibraryStore {
                 fun audioFile(id: String): File
@@ -90,7 +83,6 @@ class ArchitectureContractTest {
             ),
         )
 
-        // 回归 PR #20：端口文件里 data class 上新增的公开 fun 曾完全逃出检测。
         val settingsPort = """
             interface SettingsStore {
                 suspend fun setThemeMode(mode: String)
@@ -119,8 +111,6 @@ class ArchitectureContractTest {
                 listOf(ProductionFile("SettingsSetup.kt", stripComments(settingsProduction).lines())),
             ),
         )
-
-        // 私有帮助函数（含 suspend/inline 等隔开修饰符变体）不属于公开接口面，不得误报死成员。
     }
 
     @Test
@@ -184,13 +174,10 @@ class ArchitectureContractTest {
         assertTrue(RUN_BLOCKING.containsMatchIn(stripComments("val value = runBlocking { 1 }")))
     }
 
-    /** 返回端口死成员；接口成员用 `Interface.member`，端口 data class 上的公开 fun 用裸名。 */
     private fun unusedMembers(portSource: String, production: List<ProductionFile>): List<String> {
         val text = stripComments(portSource)
         val ports = portInterfaces(text)
 
-        // 实现端口的具体类必然出现 override 声明，它对自己的内部调用不是「外部消费者」。
-        // 不排除它，`RoomLibraryStore` 里的 snapshotFile(id) 就会把死成员判成活的。
         val deadInterfaceMembers = ports.flatMap { port ->
             val externalCallers = production.filterNot { implements(port, it) }
             port.members.filterNot { member ->
@@ -200,7 +187,6 @@ class ArchitectureContractTest {
             }.map { "${port.name}.$it" }
         }
 
-        // 端口文件里的 data class 不承载端口契约，但它上面的公开 fun 同样是生产接口面。
         val deadLooseFuns = loosePublicFuns(text, ports).filterNot { funName ->
             production.any { file ->
                 file.lines.any { line -> !definitionLine(funName, line) && wordReference(funName, line) }
@@ -209,16 +195,11 @@ class ArchitectureContractTest {
         return deadInterfaceMembers + deadLooseFuns
     }
 
-    /**
-     * 完整实现一个端口的类必然 override 它的全部抽象成员；只靠「出现同一个成员名」不够，
-     * 服务实现类与多个端口本来就有同名成员（如 deleteResource），那会把真实调用者误排除。
-     */
     private fun implements(port: PortInterface, file: ProductionFile): Boolean {
         if (port.members.isEmpty()) return false
         return port.members.all { member -> file.lines.any { overrideDeclaration(member, it) } }
     }
 
-    /** 提取每个非 sealed 接口名、其声明的 fun/val 成员名，以及成员所在的源码区间。 */
     private fun portInterfaces(text: String): List<PortInterface> {
         val result = mutableListOf<PortInterface>()
         for (match in INTERFACE_DECL.findAll(text)) {
@@ -240,7 +221,6 @@ class ArchitectureContractTest {
         return result
     }
 
-    /** 端口目录内、接口体之外声明的非私有 fun（data class / class / object 上的公开方法）。 */
     private fun loosePublicFuns(text: String, ports: List<PortInterface>): List<String> =
         FUN_DECL.findAll(text)
             .filterNot { match -> ports.any { match.range.first in it.bodyStart..it.bodyEnd } }
@@ -249,7 +229,6 @@ class ArchitectureContractTest {
             .distinct()
             .toList()
 
-    /** 声明行中 fun 关键字之前出现 private/protected 修饰符（含 suspend/inline 等隔开变体）。 */
     private fun nonPublicDeclaration(text: String, funStart: Int): Boolean {
         val lineStart = text.lastIndexOf('\n', maxOf(0, funStart - 1)).let { if (it < 0) 0 else it + 1 }
         return NON_PUBLIC_MODIFIER.containsMatchIn(text.substring(lineStart, funStart))
@@ -305,10 +284,8 @@ class ArchitectureContractTest {
         Regex("""\b(?:override\s+)?(?:suspend\s+)?fun\s+${Pattern.quote(member)}\b""")
     }
 
-    /** 同一源码文件；路径只用于诊断，[lines] 已剥离注释。 */
     private class ProductionFile(val path: String, val lines: List<String>)
 
-    /** 一个非 sealed 端口接口：名字、声明的成员，以及 `{`…`}` 在文件中的下标。 */
     private class PortInterface(
         val name: String,
         val members: List<String>,

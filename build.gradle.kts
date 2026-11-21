@@ -7,8 +7,6 @@ plugins {
     alias(libs.plugins.roborazzi) apply false
 }
 
-// 自动挂载仓库自带的 .githooks（git worktree 共享仓库配置，主工作区与隔离 worktree 均生效）。
-// 每次配置只做一次极轻量的 git config 查询，不引入外部 pre-commit 运行时。
 runCatching {
     val hook = rootDir.resolve(".githooks/pre-commit")
     if (rootDir.resolve(".git").exists() && hook.isFile) {

@@ -17,13 +17,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-/**
- * 以 GitHub Release 为准的更新源：只请求正式版接口（Draft 与 Pre-release 天然被排除）。
- * 下载目标优先取 `listen-reader-<version>.apk` 附件，缺失时回退到 Release 详情页。
- *
- * [releaseApiUrl] 是 `var`：debug 自验证通道把它指向本地 mock，
- * 才能在不联网、不改源码的条件下驱动「附件缺失回退」「冷却期出站」这些边界。
- */
 class GitHubReleaseChecker(
     private val httpClient: OkHttpClient = defaultHttpClient(),
     var releaseApiUrl: String = RELEASE_API_URL,

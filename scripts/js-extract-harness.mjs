@@ -1,15 +1,3 @@
-// 网页提取脚本的 Node 侧宿主：在 jsdom 里加载 readability.js + l1.js + l3.js，
-// 通过 stdin 逐行接收 JSON 命令、逐行回写 JSON 结果。
-//
-// 用法（agent 一般不直接调用，由 :app:testDebugUnitTest 里的 JsExtractorContractTest 驱动）：
-//   node scripts/js-extract-harness.mjs --fixture article.html --url https://example.com/article
-//   然后向 stdin 写 {"op":"meta"} / {"op":"extract","options":{...}} / {"op":"collect","phrases":[...]} / {"op":"click","index":0}
-//
-// 关键约定：
-// - 页面脚本按 WebView 的方式真实执行（runScripts: "dangerously"），fixture 里的 onclick 会真的生效。
-// - 判断可见性与正文长度依赖 innerText 与元素几何，jsdom 二者都缺，这里补一层最小垫片。
-// - 决策（L3Rules 的点击安全判定）留在 Kotlin；本脚本只做页面宿主。
-
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
@@ -50,8 +38,6 @@ const SHIM = `
   };
   Element.prototype.scrollIntoView = function () {};
 
-  // jsdom 没有 innerText；提取脚本依赖它取得整段正文并判定可见，
-  // 这里让它等价于 textContent，与 WebView 中「文本非空即可见」的判定对齐。
   Object.defineProperty(Element.prototype, "innerText", {
     configurable: true,
     get: function () { return this.textContent; },
@@ -94,7 +80,6 @@ const templates = JSON.parse(readFileSync(path.join(EXTRACT_DIR, "templates.json
 const consoleErrors = [];
 const virtualConsole = new VirtualConsole();
 virtualConsole.on("jsdomError", (error) => {
-  // 「Not implemented: navigation」是 jsdom 缺省行为，不是页面脚本错误。
   if (!String(error.message).includes("Not implemented")) consoleErrors.push(String(error.message));
 });
 
@@ -183,7 +168,5 @@ for await (const line of rl) {
 try {
   window.close();
 } catch {
-  /* 忽略关闭期的清理噪声 */
 }
-// jsdom 的 rAF 定时器会拖住事件循环，显式退出以免调用方白等。
 process.exit(0);

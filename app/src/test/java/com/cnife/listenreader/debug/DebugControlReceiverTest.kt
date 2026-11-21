@@ -37,11 +37,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * 自验证通道的 JVM 契约：`configure` 真的改端点与设置、`seed_resource` 真的落库、
- * `dump_state` 真的吐出可解析快照、`clear_state` 真的清空库并复原端点。
- * 没有这层断言，Agent 在真机上执行广播时无法分辨「命令生效」与「静默失败」。
- */
 @RunWith(AndroidJUnit4::class)
 class DebugControlReceiverTest {
 
@@ -148,7 +143,6 @@ class DebugControlReceiverTest {
                 .getString(KEY_UPDATE_ENDPOINT, null),
         )
 
-        // 空串复原生产端点，否则后续实机调试会一直打本地 mock。
         runCommand(intent("configure").putExtra("update_endpoint", ""))
         assertEquals(GitHubReleaseChecker.RELEASE_API_URL, updateChecker.releaseApiUrl)
     }
@@ -202,7 +196,6 @@ class DebugControlReceiverTest {
         assertEquals("true", updateJson["autoCheck"]!!.jsonPrimitive.content)
         assertEquals("Idle", updateJson["check"]!!.jsonPrimitive.content)
         val settingsJson = dump["settings"]!!.jsonObject
-        // 快照读的是用户当前看到的 UI 状态（由 ReadingService 汇总），不是 SettingsStore 原始值。
         assertEquals("6", settingsJson["prefetchCount"]!!.jsonPrimitive.content)
         assertEquals("SYSTEM", settingsJson["themeMode"]!!.jsonPrimitive.content)
         val playerJson = dump["player"]!!.jsonObject

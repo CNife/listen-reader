@@ -5,7 +5,6 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 静态上下文语段（半透明单色） -->
     <path
         android:fillColor="#80000000"
         android:pathData="M 30.5,31 H 52.5 A 3.5,3.5 0 0,1 52.5,38 H 30.5 A 3.5,3.5 0 0,1 30.5,31 Z" />
@@ -13,7 +12,6 @@
         android:fillColor="#80000000"
         android:pathData="M 30.5,70 H 45.5 A 3.5,3.5 0 0,1 45.5,77 H 30.5 A 3.5,3.5 0 0,1 30.5,70 Z" />
 
-    <!-- 活跃朗读语段与声波音轨（实心单色） -->
     <path
         android:fillColor="#FF000000"
         android:pathData="M 30.5,50.5 H 41.5 A 3.5,3.5 0 0,1 41.5,57.5 H 30.5 A 3.5,3.5 0 0,1 30.5,50.5 Z" />

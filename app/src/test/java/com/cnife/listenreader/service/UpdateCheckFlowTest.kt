@@ -32,7 +32,6 @@ class UpdateCheckFlowTest {
         val checker: FakeUpdateChecker,
     )
 
-    /** 真实时钟下必然已超过 24 小时冷却的「很晚」时间点。 */
     private val dueNow = 90_000_000L
 
     private fun TestScope.createHarness(

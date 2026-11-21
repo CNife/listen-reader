@@ -40,7 +40,6 @@ import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Ink3
 import com.cnife.listenreader.ui.theme.Paper
 
-/** 页面头：56dp，返回箭头 + 左对齐标题，右侧留给一个明确动作。 */
 @Composable
 fun PageHeader(
     title: String,
@@ -80,7 +79,6 @@ fun PageHeader(
     }
 }
 
-/** 资料库首屏：页名、一句数据说明，以及搜索/设置两个入口。 */
 @Composable
 fun Masthead(
     title: String,
@@ -126,10 +124,6 @@ fun Masthead(
     }
 }
 
-/**
- * 文本标签页：选中项用朱砂 + 2dp 下划线，不使用胶囊或色块。
- * options 的 key 用于测试标签和状态，label 用于展示。
- */
 @Composable
 fun TextTabs(
     options: List<Pair<String, String>>,
@@ -178,7 +172,6 @@ fun TextTabs(
     }
 }
 
-/** 13/600 的分区标签，句首大写与否由文案决定，不做字距特效。 */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(

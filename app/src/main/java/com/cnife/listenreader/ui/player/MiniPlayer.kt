@@ -45,10 +45,6 @@ import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.OnAccent
 import java.util.Locale
 
-/**
- * 底部常驻播放 dock：Surface + 顶部 1dp 细线，无 elevation。
- * 时间、2dp 进度、上一句/播放/下一句、睡眠定时；第二行倍速/音色/跟随。
- */
 @Composable
 fun PlayerDock(
     state: PlayerState,

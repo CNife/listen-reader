@@ -44,15 +44,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.coroutines.resume
 
-/**
- * 单实例 WebView 页面会话：加载 URL、共享 CookieManager 登录态、等待 DOM 稳定后注入 L1。
- *
- * - WebView 只在主线程创建；[createView] 用调用方（Activity）的 Context。
- * - 登录/验证码/反爬提示出现时进入 [PageSessionState.NeedsUserAction]，把页面交还用户，
- *   绝不自动登录、提交表单或付费。
- * - 提取脚本：`assets/extract/readability.js` + `assets/extract/l1.js`；模板来自
- *   `assets/extract/templates.json`。
- */
 class WebViewPageSession(
     private val appContext: Context,
     private val mainScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
@@ -117,10 +108,6 @@ class WebViewPageSession(
 
     suspend fun extract(): PageExtraction = runL1()
 
-    /**
-     * 先跑 L1；needsExpand 时只点击可见的展开类元素，每轮点击后滚动触发懒加载、
-     * 等待 DOM 静默再重新 L1，最多 [MAX_EXPAND_ROUNDS] 轮。没有安全候选就停手。
-     */
     override suspend fun expandAndExtract(): PageExtraction = withContext(Dispatchers.Main.immediate) {
         var extraction = runL1()
         if (!extraction.needsExpand) return@withContext extraction
@@ -184,7 +171,6 @@ class WebViewPageSession(
         }
     }
 
-    /** 依赖页内 MutationObserver 的静默标记；超时后按当前 DOM 继续。 */
     private suspend fun awaitDomQuiet() {
         val startedAt = SystemClock.uptimeMillis()
         var quietPolls = 0
@@ -221,8 +207,6 @@ class WebViewPageSession(
         }
     }
 
-    // --- 页面状态 ---
-
     @SuppressLint("SetJavaScriptEnabled")
     private fun configure(view: WebView) {
         with(view.settings) {
@@ -237,7 +221,6 @@ class WebViewPageSession(
             mediaPlaybackRequiresUserGesture = true
         }
         CookieManager.getInstance().setAcceptCookie(true)
-        // 登录态共享：第三方 cookie 常见于跳转登录与 iframe 内嵌登录。
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
         view.webViewClient = PageClient()
         view.webChromeClient = object : WebChromeClient() {
@@ -301,7 +284,6 @@ class WebViewPageSession(
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
             val uri = request?.url ?: return false
             val scheme = uri.scheme?.lowercase()
-            // 站内 http(s) 留在 WebView；电话/邮件等外部 scheme 不交给系统，避免跳出和崩溃。
             return scheme != null && scheme != "http" && scheme != "https" && scheme != "about"
         }
     }
@@ -321,7 +303,6 @@ class WebViewPageSession(
                 val length = parsed?.textLength ?: 0
                 if (length != lastLength) lastChangeAt = now
                 lastLength = length
-                // readyState 完成 + 一段时间内文本没有变化，才认为 DOM 静默。
                 if (ready && length > 0 && now - lastChangeAt >= QUIET_PERIOD_MS) {
                     stable = true
                     break
@@ -380,12 +361,10 @@ class WebViewPageSession(
         when (settled) {
             is PageSessionState.NeedsUserAction -> throw PageExtractionException(settled.reason)
             is PageSessionState.Failed -> throw PageExtractionException(settled.message)
-            null -> Unit // 超时后按当前 DOM 尽力提取
+            null -> Unit
             else -> Unit
         }
     }
-
-    // --- 脚本注入与解析 ---
 
     private suspend fun ensureBundle(view: WebView) {
         if (bundleInstalled) return
@@ -410,7 +389,6 @@ class WebViewPageSession(
             put("domStable", domStable)
             put("templates", Json.parseToJsonElement(templatesJson))
         }
-        // evaluateJavascript 需要 JS 字符串字面量。
         return Json.encodeToString(JsonPrimitive.serializer(), JsonPrimitive(options.toString()))
     }
 
@@ -442,7 +420,6 @@ class WebViewPageSession(
         )
     }
 
-    /** evaluateJavascript 会把 JS 字符串结果再 JSON 编码一次，这里统一解两层。 */
     private fun <T> decodeJsValue(raw: String?, serializer: KSerializer<T>): T? {
         if (raw.isNullOrBlank() || raw == "null") return null
         val element = runCatching { Json.parseToJsonElement(raw) }.getOrNull() ?: return null
@@ -460,8 +437,6 @@ class WebViewPageSession(
             if (continuation.isActive) continuation.resume(value)
         }
     }
-
-    // --- 工具 ---
 
     private fun loadInternal(url: String) {
         bundleInstalled = false
@@ -509,10 +484,6 @@ class WebViewPageSession(
                 "readyState:document.readyState," +
                 "textLength:b?((b.innerText||'').length):0});})()"
 
-        /**
-         * 只识别明确的拦截提示；裸「登录」按钮不算，避免普通文章误判。
-         * 「请登录/扫码登录」仅在页面文本很短时才算，因为这类页面通常是登录墙。
-         */
         const val DETECTION_SCRIPT =
             "(function(){" +
                 "var body=document.body;var text=body?((body.innerText||'').replace(/\\s+/g,' ')):'';" +

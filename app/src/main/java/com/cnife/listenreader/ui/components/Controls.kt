@@ -50,7 +50,6 @@ import com.cnife.listenreader.ui.theme.OnAccent
 import com.cnife.listenreader.ui.theme.RuleStrong
 import com.cnife.listenreader.ui.theme.Sunken
 
-/** 一屏只留一个实心主按钮：48dp，8dp 圆角，朱砂底。 */
 @Composable
 fun PrimaryAction(
     text: String,
@@ -83,7 +82,6 @@ fun PrimaryAction(
     }
 }
 
-/** 低调动作：只有文字，不额外加边框或底色。 */
 @Composable
 fun QuietAction(
     text: String,
@@ -111,7 +109,6 @@ fun QuietAction(
     }
 }
 
-/** 标签在框外，框内只放输入内容；密码框复用同一视觉。 */
 @Composable
 fun LrTextField(
     value: String,
@@ -242,7 +239,6 @@ fun SearchField(
     )
 }
 
-/** 单选行：整行可点，左侧 18dp 圆环 + 选中实心点。 */
 @Composable
 fun ChoiceRow(
     label: String,

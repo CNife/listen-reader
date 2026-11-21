@@ -196,7 +196,6 @@ class SleepTimerTest {
         runCurrent()
         assertFalse(h.service.player.value.isPlaying)
 
-        // 合成在定时器到点后才完成：不能再把引擎拉起来。
         advanceTimeBy(120_000L)
         runCurrent()
         assertFalse(h.service.player.value.isPlaying)

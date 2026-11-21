@@ -6,9 +6,6 @@ import com.cnife.listenreader.service.ports.ConnectionTestResult
 import com.cnife.listenreader.service.ports.SpeechSynthesizer
 import java.io.File
 
-/**
- * 按模型所属供应商把合成与连接测试请求路由到 [StepFunSpeechSynthesizer] 或 [QwenSpeechSynthesizer]。
- */
 class RoutingSpeechSynthesizer(
     val stepFun: StepFunSpeechSynthesizer,
     val qwen: QwenSpeechSynthesizer,

@@ -1,9 +1,5 @@
 package com.cnife.listenreader.l2
 
-/**
- * 把 Markdown 正文切成不超过 [MAX_CHUNK_CHARS] 的块，优先在段落边界切分。
- * 单块超长时按换行/句末标点硬切，保证任何块都不超过上限。
- */
 object ScriptChunker {
 
     const val MAX_CHUNK_CHARS = 8000

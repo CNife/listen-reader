@@ -6,8 +6,6 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// 「墨声」静态色板。外层通过 CompositionLocal 提供当前（浅/深）色板；
-// 组件里使用下面的同名 Composable token，避免深色模式仍取到浅色纸面。
 val LightPaper = Color(0xFFF7F6F2)
 val LightCardSurface = Color(0xFFFFFFFF)
 val LightSunken = Color(0xFFEFEEE8)

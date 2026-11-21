@@ -35,20 +35,6 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/**
- * 仅 debug 构建存在的自验证通道：让 Agent 在不改一行源码、不 root 设备的前提下
- * 为真机/模拟器上的真实应用注入 mock 端点、预置资料与抓取状态快照。
- *
- * 用法（见 `docs/agents/verification.md`）：
- * ```
- * adb shell am broadcast -a com.cnife.listenreader.DEBUG_CONTROL \
- *     --es cmd configure --es stepfun_endpoint http://127.0.0.1:18080/v1
- * adb logcat -d -s ListenReaderDebug:I
- * ```
- *
- * 每条命令都把结果输出为单行 JSON（TAG `ListenReaderDebug`），异常一律转成
- * `{"ok":false,...}`，绝不让调试通道把用户进程带崩。
- */
 class DebugControlReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -79,10 +65,6 @@ class DebugControlReceiver : BroadcastReceiver() {
     }
 }
 
-/**
- * 自验证命令的纯执行层：从 [ListenReaderApp.container] 取出依赖后逐条执行，
- * 便于在 JVM 上（Robolectric）直接以 `runBlocking` 断言每条命令的效果。
- */
 internal object DebugCommands {
 
     suspend fun execute(context: Context, command: String, intent: Intent): String {

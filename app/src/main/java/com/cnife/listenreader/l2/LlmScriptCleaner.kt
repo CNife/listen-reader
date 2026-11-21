@@ -16,14 +16,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 
-/**
- * L2：调用 OpenAI 兼容模型把 Markdown 正文清洗成适合朗读的分段。
- *
- * 输入按标题/段落切成 ≤8000 字符的块逐块请求；输出必须是
- * `{"segments":[{"text":"...","kind":"heading|paragraph|quote"}]}`。
- * JSON 非法或字段缺失时重试一次；仍失败则返回可读的 [CleanResult.Failure]，
- * 由 ReadingService 回退规则分段。
- */
 class LlmScriptCleaner(
     private val settingsStore: SettingsStore,
     private val client: OpenAiCompatibleClient = OpenAiCompatibleClient(),
@@ -162,7 +154,6 @@ class LlmScriptCleaner(
     }
 }
 
-/** 宽容地解析模型输出：允许 Markdown 代码块围栏，但非 JSON 一律视为失败。 */
 internal object SegmentJsonParser {
 
     fun parse(raw: String): List<SegmentDraft>? {

@@ -60,10 +60,6 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 
-/**
- * 应用级协调器：资料库、采集、设置与逐 Segment 的 TTS / 播放编排。
- * 播放规则：当前段按需合成并缓存；引擎结束自动推进；倍速只作用播放器。
- */
 class DefaultReadingService(
     private val pageSession: PageSession,
     private val scriptCleaner: ScriptCleaner,
@@ -73,7 +69,6 @@ class DefaultReadingService(
     private val settingsStore: SettingsStore,
     private val timeProvider: TimeProvider,
     private val updateChecker: UpdateChecker,
-    /** 已安装包的 versionName，用于与远端版本比较。 */
     private val appVersion: String,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
     private val auditionPlayer: AuditionPlayer = com.cnife.listenreader.service.ports.NoopAuditionPlayer,
@@ -94,10 +89,8 @@ class DefaultReadingService(
 
     private var allItems: List<LibraryItem> = emptyList()
 
-    /** 最近打开的 Resource，来源是持久化的 `lastOpenedResourceId()` 查询结果。 */
     private var lastOpenedId: String? = null
 
-    /** 每次开始新的采集会话自增，用于丢弃已过期会话的异步保存结果。 */
     private var captureEpoch = 0
 
     private var currentResource: Resource? = null
@@ -105,46 +98,34 @@ class DefaultReadingService(
     private var currentClips: MutableMap<Int, AudioClip> = mutableMapOf()
     private var activeTrack: AudioTrack? = null
 
-    /** 用户意图：是否应该正在播放（区别于引擎瞬时状态）。 */
     private var wantPlaying = false
     private var endedHandledFor: Int? = null
     private var playbackJob: Job? = null
 
-    /** 每个 Segment 一把锁：同一句不会重复请求，不同句可以并行合成。 */
     private val synthLocks = mutableMapOf<Int, Mutex>()
 
-    /** 睡眠定时倒计时；到点暂停并清空。 */
     private var sleepTimerJob: Job? = null
 
-    /** 服务主动 prepare/play 期间，引擎的瞬时暂停不算用户从通知栏暂停。 */
     private var pendingEngineStart = false
 
-    /** 进行中的预取任务，按 Segment 索引去重；窗口移动时旧任务继续跑完。 */
     private val prefetchJobs = mutableMapOf<Int, Job>()
 
-    /** 预取请求的并发上限；前台合成不受它约束。 */
     private val prefetchSemaphore = Semaphore(MAX_CONCURRENT_PREFETCH)
 
-    /** 切换 AudioTrack 时自增，用于丢弃旧轨上已完成但已过期的合成结果。 */
     private var trackEpoch = 0
 
     private var auditionJob: Job? = null
 
-    /** 每次 L2 运行自增，用于丢弃已过期的清洗结果。 */
     private var l2Epoch = 0
     private var l2Job: Job? = null
 
-    /** 最近一次 LLM 配置写入，供 testLlm 等待保存完成。 */
     private var llmConfigSaveJob: Job? = null
 
-    /** 最近一次更新检查任务；手动检查会抢占仍在跑的自动检查。 */
     private var updateCheckJob: Job? = null
 
-    /** 最近一次网页提取的原始快照，保存时写入 Source（Markdown + HTML）。 */
     private var pendingMarkdown: String? = null
     private var pendingHtml: String? = null
 
-    /** 最近一次提取拿到的页面全文，供「使用页面全文」兜底。 */
     private var pendingPageText: String? = null
 
     init {
@@ -189,11 +170,8 @@ class DefaultReadingService(
                 runCatching { loadResource(resourceId, markOpened = false) }
             }
         }
-        // 冷启动静默检查：未到冷却或离线失败都不打扰正在听书的用户。
         updateCheckJob = scope.launch { autoCheckIfDue() }
     }
-
-    // --- 资料库 ---
 
     override fun refreshLibrary() {
         _library.update { it.copy(isLoading = true, error = null) }
@@ -286,8 +264,6 @@ class DefaultReadingService(
             it.copy(error = UiError("删除失败，请稍后重试", ErrorKind.UNKNOWN, retryable = true))
         }
     }
-
-    // --- Capture / 预览 ---
 
     override fun beginUrlCapture(url: String?) {
         captureEpoch++
@@ -383,7 +359,6 @@ class DefaultReadingService(
         }
     }
 
-    /** 校验并开始加载网址；返回是否合法。 */
     private fun openUrl(raw: String): Boolean {
         val normalized = ShareText.normalizeUrl(raw) ?: return false
         captureEpoch++
@@ -485,7 +460,6 @@ class DefaultReadingService(
                 }
             }
             try {
-                // expandAndExtract 内部先跑 L1；只有 needsExpand 时才做 L3 规则展开。
                 val extraction = pageSession.expandAndExtract()
                 if (epoch != captureEpoch) return@launch
                 applyPageExtraction(extraction)
@@ -575,7 +549,6 @@ class DefaultReadingService(
         if (configured) startL2(captureEpoch, title, body)
     }
 
-    /** 有些提取器会把标题也放进正文；避免预览里重复一句标题。 */
     private fun stripLeadingTitle(title: String, body: String): String {
         if (title.isBlank() || !body.startsWith(title)) return body
         val rest = body.substring(title.length)
@@ -701,7 +674,6 @@ class DefaultReadingService(
             if (sourceKind == SourceKind.URL) ShareText.sourceLabel(sourceUrl.orEmpty()) else TEXT_SOURCE_LABEL
         }
         val body = preview.body.trim()
-        // 保存当前预览里的分段：L2 成功时是 LLM 分段，失败/未配置时是规则分段。
         val drafts = preview.segmentDrafts.ifEmpty { RuleSegmenter.segment(speechTitle(title), body) }
         if (drafts.isEmpty()) {
             _capture.update {
@@ -731,7 +703,6 @@ class DefaultReadingService(
                     createdAt = now,
                     lastOpenedAt = 0,
                 )
-                // 网页快照保存 L1 Markdown（用户可编辑正文不覆盖原始提取），HTML 可选。
                 val snapshotText = if (sourceKind == SourceKind.URL) {
                     pendingMarkdown ?: body
                 } else {
@@ -769,8 +740,6 @@ class DefaultReadingService(
         pendingPageText = null
         _capture.value = CaptureState(sessionId = _capture.value.sessionId + 1)
     }
-
-    // --- 播放 ---
 
     override fun play() {
         val state = _player.value
@@ -859,11 +828,6 @@ class DefaultReadingService(
         switchTrack(model = normalizedModel, voice = nextVoice)
     }
 
-    /**
-     * 为当前 Resource 切到与 [model]/[voice] 匹配的 AudioTrack：已有同配置轨则复用，
-     * 否则新建；旧轨与文件保留，由设置页清理。切轨后从当前 Segment 重新合成，
-     * 并恢复原来的播放位置与播放态。
-     */
     private fun switchTrack(model: String, voice: String) {
         val resourceId = _player.value.resourceId ?: return
         scope.launch {
@@ -912,7 +876,6 @@ class DefaultReadingService(
 
             val cached = currentClips[index]?.takeIf { it.isReadyFile() }?.filePath
             if (cached != null) {
-                // 切轨时的 prepare 也是服务主动发起的：Ready(isPlaying=false) 不能当成外部暂停。
                 pendingEngineStart = true
                 runCatching {
                     playbackEngine.setSpeed(_player.value.speed)
@@ -968,8 +931,6 @@ class DefaultReadingService(
         endedHandledFor = null
         _player.value = PlayerState()
     }
-
-    // --- 设置 ---
 
     override fun saveStepFunKey(key: String) {
         scope.launch {
@@ -1033,7 +994,6 @@ class DefaultReadingService(
         }
         llmConfigSaveJob = scope.launch {
             try {
-                // 留空表示保留已保存的 Key；清除请用 setLlmKey("")。
                 val existingKey = settingsStore.llmKey()
                 val keyToStore = if (typedKey.isNotEmpty()) typedKey else existingKey
                 settingsStore.setLlmConfig(normalizedEndpoint, normalizedModel, keyToStore)
@@ -1090,7 +1050,6 @@ class DefaultReadingService(
         if (wantPlaying) schedulePrefetch()
     }
 
-    /** 设置持久化失败不崩溃，统一写入 [SettingsState.error]。 */
     private fun persistSettings(block: suspend () -> Unit) {
         scope.launch {
             try {
@@ -1256,8 +1215,6 @@ class DefaultReadingService(
         }
     }
 
-    // --- 更新 ---
-
     override fun setAutoCheckUpdate(enabled: Boolean) {
         _settings.update { it.copy(update = it.update.copy(autoCheck = enabled)) }
         persistSettings { settingsStore.setAutoCheckUpdate(enabled) }
@@ -1289,7 +1246,6 @@ class DefaultReadingService(
         persistSettings { settingsStore.setIgnoredUpdateVersion(version) }
     }
 
-    /** 手动检查成功：恢复被忽略版本的提示，落盘结果，并区分「已是最新」与「有新版本」。 */
     private suspend fun persistManualCheck(release: RemoteRelease) {
         try {
             settingsStore.setIgnoredUpdateVersion(null)
@@ -1316,10 +1272,6 @@ class DefaultReadingService(
         }
     }
 
-    /**
-     * 冷启动自动检查。失败时静默返回：离线或限流不应在听书时弹出全局错误，
-     * 也不刷新冷却时间戳，下次启动继续尝试。
-     */
     private suspend fun autoCheckIfDue() {
         val stored = try {
             settingsStore.settings.first()
@@ -1349,7 +1301,6 @@ class DefaultReadingService(
         _settings.update { it.copy(update = it.update.copy(check = UpdateCheckState.Idle)) }
     }
 
-    /** 远端缓存与忽略状态是推导字段：每次设置变化都在这里统一重算。 */
     private fun updateStateFor(settings: AppSettings, check: UpdateCheckState): UpdateState {
         val release = knownRelease(settings)
         return UpdateState(
@@ -1379,8 +1330,6 @@ class DefaultReadingService(
     private fun updateFailureMessage(t: Throwable): String =
         (t as? UpdateCheckException)?.message ?: "检查更新失败，请稍后重试"
 
-    // --- 播放 internals ---
-
     private fun startEnginePlay(index: Int, positionMs: Long, autoPlay: Boolean = true) {
         playbackJob?.cancel()
         pendingEngineStart = true
@@ -1406,7 +1355,6 @@ class DefaultReadingService(
     private suspend fun performPlay(index: Int, positionMs: Long, autoPlay: Boolean): Boolean {
         endedHandledFor = null
         val cachedFile = currentClips[index].takeIf { it.isReadyFile() }?.filePath
-        // 已缓存音频直接离线播放，不查 Key、不发起任何合成请求。
         val trackModel = activeTrack?.model ?: _settings.value.ttsModel
         if (cachedFile == null && !isKeyConfiguredFor(trackModel)) {
             val vendorName = TtsModels.vendorOf(trackModel).displayName
@@ -1434,7 +1382,6 @@ class DefaultReadingService(
         _player.update { it.copy(isPreparing = false) }
         playbackEngine.prepare(file, positionMs)
         playbackEngine.setSpeed(_player.value.speed)
-        // 合成期间用户手动暂停或睡眠定时到点：不要再把引擎拉起来。
         if (autoPlay && wantPlaying) {
             playbackEngine.play()
             _player.update { it.copy(isPlaying = true) }
@@ -1462,12 +1409,6 @@ class DefaultReadingService(
 
     private fun synthLock(index: Int): Mutex = synthLocks.getOrPut(index) { Mutex() }
 
-    /**
-     * 合成单个 Segment。调用方必须持有 [synthLock]；同一句的串行由该锁保证，
-     * 不同句因此可以并行合成。
-     * [foreground] 为 false（预取）时失败只标 ERROR，不打断当前播放，也不写全局错误。
-     * [epoch] 与当前 [trackEpoch] 不一致说明已切轨，结果只落旧轨文件/DB，不污染新轨状态。
-     */
     private suspend fun synthesizeSegment(
         index: Int,
         track: AudioTrack,
@@ -1557,11 +1498,6 @@ class DefaultReadingService(
         refreshPreparing()
     }
 
-    /**
-     * 为当前段之后的 [SettingsState.prefetchCount] 段补齐预取窗口。
-     * 每次调用都按当前索引重新计算窗口：已在进行中的索引跳过，窗口移动时旧任务继续跑完，
-     * 因此不会因为旧任务仍活跃而让窗口停留在过期的位置。
-     */
     private fun schedulePrefetch() {
         val track = activeTrack ?: return
         if (!isKeyConfiguredFor(track.model)) return
@@ -1595,7 +1531,6 @@ class DefaultReadingService(
         TtsVendor.STEPFUN -> _settings.value.stepFunKeyConfigured
     }
 
-    /** 预取单句：同一索引由 [synthLock] 去重，不同索引受 [prefetchSemaphore] 限流。 */
     private suspend fun prefetchOne(index: Int, track: AudioTrack, epoch: Int) {
         synthLock(index).withLock {
             val clip = currentClips[index]
@@ -1609,7 +1544,6 @@ class DefaultReadingService(
         prefetchJobs.clear()
     }
 
-    /** `isPreparing` 由当前/下一句的合成状态派生，避免预取与前台合成互相覆盖。 */
     private fun refreshPreparing() {
         _player.update { state ->
             val current = state.segments.getOrNull(state.currentIndex)
@@ -1659,7 +1593,6 @@ class DefaultReadingService(
             is PlaybackEngineState.Ready -> {
                 val wasPendingStart = pendingEngineStart
                 if (state.isPlaying || !wantPlaying) pendingEngineStart = false
-                // 通知栏 / 锁屏暂停会直接改引擎状态；同步回用户意图与 UI。
                 if ((!wasPendingStart || state.isPlaying) && state.isPlaying != wantPlaying) {
                     wantPlaying = state.isPlaying
                     if (!state.isPlaying) {
@@ -1756,8 +1689,6 @@ class DefaultReadingService(
             File(filePath!!).isFile
 
     private fun clipId(track: AudioTrack, index: Int): String = "${track.id}-$index"
-
-    // --- 资料库 internals ---
 
     private suspend fun loadResource(resourceId: String, markOpened: Boolean): Boolean {
         val resource = libraryStore.getResource(resourceId) ?: return false
@@ -1858,14 +1789,12 @@ class DefaultReadingService(
         }.getOrNull()
     }
 
-    /** 丢弃进行中的 L2 结果，并让已返回的结果失效。 */
     private fun invalidateL2() {
         l2Job?.cancel()
         l2Job = null
         l2Epoch++
     }
 
-    /** 异步清洗当前预览；结果只在会话与 L2 纪元都未变时写回。 */
     private fun startL2(epoch: Int, title: String, body: String) {
         l2Epoch++
         val runEpoch = l2Epoch
@@ -1946,11 +1875,9 @@ class DefaultReadingService(
         )
     }
 
-    /** 朗读/L2 使用的标题：粘贴文本的占位标题只是展示信息，不该被念出来。 */
     private fun speechTitle(title: String): String =
         title.trim().takeUnless { it == TEXT_SOURCE_LABEL } ?: ""
 
-    /** 首行短且不像正文句子时作为标题，其余保留为正文；否则整段作为正文。 */
     private fun splitTextTitle(text: String): Pair<String, String> {
         val lines = text.lines()
         val firstIndex = lines.indexOfFirst { it.isNotBlank() }
@@ -1976,7 +1903,6 @@ class DefaultReadingService(
         }
     }
 
-    /** 读取持久化的上次打开记录；失败时当作没有记录，不影响资料库展示。 */
     private suspend fun readLastOpenedId(): String? =
         runCatching { libraryStore.lastOpenedResourceId() }.getOrNull()
 

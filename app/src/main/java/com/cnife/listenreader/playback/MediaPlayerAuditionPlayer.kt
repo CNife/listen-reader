@@ -5,7 +5,6 @@ import android.util.Log
 import com.cnife.listenreader.service.ports.AuditionPlayer
 import java.io.File
 
-/** 用独立 MediaPlayer 播放试听音频，与主播放器的 Media3 会话互不影响。 */
 class MediaPlayerAuditionPlayer : AuditionPlayer {
 
     private var player: MediaPlayer? = null

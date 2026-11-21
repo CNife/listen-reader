@@ -29,7 +29,7 @@ class StepFunSpeechSynthesizer(
     private val httpClient: OkHttpClient = defaultTtsHttpClient(),
     private val retryDelaysMs: List<Long> = DEFAULT_TTS_RETRY_DELAYS,
     private val sleep: suspend (Long) -> Unit = { delay(it) },
-    private val durationReader: (File) -> Long = ::readDurationMs,
+    private val durationReader: (File) -> Long? = ::readDurationMs,
     private val log: (String) -> Unit = { message -> Log.i(TAG, message) },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SpeechSynthesizer {
@@ -82,7 +82,7 @@ class StepFunSpeechSynthesizer(
                     }
                     writeAudioAtomically(destination, bytes)
                     log("synthesize ok: ${bytes.size} bytes")
-                    return@withContext durationReader(destination)
+                    return@withContext requireDurationMs(destination, durationReader, log)
                 }
             } catch (c: CancellationException) {
                 throw c
@@ -114,7 +114,7 @@ class StepFunSpeechSynthesizer(
             }
         return try {
             val durationMs = synthesize(TTS_TEST_PHRASE, model, voice, file)
-            val readable = if (durationMs > 0) "（${"%.1f".format(durationMs / 1000.0)} 秒）" else ""
+            val readable = "（${"%.1f".format(durationMs / 1000.0)} 秒）"
             ConnectionTestResult(true, "连接成功，已合成试听音频$readable")
         } catch (c: CancellationException) {
             throw c
@@ -171,13 +171,20 @@ internal fun writeAudioAtomically(destination: File, bytes: ByteArray) {
     }
 }
 
-fun readDurationMs(file: File): Long = runCatching {
+internal fun requireDurationMs(file: File, reader: (File) -> Long?, log: (String) -> Unit): Long {
+    val durationMs = reader(file)
+    if (durationMs != null && durationMs > 0) return durationMs
+    log("duration unavailable: ${file.name}")
+    throw SpeechException(ErrorKind.UNKNOWN, "音频时长读取失败，请稍后重试", retryable = true)
+}
+
+fun readDurationMs(file: File): Long? = runCatching {
     val retriever = MediaMetadataRetriever()
     try {
         retriever.setDataSource(file.absolutePath)
         retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-            ?.toLongOrNull() ?: 0L
+            ?.toLongOrNull()
     } finally {
         retriever.release()
     }
-}.getOrDefault(0L)
+}.getOrNull()

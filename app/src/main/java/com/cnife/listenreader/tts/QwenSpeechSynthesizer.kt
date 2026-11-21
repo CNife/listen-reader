@@ -33,7 +33,7 @@ class QwenSpeechSynthesizer(
     private val httpClient: OkHttpClient = defaultTtsHttpClient(),
     private val retryDelaysMs: List<Long> = DEFAULT_TTS_RETRY_DELAYS,
     private val sleep: suspend (Long) -> Unit = { delay(it) },
-    private val durationReader: (File) -> Long = ::readDurationMs,
+    private val durationReader: (File) -> Long? = ::readDurationMs,
     private val log: (String) -> Unit = { message -> Log.i(TAG, message) },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SpeechSynthesizer {
@@ -88,7 +88,7 @@ class QwenSpeechSynthesizer(
                 }
                 writeAudioAtomically(destination, bytes)
                 log("qwen synthesize ok: ${bytes.size} bytes")
-                return@withContext durationReader(destination)
+                return@withContext requireDurationMs(destination, durationReader, log)
             } catch (c: CancellationException) {
                 throw c
             } catch (e: SpeechException) {
@@ -119,7 +119,7 @@ class QwenSpeechSynthesizer(
             }
         return try {
             val durationMs = synthesize(TTS_TEST_PHRASE, model, voice, file)
-            val readable = if (durationMs > 0) "（${"%.1f".format(durationMs / 1000.0)} 秒）" else ""
+            val readable = "（${"%.1f".format(durationMs / 1000.0)} 秒）"
             ConnectionTestResult(true, "连接成功，已合成试听音频$readable")
         } catch (c: CancellationException) {
             throw c

@@ -191,6 +191,34 @@ class StepFunSpeechSynthesizerTest {
     }
 
     @Test
+    fun `unreadable duration retries then fails with visible error`() = runBlocking {
+        val audio = byteArrayOf(0x49, 0x44, 0x33, 0x04, 0x00, 0x00)
+        repeat(3) {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "audio/mpeg")
+                    .setBody(okio.Buffer().write(audio)),
+            )
+        }
+
+        val error = runCatching {
+            synthesizer(durationReader = { null }).synthesize(
+                "第一句。",
+                "stepaudio-3-tts",
+                "wenrounvsheng",
+                File(cacheDir, "duration.mp3"),
+            )
+        }.exceptionOrNull() as SpeechException
+
+        assertEquals(ErrorKind.UNKNOWN, error.kind)
+        assertTrue(error.retryable)
+        assertEquals("音频时长读取失败，请稍后重试", error.message)
+        assertEquals(3, server.requestCount)
+        assertTrue(logs.any { it == "duration unavailable: duration.mp3" })
+    }
+
+    @Test
     fun `testConnection synthesizes a fixed phrase and reports readable success`() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(200).setBody("audio"))
 
@@ -216,6 +244,7 @@ class StepFunSpeechSynthesizerTest {
         settingsStore: com.cnife.listenreader.service.ports.SettingsStore = settings,
         client: OkHttpClient? = null,
         delays: MutableList<Long> = mutableListOf(),
+        durationReader: (File) -> Long? = { FIXED_DURATION_MS },
     ): StepFunSpeechSynthesizer = StepFunSpeechSynthesizer(
         settingsStore = settingsStore,
         cacheDir = cacheDir,
@@ -226,7 +255,7 @@ class StepFunSpeechSynthesizerTest {
             .build(),
         retryDelaysMs = listOf(1_000L, 2_000L),
         sleep = { delays += it },
-        durationReader = { FIXED_DURATION_MS },
+        durationReader = durationReader,
         log = { logs += it },
     )
 

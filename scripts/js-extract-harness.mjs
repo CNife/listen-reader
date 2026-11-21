@@ -138,9 +138,10 @@ const TEMPLATE_SELECTOR_FIELDS = [
   "waitForSelector",
 ];
 
-function validateTemplateSelectors() {
+function validateTemplateSelectors(templateSet) {
+  const list = Array.isArray(templateSet) ? templateSet : templateSet.templates ?? [];
   const invalid = [];
-  for (const template of templates.templates ?? []) {
+  for (const template of list) {
     for (const field of TEMPLATE_SELECTOR_FIELDS) {
       for (const selector of template[field] ?? []) {
         try {
@@ -159,7 +160,7 @@ function handle(command) {
     case "meta":
       return { ok: true, readability: readabilityMeta(), consoleErrors };
     case "validate-templates":
-      return { ok: true, invalid: validateTemplateSelectors() };
+      return { ok: true, invalid: validateTemplateSelectors(command.templates ?? templates) };
     case "extract":
       return { ok: true, result: callL1(command.options ?? {}) };
     case "collect":

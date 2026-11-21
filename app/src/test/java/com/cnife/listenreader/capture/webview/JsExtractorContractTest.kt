@@ -116,6 +116,24 @@ class JsExtractorContractTest {
                 .jsonArray.map { it.jsonObject }
 
             assertTrue("模板含非法选择器：$invalid", invalid.isEmpty())
+
+            val control = session.call(
+                buildJsonObject {
+                    put("op", "validate-templates")
+                    putJsonArray("templates") {
+                        add(
+                            buildJsonObject {
+                                put("name", "阳性对照")
+                                putJsonArray("removeSelectors") {
+                                    add(kotlinx.serialization.json.JsonPrimitive("div[["))
+                                }
+                            },
+                        )
+                    }
+                },
+            )["invalid"]!!.jsonArray.map { it.jsonObject }
+
+            assertTrue("校验器必须能发现非法选择器：$control", control.isNotEmpty())
         }
     }
 

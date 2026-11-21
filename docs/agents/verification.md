@@ -188,8 +188,8 @@ node scripts/js-extract-harness.mjs --fixture wechat-article.html --url https://
 {"op":"validate-templates"}                    # 校验模板选择器（titleSelector/contentSelector/removeSelectors/revealSelectors/waitForSelector），返回 invalid 清单
 {"op":"collect","phrases":["展开全文","继续阅读"]}  # L3 候选，安全性由 Kotlin 的 L3Rules 判定
 {"op":"click","index":0}                       # 点第 0 个候选，返回 "true"/"false"/"scroll_failed"（失败前是否已用 scrollTo 兜底看 scrollCalls）
-{"op":"fail-scroll-into-view"}             # 注入 scrollIntoView 抛错，验证 scrollTo 兜底
-{"op":"fail-scroll-all"}                    # 注入滚动全失败，验证返回 "scroll_failed" 不假装点击成功
+{"op":"fail-scroll-into-view"}                 # 注入 scrollIntoView 抛错，验证 scrollTo 兜底
+{"op":"fail-scroll-all"}                       # 注入滚动全失败，验证返回 "scroll_failed" 不假装点击成功
 ```
 
 页面几何与 `innerText` 由脚本内的最小垫片提供（jsdom 没有布局）；改垫片前先确认是宿主差异而不是提取脚本的问题。

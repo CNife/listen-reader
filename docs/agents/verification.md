@@ -185,6 +185,7 @@ git status --porcelain   # 应无遗留的构建脚本或源码改动
 node scripts/js-extract-harness.mjs --fixture wechat-article.html --url https://mp.weixin.qq.com/s/demo
 {"op":"meta"}                                  # readability.js 是否加载、解析出多少正文
 {"op":"extract"}                               # 完整 L1 结果：extractor / title / markdown / needsExpand
+{"op":"validate-templates"}                    # 校验模板选择器（titleSelector/contentSelector/removeSelectors/revealSelectors/waitForSelector），返回 invalid 清单
 {"op":"collect","phrases":["展开全文","继续阅读"]}  # L3 候选，安全性由 Kotlin 的 L3Rules 判定
 {"op":"click","index":0}                       # 点第 0 个候选，返回 "true"/"false"
 ```

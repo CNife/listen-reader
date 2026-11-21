@@ -130,10 +130,36 @@ function readabilityMeta() {
   };
 }
 
+const TEMPLATE_SELECTOR_FIELDS = [
+  "titleSelector",
+  "contentSelector",
+  "removeSelectors",
+  "revealSelectors",
+  "waitForSelector",
+];
+
+function validateTemplateSelectors() {
+  const invalid = [];
+  for (const template of templates.templates ?? []) {
+    for (const field of TEMPLATE_SELECTOR_FIELDS) {
+      for (const selector of template[field] ?? []) {
+        try {
+          window.document.querySelectorAll(selector);
+        } catch (error) {
+          invalid.push({ template: template.name, field, selector, message: String(error.message) });
+        }
+      }
+    }
+  }
+  return invalid;
+}
+
 function handle(command) {
   switch (command.op) {
     case "meta":
       return { ok: true, readability: readabilityMeta(), consoleErrors };
+    case "validate-templates":
+      return { ok: true, invalid: validateTemplateSelectors() };
     case "extract":
       return { ok: true, result: callL1(command.options ?? {}) };
     case "collect":

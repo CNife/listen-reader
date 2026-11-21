@@ -26,6 +26,11 @@
   var PROMO_CLASS_RE = /(advert|sponsor|promo|qrcode|qr-code|copyright|related|recommend|share|social|comment|newsletter|subscribe)/i;
   var COPYRIGHT_RE = /(版权所有|版权归|©|Copyright\s|All rights reserved|转载请注明|转载请|扫码关注|关注公众号|关注我们|微信扫一扫|长按识别|点击上方蓝字|分享到朋友圈|点个在看)/i;
   var QR_ALT_RE = /(二维码|扫码|qr\s*code)/i;
+  var templateDiagnostics = [];
+
+  function reportInvalidSelector(selector) {
+    templateDiagnostics.push("invalid selector: " + selector);
+  }
   var LAZY_IMAGE_ATTRS = ["data-src", "data-original", "data-actualsrc", "_src", "data-lazy-src", "data-url"];
 
   function textOf(el) {
@@ -73,6 +78,7 @@
         if (node.parentNode) node.parentNode.removeChild(node);
       }
     } catch (e) {
+      reportInvalidSelector(selector);
     }
   }
 
@@ -104,6 +110,7 @@
         var targets = root.querySelectorAll(selectors[i]);
         for (var j = 0; j < targets.length; j++) revealElement(targets[j]);
       } catch (e) {
+        reportInvalidSelector(selectors[i]);
       }
     }
     var all = root.querySelectorAll("*");
@@ -635,7 +642,8 @@
       score: Math.round(rawScore) / 100,
       confidence: Math.round(confidence * 100) / 100,
       needsExpand: degraded,
-      degradedReason: degraded ? reasons.join("；") : null
+      degradedReason: degraded ? reasons.join("；") : null,
+      diagnostics: templateDiagnostics
     };
   }
 
@@ -662,6 +670,7 @@
 
   function extract(opts) {
     opts = opts || {};
+    templateDiagnostics = [];
     var doc = document;
     var work = doc.cloneNode(true);
     var pageText = normalizeBodyText(textOf(doc.body));

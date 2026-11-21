@@ -109,6 +109,41 @@ class JsExtractorContractTest {
         }
     }
 
+    @Test
+    fun bundledTemplates_allSelectorsAreValid() {
+        withSession("article.html", "https://example.com/article") { session ->
+            val invalid = session.call(buildJsonObject { put("op", "validate-templates") })["invalid"]!!
+                .jsonArray.map { it.jsonObject }
+
+            assertTrue("模板含非法选择器：$invalid", invalid.isEmpty())
+        }
+    }
+
+    @Test
+    fun invalidTemplateSelector_isReportedWhileExtractionContinues() {
+        withSession("article.html", "https://example.com/article") { session ->
+            val result = session.extract(
+                buildJsonObject {
+                    putJsonArray("templates") {
+                        add(
+                            buildJsonObject {
+                                put("name", "通用网页")
+                                put("hostPattern", ".*")
+                                putJsonArray("removeSelectors") {
+                                    add(kotlinx.serialization.json.JsonPrimitive("div[["))
+                                }
+                            },
+                        )
+                    }
+                },
+            )
+
+            val diagnostics = result["diagnostics"]!!.jsonArray.map { it.jsonPrimitive.content }
+            assertTrue("非法选择器必须进入提取诊断：$diagnostics", diagnostics.contains("invalid selector: div[["))
+            assertTrue(result.string("markdown").contains("把小屏幕变成耳朵"))
+        }
+    }
+
     private fun withSession(name: String, url: String, block: (ExtractSession) -> Unit) {
         startSession(name, url).use(block)
     }
@@ -139,6 +174,16 @@ class JsExtractorContractTest {
 
     private fun ExtractSession.extract(): JsonObject {
         val response = call(buildJsonObject { put("op", "extract") })
+        return response["result"]!!.jsonObject
+    }
+
+    private fun ExtractSession.extract(options: JsonObject): JsonObject {
+        val response = call(
+            buildJsonObject {
+                put("op", "extract")
+                put("options", options)
+            },
+        )
         return response["result"]!!.jsonObject
     }
 

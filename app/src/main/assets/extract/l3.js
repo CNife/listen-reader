@@ -40,6 +40,27 @@
     return false;
   }
 
+  function bringIntoView(el) {
+    try {
+      el.scrollIntoView({ block: "center", inline: "center" });
+      return true;
+    } catch (error) {
+      return scrollWithRect(el);
+    }
+  }
+
+  function scrollWithRect(el) {
+    try {
+      var rect = el.getBoundingClientRect();
+      var viewport = window.innerHeight || 0;
+      var offset = window.pageYOffset || 0;
+      window.scrollTo(0, Math.max(0, offset + rect.top - viewport / 2));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   window.__listenReaderL3Collect = function (phrasesJson) {
     var phrases = [];
     try {
@@ -80,10 +101,7 @@
   window.__listenReaderL3Click = function (index) {
     var el = lastElements[index];
     if (!el) return "false";
-    try {
-      el.scrollIntoView({ block: "center", inline: "center" });
-    } catch (e) {
-    }
+    if (!bringIntoView(el)) return "scroll_failed";
     window.__listenReaderL3BeginWatch();
     try {
       if (typeof el.click === "function") {

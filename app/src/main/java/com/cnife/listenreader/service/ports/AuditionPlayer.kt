@@ -8,10 +8,8 @@ import java.io.File
  */
 interface AuditionPlayer {
     fun play(file: File)
-    fun stop()
 }
 
 object NoopAuditionPlayer : AuditionPlayer {
     override fun play(file: File) = Unit
-    override fun stop() = Unit
 }

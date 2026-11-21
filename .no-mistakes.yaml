@@ -1,9 +1,9 @@
 # 单元测试基线：单模块 Android 应用，Robolectric + Compose 测试秒级可跑。
-# run worktree 没有 local.properties，用 ANDROID_HOME 定位 SDK；也没有 node_modules，
-# 而 JsExtractorContractTest 需要 Node + jsdom，所以先 npm ci（约 1 秒，命中缓存）。
+# run worktree 没有 local.properties，用 ANDROID_HOME 定位 SDK；jsdom 由
+# app/build.gradle.kts 的 installJsTestDeps 任务自动 npm ci（依赖未变时 UP-TO-DATE）。
 # 跑完基线后 test 步骤仍会按意图驱动有针对性的端到端验证；真实 CI 由 .github/workflows/ci.yml 提供。
 commands:
-  test: "npm ci --silent && ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest --console=plain"
+  test: "ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest --console=plain"
 
 # v1 的两次自动修复用尽后仍漏掉一个同类兄弟位点，本仓库把自动修复轮次放宽到三轮。
 auto_fix:
@@ -49,7 +49,7 @@ document:
 test:
   instructions: |
     本仓库是单模块 Android 应用（compileSdk 35，minSdk 26），SDK 默认在 $HOME/Android/Sdk。按下面的三层阶梯按需升级验证成本：
-    1) 秒级 JVM 基线与契约（必跑）：ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest（commands.test 已内置同一命令）。除业务与 Compose 语义测试外，还包含 ArchitectureContractTest（服务层禁 runBlocking、端口无死成员、Room Schema 与模板正则）、JsExtractorContractTest（JVM 测试经 scripts/js-extract-harness.mjs 在 jsdom 里真实执行 readability.js + l1.js + l3.js，对 fixtures 断言提取结果与展开安全；需要 Node 24+ 与仓库根的 npm ci）、DebugControlReceiverTest（自验证广播契约）。
+    1) 秒级 JVM 基线与契约（必跑）：ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest（commands.test 已内置同一命令）。除业务与 Compose 语义测试外，还包含 ArchitectureContractTest（服务层禁 runBlocking、端口无死成员、Room Schema 与模板正则）、JsExtractorContractTest（JVM 测试经 scripts/js-extract-harness.mjs 在 jsdom 里真实执行 readability.js + l1.js + l3.js，对 fixtures 断言提取结果与展开安全；需 Node 24+，jsdom 由 installJsTestDeps 自动安装）、DebugControlReceiverTest（自验证广播契约）。
     2) JVM Compose 视觉快照自检（改 Compose 布局/样式/主题时）：./gradlew :app:testDebugUnitTest --tests "com.cnife.listenreader.ui.UiSnapshotTest"，直接读取 app/build/outputs/roborazzi/ 下的 PNG 判断布局、留白与深浅色对比（快照不进版本库，每次运行重新生成）。
     3) 免改源码的实机/模拟器 E2E（触及 WebView 提取、Media3 后台播放、真实 TTS 合成链路时）：无需修改 build.gradle.kts 或源码，按 docs/agents/verification.md 用 -PappIdSuffix=.nmtest 构建隔离包、启动 python3 scripts/mock-server.py、adb reverse 映射端口、再通过 DebugControlReceiver 广播注入 mock 端点与状态快照，配合 hs 驱动 UI。需要真实平台集成的契约仍可用 ./gradlew :app:connectedDebugAndroidTest。
     纯文档、配置、纯函数或状态逻辑改动：第 1 层即可，不做设备长跑。

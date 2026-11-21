@@ -30,7 +30,7 @@ class MediaPlayerAuditionPlayer : AuditionPlayer {
         created.onFailure { Log.w(TAG, "audition failed: ${it.message}") }
     }
 
-    override fun stop() {
+    private fun stop() {
         val current = player ?: return
         player = null
         runCatching {

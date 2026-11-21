@@ -4,13 +4,10 @@ import com.cnife.listenreader.service.ports.AppSettings
 import com.cnife.listenreader.service.ports.RemoteRelease
 import com.cnife.listenreader.service.ports.UpdateCheckException
 import com.cnife.listenreader.testing.FakeLibraryStore
-import com.cnife.listenreader.testing.FakePageSession
-import com.cnife.listenreader.testing.FakePlaybackEngine
-import com.cnife.listenreader.testing.FakeScriptCleaner
 import com.cnife.listenreader.testing.FakeSettingsStore
-import com.cnife.listenreader.testing.FakeSpeechSynthesizer
 import com.cnife.listenreader.testing.FakeUpdateChecker
 import com.cnife.listenreader.testing.FixedTimeProvider
+import com.cnife.listenreader.testing.testReadingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -46,17 +43,12 @@ class UpdateCheckFlowTest {
     ): Harness {
         val store = FakeSettingsStore(initial)
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        val service = DefaultReadingService(
-            pageSession = FakePageSession(),
-            scriptCleaner = FakeScriptCleaner(),
-            speechSynthesizer = FakeSpeechSynthesizer(),
-            libraryStore = FakeLibraryStore(),
-            playbackEngine = FakePlaybackEngine(),
+        val service = testReadingService(
+            scope = scope,
             settingsStore = store,
             timeProvider = FixedTimeProvider(nowMs),
             updateChecker = checker,
             appVersion = appVersion,
-            scope = scope,
         )
         return Harness(service, scope, store, checker)
     }

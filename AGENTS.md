@@ -12,7 +12,7 @@ Single-context domain docs: root `GLOSSARY.md` and `docs/adr/`. See `docs/agents
 
 每次改动按需升级，不要跳过便宜的阶梯去跑设备：
 
-- **紧循环（每次必跑）**：`ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest --console=plain`。一次运行同时覆盖业务逻辑、Compose 语义、`ArchitectureContractTest`（架构契约）、`JsExtractorContractTest`（经 jsdom 真实执行 `readability.js` + `l1.js` + `l3.js`）、`DebugControlReceiverTest`。首次需要 `npm ci`（Node 24+，装 jsdom）；改了接口或数据模型时加跑 `:app:compileDebugAndroidTestKotlin`。
+- **紧循环（每次必跑）**：`ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ./gradlew :app:testDebugUnitTest --console=plain`。一次运行同时覆盖业务逻辑、Compose 语义、`ArchitectureContractTest`（架构契约）、`JsExtractorContractTest`（经 jsdom 真实执行 `readability.js` + `l1.js` + `l3.js`）、`DebugControlReceiverTest`。jsdom 依赖由 `installJsTestDeps` 自动安装（需 Node 24+）；改了接口或数据模型时加跑 `:app:compileDebugAndroidTestKotlin`。
 - **视觉快照（改 Compose 布局/样式/主题时）**：`./gradlew :app:testDebugUnitTest --tests "com.cnife.listenreader.ui.UiSnapshotTest"`，再用 `read` 打开 `app/build/outputs/roborazzi/` 下对应 PNG 检查真实渲染。
 - **免改源码 E2E（触及 WebView / Media3 / 真实 TTS 播放链路时）**：见下方上下文指针。
 

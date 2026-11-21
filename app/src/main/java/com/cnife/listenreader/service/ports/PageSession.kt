@@ -15,7 +15,6 @@ interface PageSession {
     fun load(url: String)
     fun reload()
     fun goBack(): Boolean
-    suspend fun extract(): PageExtraction
 
     /** 先跑 L1；needsExpand 时按规则点击展开类元素（最多 2 轮）并重新提取。 */
     suspend fun expandAndExtract(): PageExtraction

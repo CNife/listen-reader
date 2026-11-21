@@ -22,6 +22,9 @@ import com.cnife.listenreader.tts.StepFunSpeechSynthesizer
 import com.cnife.listenreader.di.DEBUG_PREFS
 import com.cnife.listenreader.di.KEY_QWEN_ENDPOINT
 import com.cnife.listenreader.di.KEY_STEPFUN_ENDPOINT
+import com.cnife.listenreader.di.KEY_UPDATE_ENDPOINT
+import com.cnife.listenreader.service.ports.UpdateChecker
+import com.cnife.listenreader.update.GitHubReleaseChecker
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -93,6 +96,7 @@ internal object DebugCommands {
             database = container.database,
             readingService = container.readingService,
             synthesizer = container.speechSynthesizer,
+            updateChecker = container.updateChecker,
         )
     }
 
@@ -105,11 +109,19 @@ internal object DebugCommands {
         database: ListenReaderDatabase,
         readingService: ReadingService,
         synthesizer: SpeechSynthesizer,
+        updateChecker: UpdateChecker,
     ): String = when (command) {
-        "configure" -> configure(context, intent, settingsStore, synthesizer)
+        "configure" -> configure(context, intent, settingsStore, synthesizer, updateChecker)
         "seed_resource" -> seedResource(intent, settingsStore, libraryStore, readingService)
-        "clear_state" -> clearState(context, libraryStore, database, readingService, synthesizer)
-        "dump_state" -> dumpState(synthesizer, readingService)
+        "clear_state" -> clearState(
+            context,
+            libraryStore,
+            database,
+            readingService,
+            synthesizer,
+            updateChecker,
+        )
+        "dump_state" -> dumpState(synthesizer, readingService, updateChecker)
         else -> result(command, ok = false, error = "unknown cmd")
     }
 
@@ -118,6 +130,7 @@ internal object DebugCommands {
         intent: Intent,
         settingsStore: SettingsStore,
         synthesizer: SpeechSynthesizer,
+        updateChecker: UpdateChecker,
     ): String {
         intent.getStringExtra("stepfun_endpoint")?.let { endpoint ->
             val prefs = context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
@@ -139,6 +152,17 @@ internal object DebugCommands {
             } else {
                 prefs.edit().putString(KEY_QWEN_ENDPOINT, normalized).apply()
                 applyQwenEndpoint(synthesizer, normalized)
+            }
+        }
+        intent.getStringExtra("update_endpoint")?.let { endpoint ->
+            val prefs = context.getSharedPreferences(DEBUG_PREFS, Context.MODE_PRIVATE)
+            val normalized = endpoint.trim().trimEnd('/')
+            if (normalized.isEmpty()) {
+                prefs.edit().remove(KEY_UPDATE_ENDPOINT).apply()
+                applyUpdateEndpoint(updateChecker, GitHubReleaseChecker.RELEASE_API_URL)
+            } else {
+                prefs.edit().putString(KEY_UPDATE_ENDPOINT, normalized).apply()
+                applyUpdateEndpoint(updateChecker, normalized)
             }
         }
         intent.getStringExtra("stepfun_key")?.let { settingsStore.setStepFunKey(it) }
@@ -167,6 +191,7 @@ internal object DebugCommands {
             put("cmd", "configure")
             put("stepFunEndpoint", synthesizer.endpoint())
             put("qwenEndpoint", synthesizer.qwenEndpoint())
+            put("updateEndpoint", updateChecker.endpoint())
         }.toString()
     }
 
@@ -220,6 +245,7 @@ internal object DebugCommands {
         database: ListenReaderDatabase,
         readingService: ReadingService,
         synthesizer: SpeechSynthesizer,
+        updateChecker: UpdateChecker,
     ): String {
         readingService.closePlayer()
         readingService.discardCapture()
@@ -234,11 +260,16 @@ internal object DebugCommands {
         libraryStore.saveLastOpenedResourceId(null)
         applyEndpoint(synthesizer, StepFunDefaults.BASE_URL)
         applyQwenEndpoint(synthesizer, QwenDefaults.BASE_URL)
+        applyUpdateEndpoint(updateChecker, GitHubReleaseChecker.RELEASE_API_URL)
         readingService.refreshLibrary()
         return result("clear_state", ok = true, error = null)
     }
 
-    private suspend fun dumpState(synthesizer: SpeechSynthesizer, readingService: ReadingService): String {
+    private suspend fun dumpState(
+        synthesizer: SpeechSynthesizer,
+        readingService: ReadingService,
+        updateChecker: UpdateChecker,
+    ): String {
         val library = readingService.library.value
         val player = readingService.player.value
         val capture = readingService.capture.value
@@ -248,6 +279,7 @@ internal object DebugCommands {
             put("cmd", "dump_state")
             put("stepFunEndpoint", synthesizer.endpoint())
             put("qwenEndpoint", synthesizer.qwenEndpoint())
+            put("updateEndpoint", updateChecker.endpoint())
             put(
                 "library",
                 buildJsonObject {
@@ -296,6 +328,17 @@ internal object DebugCommands {
                     put("llmEndpoint", settings.llmEndpoint)
                     put("llmModel", settings.llmModel)
                     put("llmKeyConfigured", settings.llmKeyConfigured)
+                    put(
+                        "update",
+                        buildJsonObject {
+                            put("currentVersion", settings.update.currentVersion)
+                            put("autoCheck", settings.update.autoCheck)
+                            put("releaseVersion", settings.update.release?.version)
+                            put("releaseUrl", settings.update.release?.url)
+                            put("ignored", settings.update.ignored)
+                            put("check", settings.update.check.javaClass.simpleName)
+                        },
+                    )
                 },
             )
             put(
@@ -340,6 +383,14 @@ internal object DebugCommands {
         is RoutingSpeechSynthesizer -> qwen.baseUrl
         else -> QwenDefaults.BASE_URL
     }
+
+    private fun applyUpdateEndpoint(checker: UpdateChecker, endpoint: String) {
+        (checker as? GitHubReleaseChecker)?.releaseApiUrl = endpoint
+    }
+
+    private fun UpdateChecker.endpoint(): String =
+        (this as? GitHubReleaseChecker)?.releaseApiUrl ?: GitHubReleaseChecker.RELEASE_API_URL
+
     private fun result(command: String, ok: Boolean, error: String?): String = buildJsonObject {
         put("ok", ok)
         put("cmd", command)

@@ -8,12 +8,7 @@ import com.cnife.listenreader.service.ports.PageExtractionException
 import com.cnife.listenreader.service.ports.PageSessionState
 import com.cnife.listenreader.testing.FakeLibraryStore
 import com.cnife.listenreader.testing.FakePageSession
-import com.cnife.listenreader.testing.FakePlaybackEngine
-import com.cnife.listenreader.testing.FakeScriptCleaner
-import com.cnife.listenreader.testing.FakeSettingsStore
-import com.cnife.listenreader.testing.FakeSpeechSynthesizer
-import com.cnife.listenreader.testing.FakeUpdateChecker
-import com.cnife.listenreader.testing.FixedTimeProvider
+import com.cnife.listenreader.testing.testReadingService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -43,18 +38,7 @@ class UrlCaptureFlowTest {
         store: FakeLibraryStore = FakeLibraryStore(),
     ): Harness {
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        val service = DefaultReadingService(
-            pageSession = page,
-            scriptCleaner = FakeScriptCleaner(),
-            speechSynthesizer = FakeSpeechSynthesizer(),
-            libraryStore = store,
-            playbackEngine = FakePlaybackEngine(),
-            settingsStore = FakeSettingsStore(),
-            timeProvider = FixedTimeProvider(),
-            updateChecker = FakeUpdateChecker(),
-            appVersion = "0.1.0",
-            scope = scope,
-        )
+        val service = testReadingService(scope = scope, pageSession = page, libraryStore = store)
         return Harness(service, page, store, scope)
     }
 

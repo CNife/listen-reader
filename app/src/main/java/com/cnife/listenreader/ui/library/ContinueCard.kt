@@ -35,10 +35,6 @@ import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.OnAccent
 import com.cnife.listenreader.ui.theme.Rule
 
-/**
- * 资料库唯一的一张卡：标题、友好来源 · 进度百分比、2dp 进度线与播放键。
- * 点击卡片或播放键都回到该 Resource 的 Segment 与位置。
- */
 @Composable
 fun ContinueCard(
     item: LibraryItem,
@@ -95,14 +91,12 @@ fun ContinueCard(
     }
 }
 
-/** 列表与继续卡共用的进度：只对听过的 Resource 计算，0..100，0 表示尚未开始。 */
 internal fun libraryProgressPercent(item: LibraryItem): Int {
     if (item.lastOpenedAt <= 0 || item.segmentCount <= 0) return 0
     val percent = (item.currentSegmentIndex + 1) * 100 / item.segmentCount
     return percent.coerceIn(0, 100)
 }
 
-/** 友好相对时间：刚刚 / N 分钟前 / N 小时前 / N 天前 / N 周前。 */
 internal fun formatRelativeTime(createdAt: Long, now: Long = System.currentTimeMillis()): String {
     if (createdAt <= 0) return "刚刚"
     val elapsedMs = (now - createdAt).coerceAtLeast(0)

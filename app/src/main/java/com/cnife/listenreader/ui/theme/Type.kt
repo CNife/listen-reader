@@ -6,10 +6,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/**
- * 系统无衬线字体，不引入网络字体。中文行高略大于字号，长句优先可读性。
- * 标题用 600，正文用 400；不用 display 字号撑场面。
- */
 val ListenReaderTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,

@@ -16,11 +16,6 @@ interface LibraryStore {
     suspend fun getSegments(resourceId: String): List<Segment>
     suspend fun getTracks(resourceId: String): List<AudioTrack>
     suspend fun getClips(trackId: String): List<AudioClip>
-    /**
-     * 保存 Resource、Source 快照与初始 AudioTrack。
-     * [segments] 是当前预览得到的 Segment 草稿（L2 成功时是 LLM 分段，否则是规则分段）；
-     * 为空时回退为按 [sourceText] 的规则分段。
-     */
     suspend fun createResource(
         resource: Resource,
         sourceText: String,

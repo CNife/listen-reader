@@ -28,10 +28,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/**
- * Media3 薄适配器：通过 MediaController 连接 [PlaybackService]。
- * 播放状态与位置由 Player.Listener + 250ms 轮询汇总成 [PlaybackEngineState]。
- */
 class Media3PlaybackEngine(
     context: Context,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),

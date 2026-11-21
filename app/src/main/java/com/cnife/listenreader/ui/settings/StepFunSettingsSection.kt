@@ -46,7 +46,6 @@ import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Rule
 import com.cnife.listenreader.ui.theme.Scrim
 
-/** 设置页朗读区：两个供应商的 Key、模型选择、音色抽屉与测试连接。 */
 @Composable
 fun StepFunSettingsSection(service: ReadingService) {
     val state by service.settings.collectAsStateWithLifecycle()

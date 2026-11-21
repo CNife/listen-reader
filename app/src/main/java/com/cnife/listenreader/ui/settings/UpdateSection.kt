@@ -27,7 +27,6 @@ import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Ink3
 
-/** 设置页版本区：自动检查开关、手动检查与已发现的更新。 */
 @Composable
 fun UpdateSection(service: ReadingService) {
     val state by service.settings.collectAsStateWithLifecycle()

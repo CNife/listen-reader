@@ -77,7 +77,6 @@ fun CaptureScreen(
 
     BackHandler { onBack() }
 
-    // 分享/外部进入时如果页面还没开始加载，补一次加载（已有预览时不重载）。
     LaunchedEffect(Unit) {
         val current = service.capture.value
         if (current.mode == CaptureMode.URL &&

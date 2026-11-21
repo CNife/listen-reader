@@ -36,7 +36,6 @@ object Voices {
     const val LOONGJOHN = "loongjohn"
     const val DEFAULT = WENROU
 
-    /** 阶跃官方文档中支持 step-tts-mini 的全部 27 个官方音色。 */
     val STEPFUN_MINI_VOICES: List<VoiceCatalogEntry> = listOf(
         VoiceCatalogEntry(WENROU, "温柔女声", "有声书、情感陪伴"),
         VoiceCatalogEntry(CIXING, "磁性男声", "有声书、情感陪伴"),
@@ -67,7 +66,6 @@ object Voices {
         VoiceCatalogEntry("zhixingjiejie", "知性姐姐", "视频配音、口播、语音助手"),
     )
 
-    /** 千问官方文档中 qwen-audio-3.0-tts-flash 的全部 12 个系统音色。 */
     val QWEN_FLASH_VOICES: List<VoiceCatalogEntry> = listOf(
         VoiceCatalogEntry(LONGANFENGYUE, "龙安风悦", "自然亲切女声 · 中英"),
         VoiceCatalogEntry("longanyuanfei", "龙安元妃", "高傲妃子女声 · 中英"),

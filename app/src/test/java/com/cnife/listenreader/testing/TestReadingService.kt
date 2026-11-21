@@ -14,12 +14,6 @@ import com.cnife.listenreader.service.ports.UpdateChecker
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 
-/**
- * 服务层流程测试的唯一装配点：`DefaultReadingService` 每加一个端口，只需改这里一次，
- * 而不是在 9 个流程测试里各改一份 10 参数的构造调用并互相漂移。
- *
- * 调用方自己持有 [scope]，并在测试结束时取消它；工厂只负责把端口接满。
- */
 fun testReadingService(
     scope: CoroutineScope,
     pageSession: PageSession = FakePageSession(),

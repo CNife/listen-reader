@@ -22,14 +22,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-/**
- * StepFun 非流式 TTS：`POST {base}/audio/speech`。
- * 2xx 先写 `<destination>.tmp` 再原子改名；429/5xx/超时/IO 重试 2 次（指数退避），4xx 不重试。
- * 日志只记录状态码与重试次数，绝不写入 key 或正文。
- *
- * [baseUrl] 是可运行期覆写的端点：debug 构建的自验证接收器可把它指向本地 mock 服务，
- * 生产构建保持 [StepFunDefaults.BASE_URL]。
- */
 class StepFunSpeechSynthesizer(
     private val settingsStore: SettingsStore,
     private val cacheDir: File,
@@ -179,7 +171,6 @@ internal fun writeAudioAtomically(destination: File, bytes: ByteArray) {
     }
 }
 
-/** 读取 MP3 时长；失败返回 0，不影响已成功写入的音频。 */
 fun readDurationMs(file: File): Long = runCatching {
     val retriever = MediaMetadataRetriever()
     try {

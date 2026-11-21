@@ -89,7 +89,6 @@ data class AudioClipEntity(
     val error: String?,
 )
 
-/** `observeItems` 的一次联表查询结果，由 [com.cnife.listenreader.data.library.RoomLibraryStore] 映射为 LibraryItem。 */
 data class LibraryItemRow(
     val id: String,
     val title: String,

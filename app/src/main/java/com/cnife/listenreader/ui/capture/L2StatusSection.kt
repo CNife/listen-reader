@@ -21,10 +21,6 @@ import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 
-/**
- * 预览页的分段状态区：只写状态、原因和一个朱砂动作，不套彩色容器。
- * 运行中是一条 2dp 不确定线，成功只说结果，失败给原因和「重新清洗」。
- */
 @Composable
 fun L2StatusSection(
     preview: PreviewState,

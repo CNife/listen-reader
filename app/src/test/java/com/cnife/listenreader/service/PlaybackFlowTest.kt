@@ -114,7 +114,6 @@ class PlaybackFlowTest {
         h.service.play()
         advanceUntilIdle()
 
-        // 当前句（index 1）先合成，随后预取 index 2。
         assertEquals(2, h.synth.calls.size)
         val call = h.synth.calls.first()
         assertEquals("第二句要朗读的文字。", call.text)
@@ -235,7 +234,6 @@ class PlaybackFlowTest {
         assertTrue(h.service.player.value.isPreparing)
         h.store.progressWrites.clear()
 
-        // Media3 在 prepare 完成、play 生效前会先发一次 Ready(isPlaying=false)。
         h.engine.emit(PlaybackEngineState.Ready(1_200L, false, 0))
         runCurrent()
         assertTrue(h.service.player.value.isPlaying)
@@ -255,7 +253,6 @@ class PlaybackFlowTest {
         advanceUntilIdle()
         h.service.play()
         advanceUntilIdle()
-        // 预取已经缓存了后两句，播放推进时复用缓存。
         assertEquals(3, h.synth.calls.size)
 
         h.engine.emit(PlaybackEngineState.Ended(1_200L))

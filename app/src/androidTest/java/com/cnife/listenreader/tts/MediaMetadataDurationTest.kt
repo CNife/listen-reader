@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** 真机/模拟器上验证 MediaMetadataRetriever 能读到 fixture MP3 的时长。 */
 @RunWith(AndroidJUnit4::class)
 class MediaMetadataDurationTest {
 

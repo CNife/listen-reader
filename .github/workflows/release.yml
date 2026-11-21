@@ -1,6 +1,5 @@
 name: Release
 
-# 推送形如 v1.2.3 的 tag 即发版：用仓库 secrets 中的密钥构建、校验并发布已签名 APK。
 on:
   push:
     tags:
@@ -31,7 +30,6 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          # 三段都不许前导零，保证每个 versionCode 只对应唯一的规范 versionName。
           if [[ ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "::error::发版 tag 必须形如 v1.2.3，当前是 $GITHUB_REF_NAME"
             exit 1
@@ -105,7 +103,6 @@ jobs:
           build_tools=$(ls -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/* | sort -V | tail -1)
           "$build_tools/zipalign" -c 4 "$apk"
           "$build_tools/apksigner" verify --verbose --print-certs "$apk"
-          # 不用 head：aapt2 被提前关闭管道会触发 SIGPIPE，配合 pipefail 会误判失败。
           badging=$("$build_tools/aapt2" dump badging "$apk")
           badging=${badging%%$'\n'*}
           echo "$badging"

@@ -46,7 +46,6 @@ data class NotificationPermissionUiState(
     val onOpenSettings: () -> Unit = {},
 )
 
-/** Android 13+ 才需要 POST_NOTIFICATIONS；低版本恒为已授权。 */
 fun isNotificationPermissionGranted(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
     return ContextCompat.checkSelfPermission(
@@ -55,10 +54,6 @@ fun isNotificationPermissionGranted(context: Context): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
 }
 
-/**
- * 首次进入播放器时请求一次通知权限；拒绝后只显示提示，不再自动弹窗。
- * 用户从系统设置开启后，回到前台会刷新授权状态。
- */
 @Composable
 fun rememberNotificationPermission(): NotificationPermissionUiState {
     val context = LocalContext.current

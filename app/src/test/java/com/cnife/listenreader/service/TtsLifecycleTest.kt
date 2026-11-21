@@ -102,8 +102,6 @@ class TtsLifecycleTest {
             writeBytes(ByteArray(bytes) { 0x49 })
         }
 
-    // --- 预取 ---
-
     @Test
     fun `prefetch synthesizes the next segments in order after playback starts`() = runTest {
         val store = newStore()
@@ -168,7 +166,6 @@ class TtsLifecycleTest {
         advanceTimeBy(1_000L)
         runCurrent()
 
-        // 当前句已完成，两个预取请求同时合成：此时应显示“正在合成”。
         assertTrue(h.service.player.value.isPreparing)
         assertEquals(2, synth.concurrent)
 
@@ -195,7 +192,6 @@ class TtsLifecycleTest {
         h.service.play()
         advanceUntilIdle()
 
-        // 当前句 0 加后续 4 句都已合成，第 6 句不在窗口内。
         assertEquals(
             listOf(0, 1, 2, 3, 4),
             h.synth.calls.map { call -> call.destination.name.removeSuffix(".mp3").toInt() }.sorted(),
@@ -223,7 +219,6 @@ class TtsLifecycleTest {
         advanceTimeBy(1_000L)
         runCurrent()
 
-        // 第 1、2 句的预取正在合成；再次触发窗口计算不应重复请求同一句。
         h.service.setPrefetchCount(2)
         h.engine.emit(PlaybackEngineState.Ended(1_200L))
         runCurrent()
@@ -252,7 +247,6 @@ class TtsLifecycleTest {
         h.service.seekToSegment(1)
         advanceUntilIdle()
 
-        // 跳转后可以预取新的后续段，但已缓存的第 2 句不会再合成一次。
         assertEquals(1, h.synth.calls.count { it.text == segmentText(1) })
         assertEquals(1, h.service.player.value.currentIndex)
         assertEquals(ClipStatus.READY, h.service.player.value.segments[1].status)
@@ -297,8 +291,6 @@ class TtsLifecycleTest {
         assertEquals(ClipStatus.READY, h.store.clip(TRACK_ID, 1)?.status)
     }
 
-    // --- 切轨 ---
-
     @Test
     fun `switching voice creates a new track and resumes position and playback`() = runTest {
         val store = newStore()
@@ -341,7 +333,6 @@ class TtsLifecycleTest {
         assertEquals(ClipStatus.READY, h.store.clip(TRACK_ID, 1)?.status)
         assertTrue(store.audioFile(RESOURCE_ID, TRACK_ID, 1).isFile)
 
-        // 切回旧音色时复用旧轨，不重新合成。
         h.service.setVoice(Voices.WENROU)
         advanceUntilIdle()
         assertEquals(TRACK_ID, h.store.getResource(RESOURCE_ID)?.activeTrackId)
@@ -373,7 +364,6 @@ class TtsLifecycleTest {
         advanceUntilIdle()
         assertTrue(h.service.player.value.isPlaying)
 
-        // 切到新音色会合成新轨；再切回旧音色命中缓存，走 prepare + play 的复用分支。
         h.service.setVoice(Voices.CIXING)
         advanceUntilIdle()
         assertTrue(h.service.player.value.isPlaying)
@@ -414,8 +404,6 @@ class TtsLifecycleTest {
         assertEquals(Voices.LONGANHUAN, h.synth.calls.single().voice)
         assertTrue(h.store.getTracks(RESOURCE_ID).any { it.id == TRACK_ID })
     }
-
-    // --- 离线 ---
 
     @Test
     fun `cached segment plays offline without any key or synthesis request`() = runTest {
@@ -468,8 +456,6 @@ class TtsLifecycleTest {
         assertTrue(h.service.player.value.error?.message.orEmpty().contains("需要联网合成"))
     }
 
-    // --- 存储清理 ---
-
     @Test
     fun `clearing old tracks removes only inactive audio and updates usage`() = runTest {
         val store = newStore()
@@ -515,8 +501,6 @@ class TtsLifecycleTest {
         assertFalse(store.audioFile(RESOURCE_ID, OLD_TRACK_ID, 0).isFile)
         assertTrue(settings.message.orEmpty().contains("已清理"))
     }
-
-    // --- 试听 ---
 
     @Test
     fun `preview voice synthesizes once per model and voice`() = runTest {
@@ -568,8 +552,6 @@ class TtsLifecycleTest {
         assertTrue(h.audition.played.isEmpty())
         assertTrue(h.service.settings.value.auditionError.orEmpty().contains("StepFun Key"))
     }
-
-    // --- helpers ---
 
     private fun writeBytes(file: File, bytes: Int) {
         file.parentFile?.mkdirs()

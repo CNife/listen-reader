@@ -24,17 +24,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * 网页提取脚本的 JVM 回归：由 `scripts/js-extract-harness.mjs` 在 jsdom 里加载
- * `readability.js` + `l1.js` + `l3.js`，对 `androidTest/assets/fixtures/` 下的 HTML
- * 断言标题、正文、懒加载图片与展开安全边界。
- *
- * 页面脚本按 WebView 的方式真实执行（fixture 里的 onclick 真的会跑），因此 Readability
- * 引擎与模板、密度提取三条路径都在覆盖范围内。决策仍然留在 Kotlin：`L3Rules.pick`
- * 选择要点哪个元素，测试只负责把页面状态推进一步。
- *
- * 前置条件：Node 24+；jsdom 由 `app/build.gradle.kts` 的 `installJsTestDeps` 自动安装。
- */
 class JsExtractorContractTest {
 
     @Test
@@ -120,8 +109,6 @@ class JsExtractorContractTest {
         }
     }
 
-    // --- 工具 ---
-
     private fun withSession(name: String, url: String, block: (ExtractSession) -> Unit) {
         startSession(name, url).use(block)
     }
@@ -190,7 +177,6 @@ class JsExtractorContractTest {
     private fun JsonObject.boolean(key: String): Boolean = this[key]!!.jsonPrimitive.boolean
     private fun JsonObject.double(key: String): Double = this[key]!!.jsonPrimitive.content.toDouble()
 
-    /** 一行一条命令、一行一条结果的 Node 子进程会话。 */
     private class ExtractSession(
         private val process: Process,
         private val stderrFile: File,

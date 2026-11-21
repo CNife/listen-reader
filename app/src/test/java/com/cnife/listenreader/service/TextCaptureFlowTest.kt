@@ -91,7 +91,6 @@ class TextCaptureFlowTest {
         assertEquals("我的标题", library.items.single().title)
         assertEquals(2, library.items.single().segmentCount)
 
-        // 重建 service（同一数据库/文件库）后资源仍可见。
         val rebuiltScope = newScope()
         val rebuilt = newService(store, settings, rebuiltScope)
         awaitState { !rebuilt.library.value.isLoading }
@@ -136,7 +135,6 @@ class TextCaptureFlowTest {
         service.beginTextCapture("第一句是足够长的句子内容。\n\n第二句也是足够长的句子内容。")
 
         val preview = service.capture.value.preview!!
-        // 展示用的标题仍回退到占位文案。
         assertEquals("粘贴文本", preview.title)
         assertTrue(preview.segmentDrafts.none { it.text == "粘贴文本" })
         assertEquals("第一句是足够长的句子内容。", preview.segmentDrafts.first().text)

@@ -23,8 +23,9 @@ Single-context domain docs: root `GLOSSARY.md` and `docs/adr/`. See `docs/agents
 - **推导状态同步**：新增「当前预览/当前资源」这类推导字段时，所有生成新预览或切换资源的路径都同步更新它。
 - **最小端口表面**：`service/ports/` 只声明生产代码实际调用的成员。
 - **Schema 同步**：改 Room 实体或数据库版本时，重新运行 `:app:kspDebugKotlin` 并提交 `app/schemas/` 下的导出 JSON。
+- **注释预算**：第一方源码不写注释，「为什么」进 `docs/adr/`；`CommentPolicyTest` 按 `app/comment-baseline.txt` 强制预算，只有删除注释后才用 `UPDATE_COMMENT_BASELINE=1` 收紧。
 
-「最小端口表面」与「Schema 同步」由 `ArchitectureContractTest` 在每个单测运行中校验；前三条由 `.no-mistakes.yaml` 的服务层审阅规则把关。
+「最小端口表面」与「Schema 同步」由 `ArchitectureContractTest` 在每个单测运行中校验，注释预算由 `CommentPolicyTest` 校验；前三条由 `.no-mistakes.yaml` 的服务层审阅规则把关。
 
 ## 上下文指针
 

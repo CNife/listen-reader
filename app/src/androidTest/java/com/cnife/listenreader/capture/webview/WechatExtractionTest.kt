@@ -21,11 +21,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * 微信公众号模板 + L3 规则展开的仪器测试。
- * 全部使用本地 MockWebServer fixture；fixture URL 的路径含 mp.weixin.qq.com/s/，
- * 用来命中 templates.json 的 urlPattern（真实设备上则直接匹配 host）。
- */
 @RunWith(AndroidJUnit4::class)
 class WechatExtractionTest {
 

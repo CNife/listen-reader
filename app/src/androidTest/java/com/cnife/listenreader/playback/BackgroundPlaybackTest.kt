@@ -31,10 +31,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * 模拟器契约验证：MediaSessionService 通知、切后台与锁屏后继续播放，
- * 以及媒体键（通知栏/锁屏同路径）的播放/暂停控制。使用本地 MP3 fixture，不依赖 TTS。
- */
 @RunWith(AndroidJUnit4::class)
 class BackgroundPlaybackTest {
 
@@ -47,7 +43,6 @@ class BackgroundPlaybackTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         grantNotificationPermission()
-        // 让应用先处于前台，模拟用户从播放器开始播放后再切后台。
         context.startActivity(
             Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

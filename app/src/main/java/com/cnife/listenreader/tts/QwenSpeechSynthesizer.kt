@@ -26,16 +26,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-/**
- * 千问 AI 平台官方非流式 TTS：`POST {base}/services/audio/tts/SpeechSynthesizer`。
- *
- * 官方非流式接口先返回 JSON（`output.audio.url` 或 `output.audio.data`），本实现解析响应后：
- * - 若包含非空 `output.audio.data`（Base64），直接解码为音频字节；
- * - 否则请求 `output.audio.url` 下载音频字节（非本地回环的 `http://` 自动升级为 `https://`，兼容 Android release 禁明文流量策略）；
- * 最后先写 `<destination>.tmp` 再原子改名落盘。
- *
- * 429/5xx/超时/IO 重试 2 次（指数退避），4xx 不重试；日志绝不记录 API Key 或正文。
- */
 class QwenSpeechSynthesizer(
     private val settingsStore: SettingsStore,
     private val cacheDir: File,

@@ -46,10 +46,6 @@ import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.Rule
 import com.cnife.listenreader.ui.theme.Scrim
 
-/**
- * 音色选择抽屉：展示当前模型支持的全部上游音色 + 固定短句试听 + 当前选中。
- * 选中写入全局设置，并让服务为当前 Resource 新建/复用 AudioTrack。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceSheet(service: ReadingService, selectedVoice: String?, onDismiss: () -> Unit) {

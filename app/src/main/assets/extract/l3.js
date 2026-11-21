@@ -1,14 +1,3 @@
-/*
- * Listen Reader L3 rule-based expansion.
- *
- * Runs inside the capture WebView. It only *collects* candidates and clicks one
- * element by index; the safety decision (visible, not a form/login/pay/download
- * control, matching phrase) lives in Kotlin (`L3Rules`) so it can be unit tested
- * and stays out of the page context.
- *
- * This file must stay in sync with `capture/webview/WebViewPageSession.kt` and
- * `capture/webview/L3Rules.kt`.
- */
 (function () {
   "use strict";
 
@@ -51,7 +40,6 @@
     return false;
   }
 
-  /** 收集文本命中「展开/继续阅读」类短语的元素；安全性由 Kotlin 侧决定。 */
   window.__listenReaderL3Collect = function (phrasesJson) {
     var phrases = [];
     try {
@@ -95,7 +83,6 @@
     try {
       el.scrollIntoView({ block: "center", inline: "center" });
     } catch (e) {
-      /* older WebView */
     }
     window.__listenReaderL3BeginWatch();
     try {
@@ -134,7 +121,6 @@
     return Date.now() - lastMutationAt >= QUIET_MS ? "true" : "false";
   };
 
-  /** 分步滚到底部，触发懒加载图片和新内容；Kotlin 侧用 quiet 轮询等待。 */
   window.__listenReaderL3ScrollThrough = function () {
     var doc = document.documentElement || document.body;
     if (!doc) return "true";

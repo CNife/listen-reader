@@ -1,14 +1,3 @@
-/*
- * Listen Reader L1 extractor.
- *
- * Runs inside the WebView page context after the DOM has become stable.
- * Strategy: site template selectors first, then a competition between
- * Mozilla Readability and a text/sentence density picker. The winner is
- * converted to clean Markdown and checked against quality gates.
- *
- * This file must stay in sync with `capture/webview/WebViewPageSession.kt`
- * (which concatenates readability.js + l1.js and calls `__listenReaderL1`).
- */
 (function () {
   "use strict";
 
@@ -56,7 +45,6 @@
   function normalizeInline(text) {
     var s = (text || "").replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ");
     s = s.replace(/ *\n */g, "\n");
-    // Chinese paragraphs wrap across visual lines; join them without spaces.
     s = s.replace(
       /([\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef])\n([\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef])/g,
       "$1$2"
@@ -85,7 +73,6 @@
         if (node.parentNode) node.parentNode.removeChild(node);
       }
     } catch (e) {
-      /* ignore invalid selectors from templates */
     }
   }
 
@@ -98,11 +85,6 @@
     for (var i = 0; i < NOISE_TAGS.length; i++) removeSelectorAll(root, NOISE_TAGS[i]);
   }
 
-  /**
-   * 公众号正文初始带 visibility:hidden / opacity:0（部分模板用 display:none），
-   * 页面脚本正常情况下会解除，但注入的提取不能依赖它。只在提取副本上操作，
-   * 不改动用户正在看的页面。
-   */
   function revealElement(el) {
     if (!el || !el.style) return;
     var visibility = el.style.getPropertyValue("visibility");
@@ -116,15 +98,12 @@
   function revealHidden(root, template) {
     if (!root.querySelectorAll) return;
     var selectors = template && template.revealSelectors ? template.revealSelectors : [];
-    // 只在模板显式声明 revealSelectors 时才解除隐藏；通用/纯文本路径保持页面原样，
-    // 避免把页面里本应隐藏的菜单、弹层等内容带进正文。
     if (!selectors.length) return;
     for (var i = 0; i < selectors.length; i++) {
       try {
         var targets = root.querySelectorAll(selectors[i]);
         for (var j = 0; j < targets.length; j++) revealElement(targets[j]);
       } catch (e) {
-        /* ignore invalid selectors from templates */
       }
     }
     var all = root.querySelectorAll("*");
@@ -162,10 +141,6 @@
     }
   }
 
-  /**
-   * Readability 只对 p/td/pre 和「无块级子元素的 div」打分，<section> 不在其列。
-   * 公众号等页面用 section 堆叠正文，这里把「纯行内内容」的 section 提纯成 p。
-   */
   function normalizeSections(root) {
     if (!root.querySelectorAll) return;
     var doc = root.ownerDocument || document;
@@ -207,7 +182,6 @@
       if (!el.parentNode) continue;
       var text = textOf(el);
       if (text.length > 0 && text.length <= 160 && COPYRIGHT_RE.test(text)) {
-        // Only drop trailing boilerplate, never a long body paragraph.
         if (!el.querySelector("p, div > p, h1, h2, h3, img")) el.parentNode.removeChild(el);
       }
     }
@@ -221,7 +195,6 @@
     removePromoElements(holder);
     liftLazyImages(holder, template);
     removeCopyrightTail(holder);
-    // Drop empty wrappers left behind by the removals (keep images/headings).
     var empty = holder.querySelectorAll("div, section, span, p");
     for (var i = empty.length - 1; i >= 0; i--) {
       var el = empty[i];
@@ -458,7 +431,6 @@
   }
 
   function inlineMarkdown(node) {
-    // 直接作为块级子元素的 <img>（公众号常见 section > img）也要输出 Markdown。
     if (node.nodeType === 1 && node.tagName.toLowerCase() === "img") {
       var ownSrc = node.getAttribute("src") || "";
       var ownAlt = normalizeInline(node.getAttribute("alt") || "");

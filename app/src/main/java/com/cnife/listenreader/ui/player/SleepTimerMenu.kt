@@ -35,7 +35,6 @@ import com.cnife.listenreader.ui.theme.Rule
 
 val SLEEP_TIMER_OPTIONS = listOf(5, 15, 30, 60)
 
-/** 底部播放器的睡眠定时入口：文字动作，选择 5/15/30/60 分钟或关闭。 */
 @Composable
 fun SleepTimerButton(
     state: PlayerState,

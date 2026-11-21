@@ -42,12 +42,6 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * JVM 级 Compose 视觉快照：Robolectric Native Graphics + Roborazzi 把真实界面渲染成 PNG，
- * 供多模态 Agent 直接用 `read` 查看布局、留白、深浅色对比与状态文案。
- *
- * 快照写入 `app/build/outputs/roborazzi/`，不进版本库（避免跨平台字体差异导致 CI 误报）。
- */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(application = Application::class, qualifiers = "w411dp-h891dp-xxhdpi")

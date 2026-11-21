@@ -23,7 +23,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-/** 一次 LLM 调用所需的配置快照。 */
 data class LlmConfig(
     val endpoint: String,
     val model: String,
@@ -37,12 +36,6 @@ sealed interface ChatCompletion {
     data class Failure(val error: UiError) : ChatCompletion
 }
 
-/**
- * OpenAI 兼容的 Chat Completions 客户端。
- *
- * 只负责 HTTP 与错误映射；prompt、分块与 JSON 解析在 [LlmScriptCleaner]。
- * 日志只记录方法与状态码，绝不记录 key 或正文。
- */
 class OpenAiCompatibleClient(
     private val httpClient: OkHttpClient = defaultHttpClient(),
     private val logger: (String) -> Unit = {},
@@ -126,7 +119,6 @@ class OpenAiCompatibleClient(
             .callTimeout(180, TimeUnit.SECONDS)
             .build()
 
-        /** 去掉端点尾部斜杠；空端点回退到默认 OpenRouter 端点。 */
         fun chatCompletionsUrl(endpoint: String): String {
             val base = endpoint.trim().trimEnd('/').ifBlank { LlmDefaults.ENDPOINT }
             return "$base/chat/completions"

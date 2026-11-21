@@ -26,7 +26,6 @@ import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 import java.util.Locale
 
-/** 设置页存储区：活动/旧 AudioTrack 占用空间与清理。 */
 @Composable
 fun StorageSection(service: ReadingService) {
     val state by service.settings.collectAsStateWithLifecycle()

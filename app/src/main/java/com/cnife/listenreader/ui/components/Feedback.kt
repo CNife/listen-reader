@@ -42,7 +42,6 @@ import com.cnife.listenreader.ui.theme.Ink2
 import com.cnife.listenreader.ui.theme.OnAccent
 import com.cnife.listenreader.ui.theme.Rule
 
-/** 2dp 细进度线：轨道用 Rule，填充用朱砂；两端平直。 */
 @Composable
 fun ProgressLine(
     progress: Float,
@@ -64,7 +63,6 @@ fun ProgressLine(
     }
 }
 
-/** 1dp 分隔细线：横贯可用宽度，以 Rule 色替代卡片边框。 */
 @Composable
 fun RuleLine(modifier: Modifier = Modifier) {
     Box(
@@ -75,7 +73,6 @@ fun RuleLine(modifier: Modifier = Modifier) {
     )
 }
 
-/** 不确定进度：2dp 朱砂线线性扫过纸面，没有末端圆点。 */
 @Composable
 fun IndeterminateProgressLine(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "indeterminate-line")
@@ -105,10 +102,6 @@ fun IndeterminateProgressLine(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * 状态行不套卡片：标题 16/600，说明 13/20，动作是朱砂文字。
- * 生成中/失败用文字说明，不用黄红容器。
- */
 @Composable
 fun StatusLine(
     title: String,
@@ -154,7 +147,6 @@ fun StatusLine(
     }
 }
 
-/** 自定义确认弹层：纸面、1dp 细线、12dp 圆角；动作右对齐。 */
 @Composable
 fun LrDialog(
     title: String,

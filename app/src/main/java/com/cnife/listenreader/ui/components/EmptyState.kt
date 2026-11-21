@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Ink2
 
-/** 空状态左对齐、靠内容说明问题；主按钮在页面底部，不在这里重复。 */
 @Composable
 fun EmptyState(
     title: String,

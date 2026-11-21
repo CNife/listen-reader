@@ -61,7 +61,6 @@ class QwenSpeechSynthesizerTest {
         log = { logs += it },
     )
 
-    /** 基于真实千问官方 API 冒烟录制并脱敏的 Golden Fixture JSON。 */
     private fun goldenQwenResponseJson(audioUrl: String, data: String = "") = """
         {
           "output": {
@@ -241,14 +240,12 @@ class QwenSpeechSynthesizerTest {
         val qwenSynth = synthesizer(durationMs = 2_200L)
         val router = RoutingSpeechSynthesizer(stepFun = stepSynth, qwen = qwenSynth)
 
-        // 1. StepFun model -> POST /v1/audio/speech
         server.enqueue(MockResponse().setResponseCode(200).setBody(Buffer().write(mp3)))
         val stepDest = File(tempFolder.newFolder("route-step"), "0.mp3")
         val stepDuration = router.synthesize("阶跃句子", TtsModels.MINI, Voices.WENROU, stepDest)
         assertEquals(1_100L, stepDuration)
         assertEquals("/v1/audio/speech", server.takeRequest().path)
 
-        // 2. Qwen model -> POST /api/v1/services/audio/tts/SpeechSynthesizer + GET audio url
         val audioUrl = server.url("/oss-audio/routed.mp3").toString()
         server.enqueue(
             MockResponse()

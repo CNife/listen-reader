@@ -21,7 +21,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** WebView L1 提取的仪器测试：全部使用本地 MockWebServer fixture，不访问外网。 */
 @RunWith(AndroidJUnit4::class)
 class WebViewPageSessionTest {
 

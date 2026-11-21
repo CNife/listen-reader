@@ -28,9 +28,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/**
- * 可配置的 UI 测试替身：实现 ReadingService 全部成员，只在测试 source 使用。
- */
 class FakeReadingService(
     initialLibrary: LibraryState = LibraryState(isLoading = false),
     initialSettings: SettingsState = SettingsState(),
@@ -43,7 +40,6 @@ class FakeReadingService(
     )
     override val library: StateFlow<LibraryState> = _library.asStateFlow()
 
-    /** 全部条目，用于在测试替身里按查询/筛选复现列表行为。 */
     private var allItems: List<LibraryItem> = _library.value.items
 
     val deletedIds = mutableListOf<String>()
@@ -66,11 +62,9 @@ class FakeReadingService(
     val speedChanges = mutableListOf<Float>()
     val sleepTimerChanges = mutableListOf<Int?>()
 
-    /** 测试连接时设置的状态。 */
     var stepFunTestResult: TestState = TestState.Success("连接成功，已合成试听音频")
     var qwenTestResult: TestState = TestState.Success("连接成功，已合成试听音频")
 
-    /** 保存 Key 时记录的明文，便于断言表单传递。 */
     var lastSavedStepFunKey: String? = null
         private set
 
@@ -91,7 +85,6 @@ class FakeReadingService(
     var clearOldAudioTracksCalls: Int = 0
         private set
 
-    /** 测试里可预设的存储占用；清理后旧音轨归零。 */
     var storageUsage: com.cnife.listenreader.service.StorageUsage =
         com.cnife.listenreader.service.StorageUsage(0, 0)
 
@@ -203,7 +196,6 @@ class FakeReadingService(
 
     override fun releasePageView() = Unit
 
-    /** 测试可预设一次网页提取结果，驱动 URL -> 预览的导航与 UI。 */
     var urlExtraction: PageExtraction? = null
 
     override fun extractPage() {

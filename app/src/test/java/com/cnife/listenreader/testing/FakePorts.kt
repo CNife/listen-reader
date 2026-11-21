@@ -48,10 +48,8 @@ class FakeLibraryStore(
     private val tracksByResource = mutableMapOf<String, MutableList<AudioTrack>>()
     private val clipsByTrack = mutableMapOf<String, MutableList<AudioClip>>()
 
-    /** 让行为测试能模拟保存失败。 */
     var failCreate: Boolean = false
 
-    /** 让行为测试能模拟删除失败。 */
     var failDelete: Boolean = false
 
     var lastOpened: String? = null
@@ -59,7 +57,6 @@ class FakeLibraryStore(
     val progressWrites = mutableListOf<Pair<Int, Long>>()
     val openedCalls = mutableListOf<String>()
 
-    /** 保存时传入的 Segment 草稿，供行为测试断言持久化的是当前预览。 */
     var savedSegments: List<SegmentDraft> = emptyList()
         private set
     var createdResource: Resource? = null
@@ -84,7 +81,6 @@ class FakeLibraryStore(
         upsertItem(resource)
     }
 
-    /** 与 RoomLibraryStore 一致，把 Resource 映射成资料库列表项。 */
     private fun upsertItem(resource: Resource) {
         val segments = segmentsByResource[resource.id].orEmpty()
         val activeTrackId = resource.activeTrackId
@@ -340,12 +336,10 @@ class FakePageSession : PageSession {
     var releaseCount: Int = 0
     var canGoBack: Boolean = false
 
-    /** 页面状态可由行为测试驱动。 */
     var pageStateValue: PageSessionState
         get() = pageState.value
         set(value) { pageState.value = value }
 
-    /** extract() 返回值；失败场景直接抛异常。 */
     var extraction: PageExtraction = PageExtraction(
         title = "",
         byline = null,
@@ -360,7 +354,6 @@ class FakePageSession : PageSession {
     )
     var extractionError: Throwable? = null
 
-    /** expandAndExtract 的返回值；为空时退回 [extraction]。 */
     var expandedExtraction: PageExtraction? = null
     var expandCalls: Int = 0
     var expandError: Throwable? = null
@@ -431,10 +424,8 @@ class FakeSpeechSynthesizer(
     var lastTestModel: String? = null
     var lastTestVoice: String? = null
 
-    /** 按文本注入失败，用于只让某个预取 Segment 失败。 */
     var failureFor: ((String) -> SpeechException?)? = null
 
-    /** 让合成挂起一段时间，用于观察并发上限与合成中状态。 */
     var synthDelayMs: Long = 0L
 
     var concurrent: Int = 0

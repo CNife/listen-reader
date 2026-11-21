@@ -21,10 +21,6 @@ import com.cnife.listenreader.ui.components.LrTextField
 import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.theme.Ink2
 
-/**
- * 设置页的 LLM 配置区：端点、模型、Key、保存并测试、状态。
- * Key 只写不读——已保存时输入框留空即可保留原 Key。
- */
 @Composable
 fun LlmSettingsSection(
     state: SettingsState,

@@ -11,7 +11,6 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var readingService: ReadingService
 
-    /** 配置变更重建 Activity 时不重复进入采集。 */
     private var shareIntentHandled = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,7 +35,6 @@ class MainActivity : ComponentActivity() {
         handleShareIntent(intent)
     }
 
-    /** 系统分享（text/plain）进入采集：首个 http(s) URL 走网页模式，否则走文本模式。 */
     private fun handleShareIntent(intent: Intent?) {
         if (intent?.action != Intent.ACTION_SEND) return
         if (intent.type?.startsWith("text/") != true) return

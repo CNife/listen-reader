@@ -24,14 +24,12 @@ interface ReadingService {
     val capture: StateFlow<CaptureState>
     val settings: StateFlow<SettingsState>
 
-    // --- 资料库 ---
     fun refreshLibrary()
     fun setLibraryQuery(query: String)
     fun setLibraryFilter(filter: LibraryFilter)
     fun openResource(resourceId: String)
     fun deleteResource(resourceId: String)
 
-    // --- Capture / 预览 ---
     fun beginUrlCapture(url: String? = null)
     fun beginTextCapture(text: String = "")
     fun handleShareIntent(text: String)
@@ -48,7 +46,6 @@ interface ReadingService {
     fun saveCapture(): String?
     fun discardCapture()
 
-    // --- 播放 ---
     fun play()
     fun pause()
     fun togglePlay()
@@ -63,7 +60,6 @@ interface ReadingService {
     fun toggleFollow()
     fun closePlayer()
 
-    // --- 设置 ---
     fun saveStepFunKey(key: String)
     fun saveQwenKey(key: String)
     fun saveLlmConfig(endpoint: String, key: String, model: String)
@@ -77,13 +73,10 @@ interface ReadingService {
     fun clearOldAudioTracks()
     fun refreshStorageUsage()
 
-    // --- 更新 ---
     fun setAutoCheckUpdate(enabled: Boolean)
 
-    /** 手动检查：无视冷却间隔，成功时恢复被忽略版本的资料库提示。 */
     fun checkForUpdate()
 
-    /** 忽略当前远端版本在资料库顶部的提醒；设置页仍展示该版本。 */
     fun dismissUpdate()
 }
 
@@ -135,11 +128,8 @@ data class CaptureState(
     val isSaving: Boolean = false,
     val savedResourceId: String? = null,
     val error: UiError? = null,
-    /** 每次开始/丢弃采集会话自增；UI 用它避免重复导航。 */
     val sessionId: Int = 0,
-    /** 每次（重新）生成预览自增；返回采集页后再次提取仍能导航到预览。 */
     val previewRevision: Int = 0,
-    /** 提取/L3 展开的可读进度；不在提取时为空。 */
     val extractionStage: String? = null,
 )
 
@@ -161,7 +151,6 @@ data class ExtractionInfo(
     val needsExpand: Boolean,
     val usedFullPage: Boolean = false,
     val degradedReason: String? = null,
-    /** L3 规则展开实际点击的轮数（0 表示没有展开动作）。 */
     val expandRounds: Int = 0,
 )
 
@@ -223,7 +212,6 @@ sealed interface TestState {
 
 data class StorageUsage(val activeBytes: Long, val oldTracksBytes: Long)
 
-/** 高于当前版本、可跳转下载的远端正式版。 */
 data class AvailableUpdate(
     val version: String,
     val url: String,
@@ -240,9 +228,7 @@ sealed interface UpdateCheckState {
 data class UpdateState(
     val currentVersion: String = "",
     val autoCheck: Boolean = true,
-    /** 高于当前版本的已知远端版本；与是否被忽略无关，设置页始终展示。 */
     val release: AvailableUpdate? = null,
-    /** 资料库顶部提示是否已被用户忽略；同版本手动检查会恢复。 */
     val ignored: Boolean = false,
     val check: UpdateCheckState = UpdateCheckState.Idle,
 )

@@ -29,11 +29,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-/**
- * Room v1 + 应用私有文件目录的 LibraryStore 实现。
- * 音频文件：`filesDir/audio/<resourceId>/<trackId>/<segmentIndex>.mp3`；
- * Markdown 快照：`filesDir/sources/<resourceId>.md`。
- */
 class RoomLibraryStore(
     private val db: ListenReaderDatabase,
     private val filesDir: File,
@@ -45,7 +40,6 @@ class RoomLibraryStore(
     private val audioRoot = File(filesDir, "audio")
     private val snapshotRoot = File(filesDir, "sources")
 
-    /** 进程内缓存活动轨，仅用于同步的存储统计；权威值始终在 Room。 */
     private val activeTracks = ConcurrentHashMap<String, String>()
     private var lastOpened: String? = null
 
@@ -184,7 +178,6 @@ class RoomLibraryStore(
     }
 
     override suspend fun computeStorageUsage(): StorageUsage = withContext(ioDispatcher) {
-        // 活动轨以 Room 为准，避免进程重启后内存缓存为空而把活动轨误算成旧轨。
         val activePairs = runCatching {
             dao.resources()
                 .mapNotNull { row -> row.activeTrackId?.let { trackId -> row.id to trackId } }

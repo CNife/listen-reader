@@ -48,7 +48,12 @@ class CommentPolicyTest {
             when {
                 target.isFile -> listOf(target)
                 target.isDirectory -> target.walkTopDown()
-                    .filter { it.isFile && it.extension in EXTENSIONS }
+                    .filter { file ->
+                        file.isFile && (
+                            file.extension in EXTENSIONS ||
+                                (relative == ".githooks" && file.extension.isEmpty())
+                            )
+                    }
                     .filterNot { excluded(it.relativeTo(root).invariantSeparatorsPath) }
                     .toList()
                 else -> emptyList()
@@ -66,8 +71,48 @@ class CommentPolicyTest {
             "py" -> pythonCommentLines(text)
             "xml" -> xmlCommentLines(text)
             "yml", "yaml" -> yamlCommentLines(text)
+            "sh", "" -> shellCommentLines(text)
             else -> cLikeCommentLines(text)
         }
+    }
+
+    private fun shellCommentLines(text: String): Set<Int> {
+        val lines = sortedSetOf<Int>()
+        var index = 0
+        var line = 1
+        var quote: Char? = null
+        while (index < text.length) {
+            val char = text[index]
+            if (char == '\n') {
+                line++
+                index++
+                continue
+            }
+            val open = quote
+            if (open != null) {
+                when {
+                    open == '"' && char == '\\' -> index += 2
+                    char == open -> {
+                        quote = null
+                        index++
+                    }
+                    else -> index++
+                }
+                continue
+            }
+            when {
+                char == '\'' || char == '"' -> {
+                    quote = char
+                    index++
+                }
+                char == '#' && (index == 0 || text[index - 1].isWhitespace()) -> {
+                    if (index != 0) lines += line
+                    while (index < text.length && text[index] != '\n') index++
+                }
+                else -> index++
+            }
+        }
+        return lines
     }
 
     private fun cLikeCommentLines(text: String): Set<Int> {
@@ -302,7 +347,7 @@ class CommentPolicyTest {
 
     private companion object {
         const val BASELINE = "app/comment-baseline.txt"
-        val EXTENSIONS = setOf("kt", "kts", "js", "mjs", "py", "xml", "yml", "yaml")
+        val EXTENSIONS = setOf("kt", "kts", "js", "mjs", "py", "xml", "yml", "yaml", "sh")
         val SCAN_ROOTS = listOf(
             "app/src/main/java",
             "app/src/main/assets/extract",
@@ -312,6 +357,7 @@ class CommentPolicyTest {
             "app/src/androidTest/java",
             "scripts",
             ".github/workflows",
+            ".githooks",
             "build.gradle.kts",
             "app/build.gradle.kts",
             "settings.gradle.kts",

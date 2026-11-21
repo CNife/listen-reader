@@ -17,7 +17,7 @@
 
 1. 第一方代码**不写注释**，包括 KDoc、行注释、块注释、XML 注释与 CI 配置注释。
 2. 「是什么」由命名、类型和测试表达；「为什么」写进 `docs/adr/`。
-3. 例外仅限功能性元数据与第三方/生成资产：Python shebang 与 PEP723 区块、`app/src/main/assets/extract/readability.js`、`app/schemas/`、测试 fixture。
+3. 例外仅限功能性元数据与第三方/生成资产：Python shebang 与 PEP723 区块、`app/src/main/assets/extract/readability.js`、`app/schemas/`、测试 fixture。`.githooks/` 属于第一方脚本，同样纳入预算扫描，不在例外之列。
 4. 用 `CommentPolicyTest` 执行注释预算：`app/comment-baseline.txt` 记录每个文件允许的注释行数，默认 0；新增注释即失败。删除注释后可执行
    `UPDATE_COMMENT_BASELINE=1 ./gradlew :app:testDebugUnitTest --tests "com.cnife.listenreader.CommentPolicyTest"`
    收紧预算。预算只允许单调下降。
@@ -75,6 +75,7 @@
 
 ### 构建与自验证
 
+- pre-commit 门禁的服务层 `runBlocking` 检查在匹配前先剥离块注释与行注释，避免注释里的示例代码误报。
 - jsdom 依赖下沉为 Gradle 增量前置 `installJsTestDeps`：新 worktree 自动 `npm ci`，依赖未变时 UP-TO-DATE。
 - `-PappIdSuffix` 生成与正式版并存的隔离包，无需改源码即可做真机 E2E。
 - debug 构建的 `DebugControlReceiver` 通过广播注入 mock 端点、预置 Resource 与状态快照；release 构建不包含该组件。

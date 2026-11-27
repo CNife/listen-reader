@@ -1,6 +1,7 @@
 package com.cnife.listenreader.ui.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,20 +10,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,14 +38,17 @@ import com.cnife.listenreader.model.VoiceCatalogEntry
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
+import com.cnife.listenreader.ui.components.CardDivider
+import com.cnife.listenreader.ui.components.PillAction
+import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.components.StatusLine
-import com.cnife.listenreader.ui.components.RuleLine
-import com.cnife.listenreader.ui.theme.Accent
-import com.cnife.listenreader.ui.theme.CardSurface
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Rule
+import com.cnife.listenreader.ui.theme.LrSheetShape
+import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.RuleStrong
 import com.cnife.listenreader.ui.theme.Scrim
+import com.cnife.listenreader.ui.theme.Selected
+import com.cnife.listenreader.ui.theme.Surface as CardSurface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +61,7 @@ fun VoiceSheet(service: ReadingService, selectedVoice: String?, onDismiss: () ->
         contentColor = Ink,
         scrimColor = Scrim,
         tonalElevation = 0.dp,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+        shape = LrSheetShape,
         dragHandle = { VoiceSheetHandle() },
     ) {
         VoiceSheetContent(
@@ -68,6 +72,7 @@ fun VoiceSheet(service: ReadingService, selectedVoice: String?, onDismiss: () ->
                 onDismiss()
             },
             onPreview = service::previewVoice,
+            onDone = onDismiss,
         )
     }
 }
@@ -77,16 +82,14 @@ private fun VoiceSheetHandle() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp),
+            .padding(top = 8.dp, bottom = 12.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        RuleLine()
         Box(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 12.dp)
                 .width(32.dp)
                 .height(4.dp)
-                .background(Rule, RoundedCornerShape(2.dp)),
+                .background(RuleStrong, RoundedCornerShape(2.dp)),
         )
     }
 }
@@ -97,33 +100,37 @@ internal fun VoiceSheetContent(
     state: SettingsState,
     onSelect: (String) -> Unit,
     onPreview: (String) -> Unit,
+    onDone: (() -> Unit)? = null,
 ) {
     val entries = Voices.entriesForModel(state.ttsModel)
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .padding(horizontal = 20.dp)
-            .padding(top = 8.dp, bottom = 16.dp)
+            .padding(top = 4.dp, bottom = 16.dp)
             .testTag("voice-sheet"),
     ) {
-        Text("音色", style = MaterialTheme.typography.titleLarge, color = Ink)
+        Text("音色", style = MaterialTheme.typography.headlineSmall, color = Ink)
         Text(
             text = "当前模型：${state.ttsModel}",
             style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
+            color = Meta,
             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
         )
         state.auditionError?.let { error ->
             StatusLine(
                 title = "试听失败",
                 description = error,
-                modifier = Modifier.testTag("voice-audition-error"),
+                modifier = Modifier
+                    .padding(vertical = 8.dp)
+                    .testTag("voice-audition-error"),
             )
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 320.dp)
+                .heightIn(max = 360.dp)
                 .verticalScroll(rememberScrollState())
                 .testTag("voice-sheet-list"),
         ) {
@@ -136,9 +143,18 @@ internal fun VoiceSheetContent(
                     onPreview = onPreview,
                 )
                 if (index != entries.lastIndex) {
-                    RuleLine()
+                    CardDivider(startIndent = 30.dp)
                 }
             }
+        }
+        if (onDone != null) {
+            Spacer(Modifier.height(12.dp))
+            PillAction(
+                text = "完成",
+                onClick = onDone,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "voice-done",
+            )
         }
     }
 }
@@ -154,36 +170,32 @@ private fun VoiceSheetRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
+            .heightIn(min = 64.dp)
             .testTag("voice-option-${entry.id}")
             .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(entry.id) })
-            .padding(vertical = 6.dp),
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .border(1.5.dp, if (selected) Selected else RuleStrong, CircleShape)
+                .padding(3.dp)
+                .background(if (selected) Selected else androidx.compose.ui.graphics.Color.Transparent, CircleShape),
+        )
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = entry.name,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    ),
-                    color = Ink,
-                )
-                if (selected) {
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .background(Accent),
-                    )
-                }
-            }
+            Text(
+                text = entry.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = Ink,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            )
             if (entry.subtitle.isNotBlank()) {
                 Text(
                     text = entry.subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Ink2,
+                    color = Meta,
                 )
             }
         }
@@ -196,27 +208,21 @@ private fun VoiceSheetRow(
                     modifier = Modifier
                         .size(12.dp)
                         .testTag("voice-audition-progress"),
-                    color = Ink2,
+                    color = Meta,
                     strokeWidth = 1.5.dp,
                 )
                 Text(
                     text = "合成中",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Ink2,
+                    color = Meta,
                 )
             }
         } else {
-            TextButton(
+            QuietAction(
+                text = "试听",
                 onClick = { onPreview(entry.id) },
-                modifier = Modifier.testTag("voice-preview-${entry.id}"),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-                colors = ButtonDefaults.textButtonColors(contentColor = Accent),
-            ) {
-                Text(
-                    text = "试听",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                )
-            }
+                testTag = "voice-preview-${entry.id}",
+            )
         }
     }
 }

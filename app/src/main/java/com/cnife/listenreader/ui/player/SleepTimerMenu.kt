@@ -4,17 +4,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,15 +19,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.cnife.listenreader.service.PlayerState
-import com.cnife.listenreader.ui.theme.Accent
-import com.cnife.listenreader.ui.theme.CardSurface
+import com.cnife.listenreader.ui.theme.Hairline
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Rule
+import com.cnife.listenreader.ui.theme.LrCardShape
+import com.cnife.listenreader.ui.theme.Surface
 
 val SLEEP_TIMER_OPTIONS = listOf(5, 15, 30, 60)
 
@@ -42,19 +37,15 @@ fun SleepTimerButton(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val active = state.sleepTimerMinutes != null
     Box(modifier = modifier) {
-        TextButton(
+        PlayerPill(
+            text = sleepTimerLabel(state),
             onClick = { expanded = true },
-            modifier = Modifier.testTag("player-sleep-timer"),
-            contentPadding = PaddingValues(0.dp),
-            colors = ButtonDefaults.textButtonColors(contentColor = Accent),
-        ) {
-            Text(
-                text = sleepTimerLabel(state),
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                modifier = Modifier.testTag("player-sleep-remaining"),
-            )
-        }
+            active = active,
+            testTag = "player-sleep-timer",
+            textTag = "player-sleep-remaining",
+        )
         if (expanded) {
             Popup(
                 alignment = Alignment.BottomEnd,
@@ -62,15 +53,15 @@ fun SleepTimerButton(
                 properties = PopupProperties(focusable = true),
             ) {
                 Surface(
-                    color = CardSurface,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Rule),
-                    shadowElevation = 8.dp,
+                    color = Surface,
+                    shape = LrCardShape,
+                    border = BorderStroke(1.dp, Hairline),
+                    shadowElevation = 12.dp,
                     modifier = Modifier
-                        .width(160.dp)
+                        .width(168.dp)
                         .testTag("sleep-timer-menu"),
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
                         SLEEP_TIMER_OPTIONS.forEach { minutes ->
                             SleepTimerRow(
                                 text = "$minutes 分钟",
@@ -107,15 +98,15 @@ private fun SleepTimerRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .heightIn(min = 48.dp)
             .testTag(testTag)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.bodyMedium,
             color = Ink,
         )
     }

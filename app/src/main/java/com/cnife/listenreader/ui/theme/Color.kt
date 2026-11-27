@@ -6,124 +6,241 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-val LightPaper = Color(0xFFF7F6F2)
-val LightCardSurface = Color(0xFFFFFFFF)
-val LightSunken = Color(0xFFEFEEE8)
-val LightInk = Color(0xFF17171A)
-val LightInk2 = Color(0xFF5B5B57)
-val LightInk3 = Color(0xFF8A8A83)
-val LightRule = Color(0xFFDEDED7)
-val LightRuleStrong = Color(0xFFC4C4BB)
-val LightAccent = Color(0xFFB23A26)
-val LightOnAccent = Color(0xFFFFFFFF)
-val LightScrim = Color(0x5217171A)
+val StickerSky = Color(0xFF62AEF0)
+val StickerPurple = Color(0xFFD6B6F6)
+val StickerPurpleInk = Color(0xFF391C57)
+val StickerTeal = Color(0xFF2A9D99)
+val StickerGreen = Color(0xFF1AAE39)
+val StickerOrange = Color(0xFFDD5B00)
+val StickerPink = Color(0xFFFF64C8)
 
-val DarkPaper = Color(0xFF121210)
-val DarkCardSurface = Color(0xFF1A1A18)
-val DarkSunken = Color(0xFF232320)
-val DarkInk = Color(0xFFECEBE5)
-val DarkInk2 = Color(0xFFAAA9A1)
-val DarkInk3 = Color(0xFF7B7A73)
-val DarkRule = Color(0xFF2E2E2A)
-val DarkRuleStrong = Color(0xFF45453F)
-val DarkAccent = Color(0xFFE07054)
-val DarkOnAccent = Color(0xFF121210)
-val DarkScrim = Color(0x8C000000)
+private val LightCanvas = Color(0xFFF6F5F4)
+private val LightSurface = Color(0xFFFFFFFF)
+private val LightSunken = Color(0xFFEFEEEB)
+private val LightHairline = Color(0xFFE6E6E6)
+private val LightRuleStrong = Color(0xFFC4C4BB)
+private val LightInk = Color(0xFF1A1A19)
+private val LightMuted = Color(0xFF615D59)
+private val LightMeta = Color(0xFF78736C)
+private val LightMetaOnCanvas = Color(0xFF716C65)
+private val LightPrimary = Color(0xFF0075DE)
+private val LightOnPrimary = Color(0xFFFFFFFF)
+private val LightLink = Color(0xFF005BAB)
+private val LightNight = Color(0xFF213183)
+private val LightFieldBorder = Color(0xFFDDDDDD)
+private val LightCurrentBg = Color(0xFFEAF3FD)
+private val LightCurrentBar = Color(0xFF0075DE)
+private val LightSelectedPill = Color(0xFFFFFFFF)
+private val LightScrim = Color(0x52000000)
+
+private val DarkCanvas = Color(0xFF191919)
+private val DarkSurface = Color(0xFF202020)
+private val DarkSunken = Color(0xFF262624)
+private val DarkHairline = Color(0xFF2E2E2C)
+private val DarkRuleStrong = Color(0xFF4A4A46)
+private val DarkInk = Color(0xFFE9E9E7)
+private val DarkMuted = Color(0xFFA6A29D)
+private val DarkMeta = Color(0xFF9A958E)
+private val DarkPrimary = Color(0xFF0075DE)
+private val DarkOnPrimary = Color(0xFFFFFFFF)
+private val DarkLink = Color(0xFF62AEF0)
+private val DarkNight = Color(0xFF2A3166)
+private val DarkFieldBorder = Color(0xFF3A3A37)
+private val DarkCurrentBg = Color(0xFF1C2A3A)
+private val DarkCurrentBar = Color(0xFF62AEF0)
+private val DarkSelectedPill = Color(0xFF2C2C2A)
+private val DarkScrim = Color(0x99000000)
 
 @Immutable
 data class LrColors(
-    val paper: Color,
-    val cardSurface: Color,
+    val canvas: Color,
+    val surface: Color,
     val sunken: Color,
-    val ink: Color,
-    val ink2: Color,
-    val ink3: Color,
-    val rule: Color,
+    val hairline: Color,
     val ruleStrong: Color,
-    val accent: Color,
-    val onAccent: Color,
+    val ink: Color,
+    val muted: Color,
+    val meta: Color,
+    val metaOnCanvas: Color,
+    val primary: Color,
+    val onPrimary: Color,
+    val link: Color,
+    val selected: Color,
+    val night: Color,
+    val onNight: Color,
+    val nightMeta: Color,
+    val nightEyebrow: Color,
+    val nightTrack: Color,
+    val fieldBorder: Color,
+    val currentBg: Color,
+    val currentBar: Color,
+    val selectedPill: Color,
     val scrim: Color,
 )
 
 val LightLrColors = LrColors(
-    paper = LightPaper,
-    cardSurface = LightCardSurface,
+    canvas = LightCanvas,
+    surface = LightSurface,
     sunken = LightSunken,
-    ink = LightInk,
-    ink2 = LightInk2,
-    ink3 = LightInk3,
-    rule = LightRule,
+    hairline = LightHairline,
     ruleStrong = LightRuleStrong,
-    accent = LightAccent,
-    onAccent = LightOnAccent,
+    ink = LightInk,
+    muted = LightMuted,
+    meta = LightMeta,
+    metaOnCanvas = LightMetaOnCanvas,
+    primary = LightPrimary,
+    onPrimary = LightOnPrimary,
+    link = LightLink,
+    selected = LightPrimary,
+    night = LightNight,
+    onNight = Color(0xFFFFFFFF),
+    nightMeta = Color(0xFFB9C1E4),
+    nightEyebrow = Color(0xFF8FB3EC),
+    nightTrack = Color(0x38FFFFFF),
+    fieldBorder = LightFieldBorder,
+    currentBg = LightCurrentBg,
+    currentBar = LightCurrentBar,
+    selectedPill = LightSelectedPill,
     scrim = LightScrim,
 )
 
 val DarkLrColors = LrColors(
-    paper = DarkPaper,
-    cardSurface = DarkCardSurface,
+    canvas = DarkCanvas,
+    surface = DarkSurface,
     sunken = DarkSunken,
-    ink = DarkInk,
-    ink2 = DarkInk2,
-    ink3 = DarkInk3,
-    rule = DarkRule,
+    hairline = DarkHairline,
     ruleStrong = DarkRuleStrong,
-    accent = DarkAccent,
-    onAccent = DarkOnAccent,
+    ink = DarkInk,
+    muted = DarkMuted,
+    meta = DarkMeta,
+    metaOnCanvas = DarkMeta,
+    primary = DarkPrimary,
+    onPrimary = DarkOnPrimary,
+    link = DarkLink,
+    selected = DarkLink,
+    night = DarkNight,
+    onNight = Color(0xFFFFFFFF),
+    nightMeta = Color(0xFFC5CCE8),
+    nightEyebrow = Color(0xFF8FB3EC),
+    nightTrack = Color(0x38FFFFFF),
+    fieldBorder = DarkFieldBorder,
+    currentBg = DarkCurrentBg,
+    currentBar = DarkCurrentBar,
+    selectedPill = DarkSelectedPill,
     scrim = DarkScrim,
 )
 
 val LocalLrColors = staticCompositionLocalOf { LightLrColors }
 
-val Paper: Color
+val Canvas: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalLrColors.current.paper
+    get() = LocalLrColors.current.canvas
 
-val CardSurface: Color
+val Surface: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalLrColors.current.cardSurface
+    get() = LocalLrColors.current.surface
 
 val Sunken: Color
     @Composable
     @ReadOnlyComposable
     get() = LocalLrColors.current.sunken
 
-val Ink: Color
+val Hairline: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalLrColors.current.ink
-
-val Ink2: Color
-    @Composable
-    @ReadOnlyComposable
-    get() = LocalLrColors.current.ink2
-
-val Ink3: Color
-    @Composable
-    @ReadOnlyComposable
-    get() = LocalLrColors.current.ink3
-
-val Rule: Color
-    @Composable
-    @ReadOnlyComposable
-    get() = LocalLrColors.current.rule
+    get() = LocalLrColors.current.hairline
 
 val RuleStrong: Color
     @Composable
     @ReadOnlyComposable
     get() = LocalLrColors.current.ruleStrong
 
-val Accent: Color
+val Ink: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalLrColors.current.accent
+    get() = LocalLrColors.current.ink
 
-val OnAccent: Color
+val Muted: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalLrColors.current.onAccent
+    get() = LocalLrColors.current.muted
+
+val Meta: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.meta
+
+val MetaOnCanvas: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.metaOnCanvas
+
+val Primary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.primary
+
+val OnPrimary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.onPrimary
+
+val Link: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.link
+
+val Selected: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.selected
+
+val Night: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.night
+
+val OnNight: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.onNight
+
+val NightMeta: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.nightMeta
+
+val NightEyebrow: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.nightEyebrow
+
+val NightTrack: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.nightTrack
+
+val FieldBorder: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.fieldBorder
+
+val CurrentBg: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.currentBg
+
+val CurrentBar: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.currentBar
+
+val SelectedPill: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalLrColors.current.selectedPill
 
 val Scrim: Color
     @Composable

@@ -1,5 +1,6 @@
 package com.cnife.listenreader.ui.capture
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,10 +28,12 @@ import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.components.StatusDot
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.theme.Ink
+import com.cnife.listenreader.ui.theme.LrPillShape
 import com.cnife.listenreader.ui.theme.Meta
 import com.cnife.listenreader.ui.theme.Primary
 import com.cnife.listenreader.ui.theme.StickerGreen
 import com.cnife.listenreader.ui.theme.StickerOrange
+import com.cnife.listenreader.ui.theme.Sunken
 
 @Composable
 fun L2StatusSection(
@@ -107,8 +110,10 @@ fun L2StatusSection(
                 L2Status.NOT_CONFIGURED -> {
                     StatusHeader(
                         dotColor = Primary,
-                        title = "LLM 未配置",
+                        title = "AI 清洗",
                         titleTag = "preview-status",
+                        badge = "未配置",
+                        badgeTag = "l2-not-configured",
                     )
                     Text(
                         text = "还没有配置 LLM。分段会按规则进行。",
@@ -178,8 +183,13 @@ private fun StatusHeader(
     dotColor: Color,
     title: String,
     titleTag: String,
+    badge: String? = null,
+    badgeTag: String? = null,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         StatusDot(color = dotColor)
         Spacer(Modifier.width(10.dp))
         Text(
@@ -192,6 +202,18 @@ private fun StatusHeader(
             color = Ink,
             modifier = Modifier.testTag(titleTag),
         )
+        if (badge != null) {
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = badge,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                color = Meta,
+                modifier = Modifier
+                    .background(Sunken, LrPillShape)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .let { if (badgeTag != null) it.testTag(badgeTag) else it },
+            )
+        }
     }
 }
 

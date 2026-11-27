@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -67,6 +69,7 @@ import com.cnife.listenreader.ui.theme.Hairline
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.LrInputShape
 import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
 import com.cnife.listenreader.ui.theme.Primary
 import com.cnife.listenreader.ui.theme.ReadingTextStyle
 import com.cnife.listenreader.ui.theme.StickerPurple
@@ -204,7 +207,7 @@ private fun UrlModeContent(
             Text(
                 text = "请输入网址",
                 style = MaterialTheme.typography.bodySmall,
-                color = Meta,
+                color = MetaOnCanvas,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
         }
@@ -241,7 +244,7 @@ private fun UrlModeContent(
                 Text(
                     text = "提取后进入预览，可以修改标题和正文。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Meta,
+                    color = MetaOnCanvas,
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 StepHintCard(modifier = Modifier.padding(top = 16.dp))
@@ -307,7 +310,7 @@ private fun UrlRow(
         Text(
             text = "网页链接",
             style = MaterialTheme.typography.bodySmall,
-            color = Meta,
+            color = MetaOnCanvas,
         )
         Spacer(Modifier.height(6.dp))
         Row(
@@ -364,7 +367,7 @@ private fun UrlRow(
 private fun StepHintCard(modifier: Modifier = Modifier) {
     LrCard(
         modifier = modifier.fillMaxWidth(),
-        padding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        padding = PaddingValues(20.dp),
     ) {
         StepRow("打开网页，生成离线快照", StickerSky)
         Spacer(Modifier.height(12.dp))
@@ -375,7 +378,7 @@ private fun StepHintCard(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StepRow(text: String, dotColor: androidx.compose.ui.graphics.Color) {
+private fun StepRow(text: String, dotColor: Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -409,7 +412,7 @@ private fun PageToolbar(
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .clickable(onClick = onBack)
                 .testTag("capture-web-back"),
             contentAlignment = Alignment.Center,
@@ -417,13 +420,13 @@ private fun PageToolbar(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "网页后退",
-                tint = Meta,
+                tint = MetaOnCanvas,
                 modifier = Modifier.size(20.dp),
             )
         }
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .clickable(onClick = onRefresh)
                 .testTag("capture-web-refresh"),
             contentAlignment = Alignment.Center,
@@ -431,7 +434,7 @@ private fun PageToolbar(
             Icon(
                 imageVector = Icons.Filled.Refresh,
                 contentDescription = "刷新",
-                tint = Meta,
+                tint = MetaOnCanvas,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -439,7 +442,7 @@ private fun PageToolbar(
         Text(
             text = pageHost(url),
             style = MaterialTheme.typography.bodySmall,
-            color = Meta,
+            color = MetaOnCanvas,
             maxLines = 1,
         )
     }
@@ -462,7 +465,7 @@ private fun PageStatus(
                 Text(
                     text = "正在加载网页… ${page.progress}%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Meta,
+                    color = MetaOnCanvas,
                 )
                 ProgressLine(
                     progress = page.progress / 100f,
@@ -491,7 +494,7 @@ private fun PageStatus(
             Text(
                 text = stage ?: "正在提取正文…",
                 style = MaterialTheme.typography.bodySmall,
-                color = Meta,
+                color = MetaOnCanvas,
                 modifier = Modifier
                     .padding(top = 8.dp)
                     .testTag("capture-extracting"),
@@ -550,14 +553,14 @@ private fun TextComposer(
         Text(
             text = "正文",
             style = MaterialTheme.typography.bodySmall,
-            color = Meta,
+            color = MetaOnCanvas,
         )
         Spacer(Modifier.height(6.dp))
         LrCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            padding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            padding = PaddingValues(16.dp),
         ) {
             BasicTextField(
                 value = text,
@@ -586,7 +589,7 @@ private fun TextComposer(
             Text(
                 text = "请先粘贴要朗读的文本",
                 style = MaterialTheme.typography.bodySmall,
-                color = Meta,
+                color = MetaOnCanvas,
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
@@ -594,7 +597,7 @@ private fun TextComposer(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Meta,
+                color = MetaOnCanvas,
                 modifier = Modifier.padding(top = 6.dp),
             )
         }

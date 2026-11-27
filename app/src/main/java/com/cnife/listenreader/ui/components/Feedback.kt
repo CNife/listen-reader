@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +46,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.cnife.listenreader.ui.theme.Hairline
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.LrCardShape
+import com.cnife.listenreader.ui.theme.LrIslandShape
 import com.cnife.listenreader.ui.theme.LrPillShape
 import com.cnife.listenreader.ui.theme.Meta
 import com.cnife.listenreader.ui.theme.Muted
@@ -255,7 +255,7 @@ fun LrDialog(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = LrIslandShape,
             color = CardSurface,
             tonalElevation = 0.dp,
             shadowElevation = 12.dp,

@@ -51,6 +51,7 @@ import com.cnife.listenreader.ui.player.VoiceSheetContent
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.LrSheetShape
 import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
 import com.cnife.listenreader.ui.theme.RuleStrong
 import com.cnife.listenreader.ui.theme.Scrim
 import com.cnife.listenreader.ui.theme.StickerGreen
@@ -176,7 +177,7 @@ internal fun StepFunSettingsContent(
             ActionRow(
                 modifier = Modifier.padding(top = 8.dp),
             ) {
-                PillAction(
+                QuietAction(
                     text = "保存千问 Key",
                     onClick = {
                         onSaveQwenKey(qwenKeyInput)
@@ -235,7 +236,7 @@ internal fun StepFunSettingsContent(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Meta,
+                color = MetaOnCanvas,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
         }

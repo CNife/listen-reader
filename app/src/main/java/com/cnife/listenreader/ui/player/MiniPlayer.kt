@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -44,7 +44,9 @@ import com.cnife.listenreader.ui.components.PlaybackProgress
 import com.cnife.listenreader.ui.theme.CurrentBg
 import com.cnife.listenreader.ui.theme.Hairline
 import com.cnife.listenreader.ui.theme.Ink
+import com.cnife.listenreader.ui.theme.Link
 import com.cnife.listenreader.ui.theme.LrPillShape
+import com.cnife.listenreader.ui.theme.LrSheetShape
 import com.cnife.listenreader.ui.theme.Meta
 import com.cnife.listenreader.ui.theme.OnPrimary
 import com.cnife.listenreader.ui.theme.Primary
@@ -74,10 +76,17 @@ fun PlayerDock(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(CardSurface, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(CardSurface, LrSheetShape)
             .testTag("mini-player"),
     ) {
         Column(modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .height(1.dp)
+                    .background(Hairline),
+            )
             Column(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -201,7 +210,7 @@ internal fun PlayerPill(
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            color = if (active) Primary else Ink,
+            color = if (active) Link else Ink,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
             modifier = Modifier.let { if (textTag != null) it.testTag(textTag) else it },
         )

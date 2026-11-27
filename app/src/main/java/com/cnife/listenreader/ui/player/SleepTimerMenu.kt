@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Surface as PopupSurface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +26,7 @@ import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.ui.theme.Hairline
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.LrCardShape
-import com.cnife.listenreader.ui.theme.Surface
+import com.cnife.listenreader.ui.theme.Surface as CardSurface
 
 val SLEEP_TIMER_OPTIONS = listOf(5, 15, 30, 60)
 
@@ -52,8 +52,8 @@ fun SleepTimerButton(
                 onDismissRequest = { expanded = false },
                 properties = PopupProperties(focusable = true),
             ) {
-                Surface(
-                    color = Surface,
+                PopupSurface(
+                    color = CardSurface,
                     shape = LrCardShape,
                     border = BorderStroke(1.dp, Hairline),
                     shadowElevation = 12.dp,

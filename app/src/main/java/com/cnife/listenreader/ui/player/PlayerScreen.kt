@@ -55,6 +55,7 @@ import com.cnife.listenreader.ui.theme.CurrentBg
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.Link
 import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
 import com.cnife.listenreader.ui.theme.Muted
 import com.cnife.listenreader.ui.theme.ReadingTextStyle
 import com.cnife.listenreader.ui.theme.StickerSky
@@ -205,7 +206,7 @@ private fun TitleBlock(
             Text(
                 text = state.sourceLabel.ifBlank { "内容" },
                 style = MaterialTheme.typography.labelSmall,
-                color = Meta,
+                color = MetaOnCanvas,
             )
         }
         Text(
@@ -220,7 +221,7 @@ private fun TitleBlock(
             text = playerMeta(state),
             modifier = Modifier.padding(top = 6.dp),
             style = MaterialTheme.typography.bodySmall,
-            color = Meta,
+            color = MetaOnCanvas,
         )
     }
 }

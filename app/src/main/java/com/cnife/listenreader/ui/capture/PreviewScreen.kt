@@ -36,7 +36,7 @@ import com.cnife.listenreader.ui.components.StatusDot
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.theme.Canvas
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
 import com.cnife.listenreader.ui.theme.PreviewBodyTextStyle
 import com.cnife.listenreader.ui.theme.Primary
 import com.cnife.listenreader.ui.theme.StickerSky
@@ -96,7 +96,7 @@ fun PreviewScreen(
                     Text(
                         text = error.message,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Meta,
+                        color = MetaOnCanvas,
                     )
                 }
             }
@@ -118,7 +118,7 @@ fun PreviewScreen(
                     Text(
                         text = preview.sourceLabel.ifBlank { "内容" },
                         style = MaterialTheme.typography.labelSmall,
-                        color = Meta,
+                        color = MetaOnCanvas,
                     )
                 }
                 BasicTextField(
@@ -135,7 +135,7 @@ fun PreviewScreen(
                 Text(
                     text = metaLabel(preview),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Meta,
+                    color = MetaOnCanvas,
                     modifier = Modifier
                         .padding(top = 6.dp)
                         .testTag("preview-meta"),

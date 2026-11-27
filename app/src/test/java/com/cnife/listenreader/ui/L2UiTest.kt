@@ -56,7 +56,8 @@ class L2UiTest {
             }
         }
 
-        composeRule.onNodeWithTag("preview-status").assertTextContains("LLM 未配置", substring = true)
+        composeRule.onNodeWithTag("preview-status").assertTextContains("AI 清洗", substring = true)
+        composeRule.onNodeWithTag("l2-not-configured").assertTextContains("未配置", substring = true)
         composeRule.onNodeWithTag("l2-error").assertTextContains("还没有配置", substring = true)
         composeRule.onNodeWithTag("l2-error").assertTextContains("分段会按规则进行", substring = true)
         composeRule.onNodeWithTag("l2-open-settings").performClick()

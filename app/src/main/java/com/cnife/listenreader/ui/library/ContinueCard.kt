@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.ui.components.ProgressLine
+import com.cnife.listenreader.ui.theme.LrIslandShape
 import com.cnife.listenreader.ui.theme.Night
 import com.cnife.listenreader.ui.theme.NightEyebrow
 import com.cnife.listenreader.ui.theme.NightMeta
@@ -46,7 +46,7 @@ fun ContinueCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(LrIslandShape)
             .background(Night)
             .testTag("continue-card")
             .clickable(onClick = onClick)
@@ -66,7 +66,6 @@ fun ContinueCard(
                         fontSize = 20.sp,
                         lineHeight = 26.sp,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.125).sp,
                     ),
                     color = OnNight,
                 )

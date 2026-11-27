@@ -1,5 +1,6 @@
 package com.cnife.listenreader.ui.components
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,7 +23,7 @@ fun EmptyState(
 ) {
     LrCard(
         modifier = modifier.fillMaxWidth(),
-        padding = androidx.compose.foundation.layout.PaddingValues(24.dp),
+        padding = PaddingValues(24.dp),
     ) {
         Text(
             text = title,

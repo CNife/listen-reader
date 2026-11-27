@@ -12,7 +12,6 @@ val StickerPurpleInk = Color(0xFF391C57)
 val StickerTeal = Color(0xFF2A9D99)
 val StickerGreen = Color(0xFF1AAE39)
 val StickerOrange = Color(0xFFDD5B00)
-val StickerPink = Color(0xFFFF64C8)
 
 private val LightCanvas = Color(0xFFF6F5F4)
 private val LightSurface = Color(0xFFFFFFFF)

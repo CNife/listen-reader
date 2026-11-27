@@ -10,6 +10,7 @@ val LrInputShape = RoundedCornerShape(4.dp)
 val LrUtilityShape = RoundedCornerShape(8.dp)
 val LrCardShape = RoundedCornerShape(12.dp)
 val LrSheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+val LrIslandShape = RoundedCornerShape(16.dp)
 
 val ListenReaderShapes = Shapes(
     extraSmall = LrInputShape,

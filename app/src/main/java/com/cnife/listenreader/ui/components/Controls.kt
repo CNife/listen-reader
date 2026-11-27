@@ -264,7 +264,7 @@ fun SearchField(
                 if (value.isNotEmpty()) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(44.dp)
                             .clickable(onClick = onClear),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -334,7 +334,7 @@ fun SegmentedControl(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 36.dp)
+                    .heightIn(min = 44.dp)
                     .let { if (tagPrefix != null) it.testTag("$tagPrefix-$key") else it }
                     .background(if (selected) SelectedPill else Color.Transparent, LrUtilityShape)
                     .then(

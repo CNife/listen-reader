@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.LrTextField
-import com.cnife.listenreader.ui.components.PillAction
 import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.theme.Meta
 
@@ -89,7 +88,7 @@ fun LlmSettingsSection(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            PillAction(
+            QuietAction(
                 text = "保存并测试",
                 onClick = {
                     onSave(endpoint, key, model)

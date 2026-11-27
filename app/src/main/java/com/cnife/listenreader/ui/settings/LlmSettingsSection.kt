@@ -1,9 +1,11 @@
 package com.cnife.listenreader.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,16 +13,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.cnife.listenreader.service.SettingsState
+import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.LrTextField
 import com.cnife.listenreader.ui.components.QuietAction
-import com.cnife.listenreader.ui.theme.Ink2
+import com.cnife.listenreader.ui.theme.Meta
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LlmSettingsSection(
     state: SettingsState,
@@ -33,11 +36,11 @@ fun LlmSettingsSection(
     var model by rememberSaveable(state.llmModel) { mutableStateOf(state.llmModel) }
     var key by rememberSaveable { mutableStateOf("") }
 
-    Column(
+    LrCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("llm-settings-section"),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        padding = PaddingValues(20.dp),
     ) {
         SettingsSectionTitle("LLM 清洗")
         Text(
@@ -47,15 +50,17 @@ fun LlmSettingsSection(
                 "还没有配置 LLM。分段会按规则进行。"
             },
             style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag("llm-key-state"),
+            color = Meta,
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .testTag("llm-key-state"),
         )
-
         LrTextField(
             value = endpoint,
             onValueChange = { endpoint = it },
             label = "端点",
             placeholder = "https://openrouter.ai/api/v1",
+            modifier = Modifier.padding(top = 12.dp),
             testTag = "llm-endpoint",
         )
         LrTextField(
@@ -63,6 +68,7 @@ fun LlmSettingsSection(
             onValueChange = { model = it },
             label = "模型",
             placeholder = "openai/gpt-4.1-mini",
+            modifier = Modifier.padding(top = 12.dp),
             testTag = "llm-model",
         )
         LrTextField(
@@ -71,21 +77,25 @@ fun LlmSettingsSection(
             label = "API Key",
             placeholder = if (state.llmKeyConfigured) "留空表示保留已保存的 Key" else "sk-…",
             visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.padding(top = 12.dp),
             testTag = "llm-key",
         )
 
-        QuietAction(
-            text = "保存并测试",
-            onClick = {
-                onSave(endpoint, key, model)
-                onTest()
-            },
-            testTag = "llm-test",
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            QuietAction(
+                text = "保存并测试",
+                onClick = {
+                    onSave(endpoint, key, model)
+                    onTest()
+                },
+                testTag = "llm-test",
+            )
             QuietAction(
                 text = "仅保存",
                 onClick = { onSave(endpoint, key, model) },

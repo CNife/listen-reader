@@ -1,7 +1,7 @@
 package com.cnife.listenreader.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,10 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
+import com.cnife.listenreader.ui.components.CardDivider
+import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.QuietAction
-import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
+import com.cnife.listenreader.ui.theme.Meta
 import java.util.Locale
 
 @Composable
@@ -35,43 +36,45 @@ fun StorageSection(service: ReadingService) {
 
 @Composable
 internal fun StorageContent(state: SettingsState, onClear: () -> Unit) {
-    Column(
+    LrCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("storage-section"),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        padding = PaddingValues(20.dp),
     ) {
         SettingsSectionTitle("存储")
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
         StorageRow(
             label = "当前音轨",
             value = formatBytes(state.storage.activeBytes),
             valueTag = "storage-active-bytes",
         )
-        RuleLine()
+        CardDivider()
         StorageRow(
             label = "旧音轨",
             value = formatBytes(state.storage.oldTracksBytes),
             valueTag = "storage-old-bytes",
         )
-        Spacer(Modifier.height(4.dp))
         QuietAction(
             text = if (state.isClearing) "清理中…" else "清理旧音轨",
             onClick = onClear,
             enabled = !state.isClearing,
+            modifier = Modifier.padding(top = 4.dp),
             testTag = "storage-clear",
         )
         Text(
             text = "只删除非活动音轨（切换音色前合成的旧音频），当前正在使用的音轨会保留。",
             style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
+            color = Meta,
         )
         state.message?.let { message ->
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
-                modifier = Modifier.testTag("storage-message"),
+                color = Meta,
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .testTag("storage-message"),
             )
         }
     }
@@ -82,7 +85,7 @@ private fun StorageRow(label: String, value: String, valueTag: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -97,7 +100,7 @@ private fun StorageRow(label: String, value: String, valueTag: String) {
                 fontWeight = FontWeight.Medium,
                 fontFeatureSettings = "tnum",
             ),
-            color = Ink2,
+            color = Meta,
             modifier = Modifier.testTag(valueTag),
         )
     }

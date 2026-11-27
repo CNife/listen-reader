@@ -9,10 +9,17 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,9 +38,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.QuietAction
-import com.cnife.listenreader.ui.components.RuleLine
-import com.cnife.listenreader.ui.theme.Ink2
+import com.cnife.listenreader.ui.theme.Ink
 
 const val NOTIFICATION_PERMISSION_HINT = "通知未开启，锁屏控制不可用"
 
@@ -96,25 +103,30 @@ fun NotificationPermissionHint(
     modifier: Modifier = Modifier,
 ) {
     if (!state.required || state.granted) return
-    Column(
+    LrCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("notification-permission-hint"),
+        padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        RuleLine()
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Icon(
+                imageVector = Icons.Filled.NotificationsNone,
+                contentDescription = null,
+                tint = Ink,
+                modifier = Modifier.size(20.dp),
+            )
             Text(
                 text = NOTIFICATION_PERMISSION_HINT,
-                style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Ink,
                 modifier = Modifier.weight(1f),
             )
+            Spacer(Modifier.width(4.dp))
             QuietAction(
                 text = "开启",
                 onClick = state.onOpenSettings,

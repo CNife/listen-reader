@@ -2,15 +2,16 @@ package com.cnife.listenreader.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -23,28 +24,37 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.TtsModels
 import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.SettingsState
 import com.cnife.listenreader.service.TestState
+import com.cnife.listenreader.ui.components.CardDivider
 import com.cnife.listenreader.ui.components.ChoiceRow
+import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.LrDialog
 import com.cnife.listenreader.ui.components.LrTextField
-import com.cnife.listenreader.ui.components.PrimaryAction
+import com.cnife.listenreader.ui.components.PillAction
 import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.components.SectionLabel
+import com.cnife.listenreader.ui.components.StatusDot
 import com.cnife.listenreader.ui.player.VoiceSheetContent
-import com.cnife.listenreader.ui.theme.CardSurface
+import com.cnife.listenreader.ui.player.VoiceSheetHandle
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Rule
+import com.cnife.listenreader.ui.theme.LrSheetShape
+import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
+import com.cnife.listenreader.ui.theme.RuleStrong
 import com.cnife.listenreader.ui.theme.Scrim
+import com.cnife.listenreader.ui.theme.StickerGreen
+import com.cnife.listenreader.ui.theme.Surface
 
 @Composable
 fun StepFunSettingsSection(service: ReadingService) {
@@ -61,7 +71,7 @@ fun StepFunSettingsSection(service: ReadingService) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun StepFunSettingsContent(
     state: SettingsState,
@@ -79,99 +89,57 @@ internal fun StepFunSettingsContent(
     var showClearStepFun by remember { mutableStateOf(false) }
     var showClearQwen by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SettingsSectionTitle("朗读服务")
-        Spacer(Modifier.height(2.dp))
-        SectionLabel("StepFun")
-        Text(
-            text = if (state.stepFunKeyConfigured) "Key 已加密保存" else "尚未配置 Key",
-            style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag("stepfun-key-status"),
-        )
-        LrTextField(
-            value = stepFunKeyInput,
-            onValueChange = { stepFunKeyInput = it },
-            label = "StepFun API Key",
-            placeholder = "sk-…",
-            visualTransformation = PasswordVisualTransformation(),
-            testTag = "stepfun-key",
-        )
-        PrimaryAction(
-            text = "保存 Key",
-            onClick = {
-                onSaveKey(stepFunKeyInput)
-                stepFunKeyInput = ""
-            },
-            testTag = "stepfun-save-key",
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LrCard(
+            modifier = Modifier.fillMaxWidth(),
+            padding = PaddingValues(20.dp),
         ) {
-            QuietAction(
-                text = if (state.stepFunTest is TestState.Running) "测试中…" else "测试连接",
-                onClick = onTest,
-                enabled = state.stepFunTest !is TestState.Running,
-                testTag = "stepfun-test",
+            ServiceHeader(
+                name = "StepFun",
+                configured = state.stepFunKeyConfigured,
+                statusText = if (state.stepFunKeyConfigured) "Key 已加密保存" else "尚未配置 Key",
+                statusTag = "stepfun-key-status",
             )
-            if (state.stepFunKeyConfigured) {
-                QuietAction(
-                    text = "清除 Key",
-                    onClick = { showClearStepFun = true },
-                    testTag = "stepfun-clear-key",
-                )
-            }
-        }
-        TestStatus(state.stepFunTest, testTag = "stepfun-test-status")
-
-        Spacer(Modifier.height(8.dp))
-        SectionLabel("千问")
-        Text(
-            text = if (state.qwenKeyConfigured) "Key 已加密保存" else "尚未配置 Key",
-            style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag("qwen-key-status"),
-        )
-        LrTextField(
-            value = qwenKeyInput,
-            onValueChange = { qwenKeyInput = it },
-            label = "千问 API Key",
-            placeholder = "sk-…",
-            visualTransformation = PasswordVisualTransformation(),
-            testTag = "qwen-key",
-        )
-        QuietAction(
-            text = "保存千问 Key",
-            onClick = {
-                onSaveQwenKey(qwenKeyInput)
-                qwenKeyInput = ""
-            },
-            testTag = "qwen-save-key",
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            QuietAction(
-                text = if (state.qwenTest is TestState.Running) "测试中…" else "测试千问连接",
-                onClick = onTestQwen,
-                enabled = state.qwenTest !is TestState.Running,
-                testTag = "qwen-test",
+            LrTextField(
+                value = stepFunKeyInput,
+                onValueChange = { stepFunKeyInput = it },
+                label = "StepFun API Key",
+                placeholder = "sk-…",
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.padding(top = 12.dp),
+                testTag = "stepfun-key",
             )
-            if (state.qwenKeyConfigured) {
-                QuietAction(
-                    text = "清除 Key",
-                    onClick = { showClearQwen = true },
-                    testTag = "qwen-clear-key",
+            ActionRow(
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                PillAction(
+                    text = "保存 Key",
+                    onClick = {
+                        onSaveKey(stepFunKeyInput)
+                        stepFunKeyInput = ""
+                    },
+                    testTag = "stepfun-save-key",
                 )
+                QuietAction(
+                    text = if (state.stepFunTest is TestState.Running) "测试中…" else "测试连接",
+                    onClick = onTest,
+                    enabled = state.stepFunTest !is TestState.Running,
+                    testTag = "stepfun-test",
+                )
+                if (state.stepFunKeyConfigured) {
+                    QuietAction(
+                        text = "清除 Key",
+                        onClick = { showClearStepFun = true },
+                        testTag = "stepfun-clear-key",
+                    )
+                }
             }
-        }
-        TestStatus(state.qwenTest, testTag = "qwen-test-status")
+            TestStatus(state.stepFunTest, testTag = "stepfun-test-status")
 
-        Spacer(Modifier.height(8.dp))
-        SectionLabel("朗读模型")
-        Column {
+            Spacer(Modifier.height(16.dp))
+            CardDivider()
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("朗读模型")
             ChoiceRow(
                 label = "阶跃 step-tts-mini（默认）",
                 selected = state.ttsModel == TtsModels.MINI,
@@ -186,35 +154,89 @@ internal fun StepFunSettingsContent(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
-        SectionLabel("音色")
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("settings-open-voice-sheet"),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        LrCard(
+            modifier = Modifier.fillMaxWidth(),
+            padding = PaddingValues(20.dp),
         ) {
-            Text(
-                text = "当前音色 · ${Voices.DISPLAY[state.voice] ?: state.voice}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Ink,
+            ServiceHeader(
+                name = "千问",
+                configured = state.qwenKeyConfigured,
+                statusText = if (state.qwenKeyConfigured) "Key 已加密保存" else "尚未配置 Key",
+                statusTag = "qwen-key-status",
+            )
+            LrTextField(
+                value = qwenKeyInput,
+                onValueChange = { qwenKeyInput = it },
+                label = "千问 API Key",
+                placeholder = "sk-…",
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.padding(top = 12.dp),
+                testTag = "qwen-key",
+            )
+            ActionRow(
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                QuietAction(
+                    text = "保存千问 Key",
+                    onClick = {
+                        onSaveQwenKey(qwenKeyInput)
+                        qwenKeyInput = ""
+                    },
+                    testTag = "qwen-save-key",
+                )
+                QuietAction(
+                    text = if (state.qwenTest is TestState.Running) "测试中…" else "测试千问连接",
+                    onClick = onTestQwen,
+                    enabled = state.qwenTest !is TestState.Running,
+                    testTag = "qwen-test",
+                )
+                if (state.qwenKeyConfigured) {
+                    QuietAction(
+                        text = "清除 Key",
+                        onClick = { showClearQwen = true },
+                        testTag = "qwen-clear-key",
+                    )
+                }
+            }
+            TestStatus(state.qwenTest, testTag = "qwen-test-status")
+        }
+
+        LrCard(
+            modifier = Modifier.fillMaxWidth(),
+            padding = PaddingValues(20.dp),
+        ) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .testTag("settings-current-voice"),
-            )
-            QuietAction(
-                text = "切换",
-                onClick = { showVoiceSheet = true },
-                testTag = "settings-voice-button",
-            )
+                    .fillMaxWidth()
+                    .testTag("settings-open-voice-sheet"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    SectionLabel("音色")
+                    Text(
+                        text = "当前音色 · ${Voices.DISPLAY[state.voice] ?: state.voice}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Ink,
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .testTag("settings-current-voice"),
+                    )
+                }
+                QuietAction(
+                    text = "切换",
+                    onClick = { showVoiceSheet = true },
+                    testTag = "settings-voice-button",
+                )
+            }
         }
 
         state.message?.let { message ->
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                color = MetaOnCanvas,
+                modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
     }
@@ -223,19 +245,11 @@ internal fun StepFunSettingsContent(
         ModalBottomSheet(
             onDismissRequest = { showVoiceSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = CardSurface,
+            containerColor = Surface,
             scrimColor = Scrim,
             tonalElevation = 0.dp,
-            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-            dragHandle = {
-                Box(
-                    modifier = Modifier
-                        .padding(vertical = 12.dp)
-                        .width(32.dp)
-                        .height(4.dp)
-                        .background(Rule, RoundedCornerShape(2.dp)),
-                )
-            },
+            shape = LrSheetShape,
+            dragHandle = { VoiceSheetHandle() },
         ) {
             VoiceSheetContent(
                 selectedVoice = state.voice,
@@ -245,6 +259,7 @@ internal fun StepFunSettingsContent(
                     showVoiceSheet = false
                 },
                 onPreview = onPreviewVoice,
+                onDone = { showVoiceSheet = false },
             )
         }
     }
@@ -279,5 +294,76 @@ internal fun StepFunSettingsContent(
             confirmTag = "qwen-clear-confirm",
             dismissTag = "qwen-clear-cancel",
         )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ServiceHeader(
+    name: String,
+    configured: Boolean,
+    statusText: String,
+    statusTag: String,
+) {
+    val fontScale = LocalDensity.current.fontScale
+    val stacked = fontScale >= 1.5f
+    if (stacked) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusDot(color = if (configured) StickerGreen else RuleStrong)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = Ink,
+                )
+            }
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.bodySmall,
+                color = Meta,
+                modifier = Modifier
+                    .padding(start = 18.dp, top = 2.dp)
+                    .testTag(statusTag),
+            )
+        }
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StatusDot(color = if (configured) StickerGreen else RuleStrong)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = name,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+                color = Ink,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.bodySmall,
+                color = Meta,
+                modifier = Modifier.testTag(statusTag),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ActionRow(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        content()
     }
 }

@@ -98,4 +98,4 @@
   - #26 `readDurationMs` 失败静默返回 0（已修复：时长不可读时改抛可重试的 `SpeechException`）
   - #27 L3 点击前滚动失败被吞掉（已修复：scrollIntoView 失败用 scrollTo 兜底，仍失败返回 `scroll_failed` 不假装点击成功）
   - #28 `FakePorts` 手抄生产映射
-- 视觉规格以 `docs/design/ui-v2.md` 为唯一来源，Compose 代码不再复述 dp、字号与配色理由。
+- 视觉规格以 `docs/design/ui-v2.md` 为唯一来源（2026-11-27 起被 ADR-0002 的 Notion 设计语言取代），Compose 代码不再复述 dp、字号与配色理由。

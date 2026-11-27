@@ -1,7 +1,11 @@
 package com.cnife.listenreader.ui
 
 import android.app.Application
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -32,7 +36,11 @@ import com.cnife.listenreader.service.PreviewState
 import com.cnife.listenreader.service.AvailableUpdate
 import com.cnife.listenreader.service.UpdateState
 import com.cnife.listenreader.service.SettingsState
+import com.cnife.listenreader.model.Voices
 import com.cnife.listenreader.testing.FakeReadingService
+import com.cnife.listenreader.ui.player.VoiceSheetContent
+import com.cnife.listenreader.ui.theme.ListenReaderTheme
+import com.cnife.listenreader.ui.theme.Surface
 import com.github.takahirom.roborazzi.captureRoboImage
 import java.io.File
 import org.junit.Assert.assertTrue
@@ -316,10 +324,183 @@ class UiSnapshotTest {
         captureSnapshot("settings-update")
     }
 
+    @Test
+    fun snapshot_playerDark() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(themeMode = ThemeMode.DARK),
+                initialLibrary = LibraryState(
+                    isLoading = false,
+                    items = listOf(libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 4, true)),
+                ),
+                initialPlayer = PlayerState(
+                    resourceId = "r1",
+                    title = "在通勤路上听见长文",
+                    sourceKind = SourceKind.URL,
+                    sourceLabel = "example.com",
+                    segments = playerSegments(),
+                    currentIndex = 1,
+                    positionInSegmentMs = 400L,
+                    totalDurationMs = 8_000L,
+                    isPlaying = true,
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithText("在通勤路上听见长文").performClick()
+        composeRule.waitForIdle()
+        captureSnapshot("player-dark")
+    }
+
+    @Test
+    fun snapshot_captureUrlDark() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(themeMode = ThemeMode.DARK),
+            ),
+        )
+        composeRule.onNodeWithText("添加内容").performClick()
+        composeRule.waitForIdle()
+        captureSnapshot("capture-url-dark")
+    }
+
+    @Test
+    fun snapshot_previewDark() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(themeMode = ThemeMode.DARK),
+                initialCapture = previewCaptureState(),
+            ),
+        )
+        captureSnapshot("preview-dark")
+    }
+
+    @Test
+    fun snapshot_voiceSheetDark() {
+        render(
+            FakeReadingService(
+                initialSettings = SettingsState(themeMode = ThemeMode.DARK),
+                initialLibrary = LibraryState(
+                    isLoading = false,
+                    items = listOf(libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 4, true)),
+                ),
+                initialPlayer = PlayerState(
+                    resourceId = "r1",
+                    title = "在通勤路上听见长文",
+                    sourceKind = SourceKind.URL,
+                    sourceLabel = "example.com",
+                    segments = playerSegments(),
+                    totalDurationMs = 8_000L,
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithText("在通勤路上听见长文").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("player-voice").performClick()
+        composeRule.waitForIdle()
+        captureSnapshot("voice-sheet-dark", nodeTag = "voice-sheet")
+    }
+
+    @Test
+    fun snapshot_libraryFontScale2x() {
+        renderFontScale(
+            FakeReadingService(
+                initialLibrary = LibraryState(
+                    isLoading = false,
+                    items = listOf(
+                        libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 5, true),
+                        libraryItem("r2", "被折叠的公众号文章", SourceKind.URL, "微信公众号", 9, false),
+                    ),
+                    continueListening = libraryItem("r1", "在通勤路上听见长文", SourceKind.URL, "example.com", 5, true)
+                        .copy(lastOpenedAt = 1_000L, currentSegmentIndex = 2),
+                ),
+            ),
+        )
+        captureSnapshot("library-font-scale-2x")
+    }
+
+    @Test
+    fun snapshot_settingsFontScale2x() {
+        renderFontScale(
+            FakeReadingService(
+                initialSettings = SettingsState(
+                    prefetchCount = 4,
+                    stepFunKeyConfigured = true,
+                    llmKeyConfigured = true,
+                ),
+            ),
+        )
+        composeRule.onNodeWithContentDescription("设置").performClick()
+        composeRule.waitForIdle()
+        captureSnapshot("settings-font-scale-2x")
+    }
+
+    @Test
+    fun snapshot_voiceFontScale2x() {
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = 2f),
+            ) {
+                ListenReaderTheme {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Surface),
+                    ) {
+                        VoiceSheetContent(
+                            selectedVoice = Voices.DEFAULT,
+                            state = SettingsState(),
+                            onSelect = {},
+                            onPreview = {},
+                            onDone = {},
+                        )
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        captureSnapshot("voice-font-scale-2x", nodeTag = "voice-sheet")
+    }
+
     private fun render(service: FakeReadingService) {
         composeRule.setContent { ListenReaderApp(service) }
         composeRule.waitForIdle()
     }
+
+    private fun renderFontScale(service: FakeReadingService, fontScale: Float = 2f) {
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density, fontScale = fontScale),
+            ) {
+                ListenReaderApp(service)
+            }
+        }
+        composeRule.waitForIdle()
+    }
+
+    private fun previewCaptureState() = CaptureState(
+        mode = CaptureMode.TEXT,
+        sessionId = 1,
+        previewRevision = 1,
+        preview = PreviewState(
+            title = "把小屏幕变成耳朵",
+            body = "每天早上七点半，地铁里挤满了低头看手机的人。把文字变成声音之后，同样的四十分钟忽然变得宽裕起来。",
+            charCount = 66,
+            segmentDrafts = listOf(
+                SegmentDraft("每天早上七点半，地铁里挤满了低头看手机的人。", SegmentKind.PARAGRAPH),
+                SegmentDraft("把文字变成声音之后，同样的四十分钟忽然变得宽裕起来。", SegmentKind.PARAGRAPH),
+            ),
+            segmentation = SegmentationSource.L2,
+            l2Status = L2Status.SUCCEEDED,
+            sourceKind = SourceKind.TEXT,
+            sourceLabel = "粘贴文本",
+            extractor = "文本输入",
+            score = 1.0,
+        ),
+    )
 
     private fun captureSnapshot(name: String, nodeTag: String? = null) {
         composeRule.waitForIdle()

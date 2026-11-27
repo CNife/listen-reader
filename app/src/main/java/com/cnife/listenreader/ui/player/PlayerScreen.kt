@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -26,6 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -35,13 +42,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.core.ErrorKind
 import com.cnife.listenreader.model.ClipStatus
 import com.cnife.listenreader.service.PlayerSegment
+import com.cnife.listenreader.service.PlayerState
 import com.cnife.listenreader.service.ReadingService
+import com.cnife.listenreader.ui.components.CardDivider
+import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.PageHeader
+import com.cnife.listenreader.ui.components.StatusDot
 import com.cnife.listenreader.ui.components.StatusLine
-import com.cnife.listenreader.ui.theme.Accent
+import com.cnife.listenreader.ui.theme.Canvas
+import com.cnife.listenreader.ui.theme.CurrentBar
+import com.cnife.listenreader.ui.theme.CurrentBg
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Paper
+import com.cnife.listenreader.ui.theme.Link
+import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
+import com.cnife.listenreader.ui.theme.Muted
+import com.cnife.listenreader.ui.theme.ReadingTextStyle
+import com.cnife.listenreader.ui.theme.StickerSky
 
 @Composable
 fun PlayerScreen(
@@ -61,7 +78,7 @@ fun PlayerScreen(
     }
 
     Scaffold(
-        containerColor = Paper,
+        containerColor = Canvas,
         topBar = {
             PageHeader(title = "正在朗读", onBack = onBack)
         },
@@ -85,16 +102,25 @@ fun PlayerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .background(Paper)
+                    .background(Canvas)
                     .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("没有正在播放的内容", style = MaterialTheme.typography.titleLarge, color = Ink)
-                Text(
-                    text = "从资料库选择一篇内容，或先保存一段文本。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Ink2,
-                )
+                LrCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    padding = PaddingValues(24.dp),
+                ) {
+                    Text(
+                        text = "没有正在播放的内容",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Ink,
+                    )
+                    Text(
+                        text = "从资料库选择一篇内容，或先保存一段文本。",
+                        modifier = Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Muted,
+                    )
+                }
             }
             return@Scaffold
         }
@@ -103,22 +129,22 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Paper)
+                .background(Canvas)
                 .testTag("player-lyrics"),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
         ) {
             item {
                 TitleBlock(
-                    title = state.title,
-                    sourceLabel = state.sourceLabel,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 12.dp),
+                    state = state,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
                 )
+                CardDivider()
             }
             if (notificationPermission.required && !notificationPermission.granted) {
                 item {
                     NotificationPermissionHint(
                         state = notificationPermission,
-                        modifier = Modifier.padding(bottom = 12.dp),
+                        modifier = Modifier.padding(top = 12.dp),
                     )
                 }
             }
@@ -130,6 +156,7 @@ fun PlayerScreen(
                         service = service,
                         currentIndex = state.currentIndex,
                         onOpenSettings = onOpenSettings,
+                        modifier = Modifier.padding(top = 12.dp),
                     )
                 }
             }
@@ -140,7 +167,9 @@ fun PlayerScreen(
                         description = "播放时会合成音频，并缓存在本机。",
                         actionLabel = "设置",
                         onAction = onOpenSettings,
-                        modifier = Modifier.testTag("player-no-cache"),
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .testTag("player-no-cache"),
                     )
                 }
             }
@@ -167,24 +196,54 @@ fun PlayerScreen(
 
 @Composable
 private fun TitleBlock(
-    title: String,
-    sourceLabel: String,
+    state: PlayerState,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StatusDot(color = StickerSky, size = 6.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = state.sourceLabel.ifBlank { "内容" },
+                style = MaterialTheme.typography.labelSmall,
+                color = MetaOnCanvas,
+            )
+        }
         Text(
-            text = sourceLabel.ifBlank { "内容" },
-            style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = Ink,
+            text = state.title,
             modifier = Modifier
-                .padding(top = 6.dp)
+                .padding(top = 8.dp)
                 .testTag("player-title"),
+            style = MaterialTheme.typography.displayMedium,
+            color = Ink,
         )
+        Text(
+            text = playerMeta(state),
+            modifier = Modifier.padding(top = 6.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MetaOnCanvas,
+        )
+    }
+}
+
+private fun playerMeta(state: PlayerState): String {
+    val segments = state.segments.size
+    val minutes = ((state.totalDurationMs + 59_999L) / 60_000L).toInt()
+    val percent = if (segments > 0) {
+        ((state.currentIndex + 1) * 100 / segments).coerceIn(0, 100)
+    } else {
+        0
+    }
+    return buildString {
+        if (segments > 0) append("$segments 段")
+        if (minutes > 0) {
+            if (isNotEmpty()) append(" · ")
+            append("约 $minutes 分钟")
+        }
+        if (segments > 0) {
+            if (isNotEmpty()) append(" · ")
+            append("已听 $percent%")
+        }
     }
 }
 
@@ -195,6 +254,7 @@ private fun ErrorLine(
     service: ReadingService,
     currentIndex: Int,
     onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     StatusLine(
         title = "出错",
@@ -203,7 +263,7 @@ private fun ErrorLine(
         onAction = {
             if (errorKind == ErrorKind.NO_KEY) onOpenSettings() else service.retrySegment(currentIndex)
         },
-        modifier = Modifier.testTag("player-error"),
+        modifier = modifier.testTag("player-error"),
     )
 }
 
@@ -217,29 +277,38 @@ private fun SegmentRow(
 ) {
     val textColor = when {
         isCurrent -> Ink
-        isPast -> Ink2
+        isPast -> Muted
         else -> Ink
     }
-    val fontWeight = when {
-        isCurrent -> FontWeight.SemiBold
-        isPast -> FontWeight.Normal
-        else -> FontWeight.Normal
-    }
+    val barColor = CurrentBar
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = if (isCurrent) 4.dp else 1.dp)
             .testTag("player-segment-${segment.index}")
             .semantics { selected = isCurrent }
+            .clip(RoundedCornerShape(4.dp))
+            .background(if (isCurrent) CurrentBg else Color.Transparent)
+            .drawBehind {
+                if (isCurrent) {
+                    drawRect(color = barColor, size = Size(3.dp.toPx(), size.height))
+                }
+            }
             .clickable(onClick = onClick)
-            .padding(top = if (isCurrent) 14.dp else 4.dp, bottom = 10.dp),
+            .padding(
+                start = if (isCurrent) 15.dp else 0.dp,
+                end = if (isCurrent) 12.dp else 0.dp,
+                top = if (isCurrent) 10.dp else 6.dp,
+                bottom = if (isCurrent) 10.dp else 6.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = segment.text,
-            style = MaterialTheme.typography.bodyLarge.copy(
+            style = ReadingTextStyle.copy(
                 color = textColor,
-                fontWeight = fontWeight,
+                fontWeight = FontWeight.Normal,
             ),
             modifier = Modifier.weight(1f),
         )
@@ -248,7 +317,7 @@ private fun SegmentRow(
                 modifier = Modifier
                     .size(12.dp)
                     .testTag("player-segment-${segment.index}-synthesizing"),
-                color = Ink2,
+                color = Meta,
                 strokeWidth = 1.5.dp,
             )
         }
@@ -256,14 +325,14 @@ private fun SegmentRow(
             TextButton(
                 onClick = onRetry,
                 modifier = Modifier
-                    .height(40.dp)
+                    .heightIn(min = 44.dp)
                     .testTag("player-retry-${segment.index}"),
                 contentPadding = PaddingValues(horizontal = 4.dp),
             ) {
                 Text(
                     text = "重试",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Accent,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Link,
                 )
             }
         }

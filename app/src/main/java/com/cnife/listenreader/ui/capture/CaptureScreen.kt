@@ -3,23 +3,28 @@ package com.cnife.listenreader.ui.capture
 import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -37,31 +42,40 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.service.CaptureMode
 import com.cnife.listenreader.service.PageUiState
 import com.cnife.listenreader.service.ReadingService
-import com.cnife.listenreader.ui.components.PageHeader
 import com.cnife.listenreader.ui.components.IndeterminateProgressLine
+import com.cnife.listenreader.ui.components.LrCard
+
+import com.cnife.listenreader.ui.components.PageHeader
 import com.cnife.listenreader.ui.components.PrimaryAction
 import com.cnife.listenreader.ui.components.ProgressLine
 import com.cnife.listenreader.ui.components.QuietAction
-import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.components.TextTabs
-import com.cnife.listenreader.ui.theme.Accent
+import com.cnife.listenreader.ui.theme.Canvas
+import com.cnife.listenreader.ui.theme.FieldBorder
+import com.cnife.listenreader.ui.theme.Hairline
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Ink3
-import com.cnife.listenreader.ui.theme.Paper
-import com.cnife.listenreader.ui.theme.Sunken
+import com.cnife.listenreader.ui.theme.LrInputShape
+import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
+import com.cnife.listenreader.ui.theme.Primary
+import com.cnife.listenreader.ui.theme.ReadingTextStyle
+import com.cnife.listenreader.ui.theme.StickerPurple
+import com.cnife.listenreader.ui.theme.StickerSky
+import com.cnife.listenreader.ui.theme.StickerTeal
+import com.cnife.listenreader.ui.theme.Surface
 
 @Composable
 fun CaptureScreen(
@@ -91,7 +105,7 @@ fun CaptureScreen(
     val modeKey = if (textMode) "paste-text" else "web"
 
     Scaffold(
-        containerColor = Paper,
+        containerColor = Canvas,
         topBar = {
             PageHeader(title = "添加内容", onBack = onBack)
         },
@@ -117,7 +131,6 @@ fun CaptureScreen(
                 },
                 tagPrefix = "capture",
             )
-            RuleLine()
 
             if (!textMode) {
                 UrlModeContent(
@@ -194,7 +207,7 @@ private fun UrlModeContent(
             Text(
                 text = "请输入网址",
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                color = MetaOnCanvas,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
         }
@@ -204,20 +217,38 @@ private fun UrlModeContent(
                 onBack = { service.pageBack() },
                 onRefresh = { service.reloadPage() },
             )
-        }
-        PageStatus(
-            page = state.page,
-            isExtracting = state.isExtracting,
-            stage = state.extractionStage,
-            onRetryPage = { service.reloadPage() },
-        )
-
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            WebViewArea(
-                service = service,
-                context = context,
-                showWebView = showWebView,
+            PageStatus(
+                page = state.page,
+                isExtracting = state.isExtracting,
+                stage = state.extractionStage,
+                onRetryPage = { service.reloadPage() },
             )
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                WebViewArea(service = service, context = context)
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp),
+            ) {
+                Text(
+                    text = "输入网址，页面会在这里打开。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Ink,
+                    modifier = Modifier.testTag("capture-empty-web"),
+                )
+                Text(
+                    text = "提取后进入预览，可以修改标题和正文。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MetaOnCanvas,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                StepHintCard(modifier = Modifier.padding(top = 16.dp))
+            }
         }
 
         state.extraction?.takeIf { it.needsExpand }?.let { extraction ->
@@ -240,6 +271,7 @@ private fun UrlModeContent(
                 actionTag = "capture-use-full-page",
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp)
                     .testTag("capture-degraded-hint"),
             )
         }
@@ -254,6 +286,7 @@ private fun UrlModeContent(
                     actionTag = "capture-retry",
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
+                        .padding(top = 8.dp)
                         .testTag("capture-error"),
                 )
             }
@@ -267,43 +300,98 @@ private fun UrlRow(
     onUrlChange: (String) -> Unit,
     onOpen: () -> Unit,
 ) {
-    Row(
+    var focused by remember { mutableStateOf(false) }
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .height(48.dp)
-            .background(Sunken, RoundedCornerShape(8.dp))
-            .padding(start = 12.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 20.dp)
+            .padding(top = 12.dp),
     ) {
-        BasicTextField(
-            value = url,
-            onValueChange = onUrlChange,
-            modifier = Modifier
-                .weight(1f)
-                .testTag("capture-url-input"),
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
-            cursorBrush = SolidColor(Accent),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { onOpen() }),
-            decorationBox = { innerTextField ->
-                Box {
-                    if (url.isEmpty()) {
-                        Text(
-                            text = "https://…",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Ink3,
-                        )
-                    }
-                    innerTextField()
-                }
-            },
+        Text(
+            text = "网页链接",
+            style = MaterialTheme.typography.bodySmall,
+            color = MetaOnCanvas,
         )
-        QuietAction(
-            text = "打开",
-            onClick = onOpen,
-            testTag = "capture-open",
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .background(Surface, LrInputShape)
+                .border(1.dp, if (focused) Primary else FieldBorder, LrInputShape),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicTextField(
+                value = url,
+                onValueChange = onUrlChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { focused = it.isFocused }
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                    .testTag("capture-url-input"),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Ink),
+                cursorBrush = SolidColor(Primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { onOpen() }),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (url.isEmpty()) {
+                            Text(
+                                text = "https://…",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Meta,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(24.dp)
+                    .background(Hairline),
+            )
+            QuietAction(
+                text = "打开",
+                onClick = onOpen,
+                modifier = Modifier.padding(horizontal = 4.dp),
+                testTag = "capture-open",
+            )
+        }
+    }
+}
+
+@Composable
+private fun StepHintCard(modifier: Modifier = Modifier) {
+    LrCard(
+        modifier = modifier.fillMaxWidth(),
+        padding = PaddingValues(20.dp),
+    ) {
+        StepRow("打开网页，生成离线快照", StickerSky)
+        Spacer(Modifier.height(12.dp))
+        StepRow("提取正文，切分为朗读文稿", StickerPurple)
+        Spacer(Modifier.height(12.dp))
+        StepRow("预览编辑后保存，开始朗读", StickerTeal)
+    }
+}
+
+@Composable
+private fun StepRow(text: String, dotColor: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(dotColor, CircleShape),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Ink,
         )
     }
 }
@@ -317,14 +405,14 @@ private fun PageToolbar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp)
+            .height(44.dp)
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(44.dp)
                 .clickable(onClick = onBack)
                 .testTag("capture-web-back"),
             contentAlignment = Alignment.Center,
@@ -332,13 +420,13 @@ private fun PageToolbar(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "网页后退",
-                tint = Ink2,
+                tint = MetaOnCanvas,
                 modifier = Modifier.size(20.dp),
             )
         }
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(44.dp)
                 .clickable(onClick = onRefresh)
                 .testTag("capture-web-refresh"),
             contentAlignment = Alignment.Center,
@@ -346,7 +434,7 @@ private fun PageToolbar(
             Icon(
                 imageVector = Icons.Filled.Refresh,
                 contentDescription = "刷新",
-                tint = Ink2,
+                tint = MetaOnCanvas,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -354,7 +442,7 @@ private fun PageToolbar(
         Text(
             text = pageHost(url),
             style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
+            color = MetaOnCanvas,
             maxLines = 1,
         )
     }
@@ -377,11 +465,11 @@ private fun PageStatus(
                 Text(
                     text = "正在加载网页… ${page.progress}%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Ink2,
+                    color = MetaOnCanvas,
                 )
                 ProgressLine(
                     progress = page.progress / 100f,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
 
@@ -406,12 +494,12 @@ private fun PageStatus(
             Text(
                 text = stage ?: "正在提取正文…",
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                color = MetaOnCanvas,
                 modifier = Modifier
-                    .padding(top = 4.dp)
+                    .padding(top = 8.dp)
                     .testTag("capture-extracting"),
             )
-            IndeterminateProgressLine(modifier = Modifier.padding(top = 4.dp))
+            IndeterminateProgressLine(modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
@@ -420,31 +508,7 @@ private fun PageStatus(
 private fun WebViewArea(
     service: ReadingService,
     context: android.content.Context,
-    showWebView: Boolean,
 ) {
-    if (!showWebView) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .testTag("capture-empty-web"),
-            contentAlignment = Alignment.TopStart,
-        ) {
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 32.dp)) {
-                Text(
-                    text = "输入网址，页面会在这里打开。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Ink,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "提取后进入预览，可以修改标题和正文。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Ink2,
-                )
-            }
-        }
-        return
-    }
     var available by remember { mutableStateOf(true) }
     AndroidView(
         modifier = Modifier
@@ -484,57 +548,57 @@ private fun TextComposer(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 4.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
     ) {
         Text(
             text = "正文",
             style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
+            color = MetaOnCanvas,
         )
         Spacer(Modifier.height(6.dp))
-        BasicTextField(
-            value = text,
-            onValueChange = onTextChange,
+        LrCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .testTag("capture-text-input"),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                fontSize = 18.sp,
-                lineHeight = 32.sp,
-                color = Ink,
-            ),
-            cursorBrush = SolidColor(Accent),
-            decorationBox = { innerTextField ->
-                Box {
-                    if (text.isEmpty()) {
-                        Text(
-                            text = "把文章或段落粘贴到这里",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = 18.sp,
-                                lineHeight = 32.sp,
-                                color = Ink3,
-                            ),
-                        )
+                .weight(1f),
+            padding = PaddingValues(16.dp),
+        ) {
+            BasicTextField(
+                value = text,
+                onValueChange = onTextChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .testTag("capture-text-input"),
+                textStyle = ReadingTextStyle.copy(color = Ink),
+                cursorBrush = SolidColor(Primary),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (text.isEmpty()) {
+                            Text(
+                                text = "把文章或段落粘贴到这里",
+                                style = ReadingTextStyle,
+                                color = Meta,
+                            )
+                        }
+                        innerTextField()
                     }
-                    innerTextField()
-                }
-            },
-        )
+                },
+            )
+        }
         if (emptyHint) {
             Text(
                 text = "请先粘贴要朗读的文本",
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
-                modifier = Modifier.padding(top = 4.dp),
+                color = MetaOnCanvas,
+                modifier = Modifier.padding(top = 6.dp),
             )
         }
         errorMessage?.let { message ->
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
-                modifier = Modifier.padding(top = 4.dp),
+                color = MetaOnCanvas,
+                modifier = Modifier.padding(top = 6.dp),
             )
         }
     }

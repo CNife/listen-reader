@@ -1,6 +1,7 @@
 package com.cnife.listenreader.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,9 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
@@ -29,16 +29,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.cnife.listenreader.ui.theme.Accent
+import com.cnife.listenreader.ui.theme.Canvas
+import com.cnife.listenreader.ui.theme.Hairline
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Ink3
-import com.cnife.listenreader.ui.theme.Paper
+import com.cnife.listenreader.ui.theme.LrPillShape
+import com.cnife.listenreader.ui.theme.MetaOnCanvas
+import com.cnife.listenreader.ui.theme.Muted
+import com.cnife.listenreader.ui.theme.SelectedPill
 
 @Composable
 fun PageHeader(
@@ -50,10 +53,10 @@ fun PageHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Paper)
+            .background(Canvas)
             .windowInsetsPadding(WindowInsets.statusBars)
-            .height(56.dp)
-            .padding(horizontal = 8.dp),
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
@@ -90,35 +93,35 @@ fun Masthead(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Paper)
+            .background(Canvas)
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(start = 20.dp, end = 8.dp, top = 20.dp, bottom = 8.dp),
+            .padding(start = 20.dp, end = 4.dp, top = 16.dp, bottom = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.displayLarge,
                     color = Ink,
                 )
-                Spacer(Modifier.height(2.dp))
                 Text(
                     text = meta,
+                    modifier = Modifier.padding(top = 2.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Ink3,
+                    color = MetaOnCanvas,
                 )
             }
             IconButton(
                 onClick = onSearch,
                 modifier = Modifier.testTag("library-search-open"),
             ) {
-                Icon(Icons.Filled.Search, contentDescription = "搜索", tint = Ink2)
+                Icon(Icons.Filled.Search, contentDescription = "搜索", tint = Ink)
             }
             IconButton(
                 onClick = onSettings,
                 modifier = Modifier.testTag("library-settings"),
             ) {
-                Icon(Icons.Filled.Settings, contentDescription = "设置", tint = Ink2)
+                Icon(Icons.Filled.Settings, contentDescription = "设置", tint = Ink)
             }
         }
     }
@@ -136,48 +139,58 @@ fun TextTabs(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         options.forEach { (key, label) ->
             val selected = key == selectedKey
-            Column(
+            Box(
                 modifier = Modifier
-                    .defaultMinSize(minHeight = 44.dp)
+                    .heightIn(min = 44.dp)
                     .let { if (tagPrefix != null) it.testTag("$tagPrefix-$key") else it }
                     .selectable(
                         selected = selected,
                         role = Role.Tab,
                         onClick = { onSelect(key) },
-                    )
-                    .padding(top = 10.dp),
-                horizontalAlignment = Alignment.Start,
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                     ),
-                    color = if (selected) Accent else Ink2,
-                )
-                Spacer(Modifier.height(4.dp))
+                contentAlignment = Alignment.Center,
+            ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(if (selected) Accent else androidx.compose.ui.graphics.Color.Transparent),
-                )
+                        .heightIn(min = 36.dp)
+                        .background(if (selected) SelectedPill else Color.Transparent, LrPillShape)
+                        .then(
+                            if (selected) {
+                                Modifier.border(1.dp, Hairline, LrPillShape)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) Ink else Muted,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier) {
+fun SectionLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Muted,
+) {
     Text(
         text = text,
         modifier = modifier,
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-        color = Ink2,
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
     )
 }

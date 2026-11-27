@@ -2,7 +2,6 @@ package com.cnife.listenreader.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -48,6 +46,7 @@ import com.cnife.listenreader.ui.components.QuietAction
 import com.cnife.listenreader.ui.components.SectionLabel
 import com.cnife.listenreader.ui.components.StatusDot
 import com.cnife.listenreader.ui.player.VoiceSheetContent
+import com.cnife.listenreader.ui.player.VoiceSheetHandle
 import com.cnife.listenreader.ui.theme.Ink
 import com.cnife.listenreader.ui.theme.LrSheetShape
 import com.cnife.listenreader.ui.theme.Meta
@@ -250,7 +249,7 @@ internal fun StepFunSettingsContent(
             scrimColor = Scrim,
             tonalElevation = 0.dp,
             shape = LrSheetShape,
-            dragHandle = { VoiceSheetDragHandle() },
+            dragHandle = { VoiceSheetHandle() },
         ) {
             VoiceSheetContent(
                 selectedVoice = state.voice,
@@ -366,22 +365,5 @@ private fun ActionRow(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         content()
-    }
-}
-
-@Composable
-private fun VoiceSheetDragHandle() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(32.dp)
-                .height(4.dp)
-                .background(RuleStrong, RoundedCornerShape(2.dp)),
-        )
     }
 }

@@ -79,7 +79,7 @@ fun VoiceSheet(service: ReadingService, selectedVoice: String?, onDismiss: () ->
 }
 
 @Composable
-private fun VoiceSheetHandle() {
+internal fun VoiceSheetHandle() {
     Box(
         modifier = Modifier
             .fillMaxWidth()

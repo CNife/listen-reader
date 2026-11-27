@@ -21,15 +21,22 @@ ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} \
 | `library-empty-dark.png` | 深色主题空资料库引导页 |
 | `library-error.png` | 资料库加载失败错误态 |
 | `library-update-notice.png` | 资料库顶部的发现新版本内联提示 |
+| `library-font-scale-2x.png` | 资料库在 2.0× 字体缩放下的页眉、筛选与列表 |
 | `capture-url-idle.png` | 网页采集页空 URL 态（左对齐说明，URL 栏不被遮挡） |
+| `capture-url-dark.png` | 深色主题网页采集页空 URL 态 |
 | `preview-l2-success.png` | 采集预览页，L2 清洗成功状态条 + 分段草稿 |
-| `player-active.png` | 播放页，当前语段用字重与深浅标出 |
+| `preview-dark.png` | 深色主题采集预览页 |
+| `player-active.png` | 播放页，当前语段用淡蓝底 + 蓝色左边条标出 |
+| `player-dark.png` | 深色主题播放页（夜色当前句与暗色播放坞） |
 | `player-no-key.png` | 播放页无音频状态 |
-| `voice-sheet.png` | 音色选择抽屉 |
+| `voice-sheet.png` | 音色选择弹层 |
+| `voice-sheet-dark.png` | 深色主题音色选择弹层 |
 | `settings-top.png` | 设置页顶部：外观与朗读服务 |
 | `settings-dark.png` | 深色主题设置页（预取档位与 BYOK 状态） |
+| `settings-font-scale-2x.png` | 设置页在 2.0× 字体缩放下的分段控件与服务卡 |
 | `settings-update.png` | 设置页版本区块（自动检查开关、远端版本信息与检查结果） |
 | `player-font-scale-2x.png` | 播放页在 2.0× 字体缩放下的 dock 与正文 |
+| `voice-font-scale-2x.png` | 音色弹层在 2.0× 字体缩放下的单选行与完成按钮 |
 
 用 `read` 直接打开 PNG（多模态模型能看见布局、留白、深浅色对比与溢出）。快照不进版本库：
 每次运行重新生成，避免跨平台字体差异把 CI 拖成假失败。

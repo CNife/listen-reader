@@ -1,10 +1,10 @@
 package com.cnife.listenreader.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,13 +19,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.UpdateCheckState
 import com.cnife.listenreader.service.UpdateState
+import com.cnife.listenreader.ui.components.CardDivider
+import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.QuietAction
-import com.cnife.listenreader.ui.components.RuleLine
-import com.cnife.listenreader.ui.components.TextTabs
+import com.cnife.listenreader.ui.components.SectionLabel
+import com.cnife.listenreader.ui.components.SegmentedControl
 import com.cnife.listenreader.ui.components.openExternalUrl
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Ink3
+import com.cnife.listenreader.ui.theme.Meta
 
 @Composable
 fun UpdateSection(service: ReadingService) {
@@ -46,36 +47,37 @@ internal fun UpdateContent(
     onCheck: () -> Unit,
     onOpen: (String) -> Unit,
 ) {
-    Column(
+    LrCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("update-section"),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        padding = PaddingValues(20.dp),
     ) {
         SettingsSectionTitle("版本")
-        Spacer(Modifier.height(4.dp))
         Text(
             text = "当前版本 v${update.currentVersion}",
             style = MaterialTheme.typography.bodySmall,
-            color = Ink2,
-            modifier = Modifier.testTag("update-current"),
+            color = Meta,
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .testTag("update-current"),
         )
-        Spacer(Modifier.height(4.dp))
-        Text(
+        SectionLabel(
             text = "自动检查更新",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = Ink2,
+            modifier = Modifier.padding(top = 16.dp),
         )
-        TextTabs(
+        SegmentedControl(
             options = listOf("true" to "开启", "false" to "关闭"),
             selectedKey = if (update.autoCheck) "true" else "false",
             onSelect = { key -> onAutoCheckChange(key == "true") },
+            modifier = Modifier.padding(top = 8.dp),
             tagPrefix = "update-auto",
         )
         QuietAction(
             text = if (update.check == UpdateCheckState.Checking) "检查中…" else "检查更新",
             onClick = onCheck,
             enabled = update.check != UpdateCheckState.Checking,
+            modifier = Modifier.padding(top = 4.dp),
             testTag = "update-check",
         )
         when (val check = update.check) {
@@ -83,44 +85,50 @@ internal fun UpdateContent(
             is UpdateCheckState.Latest -> Text(
                 text = "已是最新版本 v${check.version}",
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                color = Meta,
                 modifier = Modifier.testTag("update-latest"),
             )
             is UpdateCheckState.Failed -> Text(
                 text = check.message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                color = Meta,
                 modifier = Modifier.testTag("update-check-error"),
             )
         }
         update.release?.let { release ->
-            RuleLine()
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
+            CardDivider()
+            Spacer(Modifier.height(12.dp))
             Text(
                 text = "新版本 v${release.version}",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = Ink,
                 modifier = Modifier.testTag("update-available"),
             )
             Text(
                 text = release.notes.ifBlank { "该版本没有提供更新说明。" },
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                color = Meta,
                 maxLines = 12,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.testTag("update-notes"),
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .testTag("update-notes"),
             )
             if (update.ignored) {
                 Text(
                     text = "已在资料库忽略该版本的提醒。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Ink3,
-                    modifier = Modifier.testTag("update-ignored"),
+                    color = Meta,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .testTag("update-ignored"),
                 )
             }
             QuietAction(
                 text = "去更新",
                 onClick = { onOpen(release.url) },
+                modifier = Modifier.padding(top = 4.dp),
                 testTag = "update-open",
             )
         }

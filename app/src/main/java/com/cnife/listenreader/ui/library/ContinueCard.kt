@@ -1,7 +1,6 @@
 package com.cnife.listenreader.ui.library
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -26,14 +26,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cnife.listenreader.model.LibraryItem
 import com.cnife.listenreader.ui.components.ProgressLine
-import com.cnife.listenreader.ui.theme.Accent
-import com.cnife.listenreader.ui.theme.CardSurface
-import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.OnAccent
-import com.cnife.listenreader.ui.theme.Rule
+import com.cnife.listenreader.ui.theme.Night
+import com.cnife.listenreader.ui.theme.NightEyebrow
+import com.cnife.listenreader.ui.theme.NightMeta
+import com.cnife.listenreader.ui.theme.NightTrack
+import com.cnife.listenreader.ui.theme.OnNight
+import com.cnife.listenreader.ui.theme.StickerSky
 
 @Composable
 fun ContinueCard(
@@ -45,32 +46,43 @@ fun ContinueCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, Rule, RoundedCornerShape(12.dp))
-            .background(CardSurface, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(Night)
             .testTag("continue-card")
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(20.dp),
     ) {
+        Text(
+            text = "继续收听",
+            style = MaterialTheme.typography.labelSmall,
+            color = NightEyebrow,
+        )
+        Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Ink,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontSize = 20.sp,
+                        lineHeight = 26.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.125).sp,
+                    ),
+                    color = OnNight,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = "${item.sourceLabel} · $percent%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Ink2,
+                    color = NightMeta,
                 )
             }
             Spacer(Modifier.width(12.dp))
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Accent)
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(OnNight)
                     .testTag("continue-play")
                     .clickable(role = Role.Button, onClick = onClick),
                 contentAlignment = Alignment.Center,
@@ -78,15 +90,17 @@ fun ContinueCard(
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
                     contentDescription = "播放",
-                    tint = OnAccent,
-                    modifier = Modifier.size(24.dp),
+                    tint = Night,
+                    modifier = Modifier.size(26.dp),
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
         ProgressLine(
             progress = percent / 100f,
             modifier = Modifier.testTag("continue-progress"),
+            trackColor = NightTrack,
+            fillColor = StickerSky,
         )
     }
 }

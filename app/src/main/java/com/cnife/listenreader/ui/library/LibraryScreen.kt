@@ -9,15 +9,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.automirrored.filled.Subject
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -38,24 +42,29 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cnife.listenreader.model.LibraryFilter
 import com.cnife.listenreader.model.LibraryItem
+import com.cnife.listenreader.model.SourceKind
 import com.cnife.listenreader.service.AvailableUpdate
 import com.cnife.listenreader.service.LibraryState
 import com.cnife.listenreader.service.ReadingService
 import com.cnife.listenreader.service.UpdateState
+import com.cnife.listenreader.ui.components.CardDivider
 import com.cnife.listenreader.ui.components.EmptyState
 import com.cnife.listenreader.ui.components.IndeterminateProgressLine
+import com.cnife.listenreader.ui.components.LrCard
 import com.cnife.listenreader.ui.components.Masthead
 import com.cnife.listenreader.ui.components.PrimaryAction
 import com.cnife.listenreader.ui.components.ProgressLine
 import com.cnife.listenreader.ui.components.QuietAction
-import com.cnife.listenreader.ui.components.RuleLine
 import com.cnife.listenreader.ui.components.SearchField
 import com.cnife.listenreader.ui.components.StatusLine
 import com.cnife.listenreader.ui.components.TextTabs
 import com.cnife.listenreader.ui.components.openExternalUrl
+import com.cnife.listenreader.ui.theme.Canvas
 import com.cnife.listenreader.ui.theme.Ink
-import com.cnife.listenreader.ui.theme.Ink2
-import com.cnife.listenreader.ui.theme.Paper
+import com.cnife.listenreader.ui.theme.Meta
+import com.cnife.listenreader.ui.theme.StickerPurple
+import com.cnife.listenreader.ui.theme.StickerPurpleInk
+import com.cnife.listenreader.ui.theme.StickerSky
 
 @Composable
 fun LibraryScreen(
@@ -73,7 +82,7 @@ fun LibraryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Paper),
+            .background(Canvas),
     ) {
         Masthead(
             title = "听我读",
@@ -151,14 +160,21 @@ private fun LibraryContent(
     }
     val filtersActive = state.query.isNotBlank() || state.filter != LibraryFilter.ALL
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 16.dp),
+    ) {
         if (isLoading) {
-            IndeterminateProgressLine(modifier = Modifier.padding(horizontal = 20.dp))
+            IndeterminateProgressLine(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
             Text(
                 text = "正在加载",
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                color = Meta,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )
         }
         state.error?.let { error ->
@@ -170,6 +186,7 @@ private fun LibraryContent(
                 actionTag = "library-retry",
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp)
                     .testTag("library-error"),
             )
         }
@@ -180,6 +197,7 @@ private fun LibraryContent(
                 onDismiss = onDismissUpdate,
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp)
                     .testTag("library-update"),
             )
         }
@@ -198,7 +216,9 @@ private fun LibraryContent(
             SearchField(
                 value = state.query,
                 onValueChange = onQueryChange,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp),
                 testTag = "library-search",
             )
         }
@@ -210,7 +230,6 @@ private fun LibraryContent(
             modifier = Modifier.padding(top = 8.dp),
             tagPrefix = "library-filter",
         )
-        RuleLine()
 
         when {
             state.items.isEmpty() && filtersActive -> EmptyState(
@@ -218,25 +237,33 @@ private fun LibraryContent(
                 description = "换个词，或清除筛选。",
                 actionLabel = "清除筛选",
                 onAction = clearFilters,
-                modifier = Modifier.testTag("library-no-results"),
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp)
+                    .testTag("library-no-results"),
             )
             state.items.isEmpty() && isLoading -> Unit
             state.items.isEmpty() -> EmptyState(
                 title = "还没有内容",
                 description = "粘贴一篇长文，或输入网页链接。提取后会生成语音。",
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp),
             )
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 16.dp),
+            else -> LrCard(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp),
+                padding = PaddingValues(0.dp),
             ) {
-                itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
+                state.items.forEachIndexed { index, item ->
                     LibraryRow(
                         item = item,
                         onClick = { onOpenResource(item.id) },
                         onDelete = { onDeleteRequest(item) },
                     )
                     if (index != state.items.lastIndex) {
-                        RuleLine()
+                        CardDivider(startIndent = 60.dp)
                     }
                 }
             }
@@ -251,10 +278,13 @@ private fun UpdateNotice(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    LrCard(
+        modifier = modifier.fillMaxWidth(),
+        padding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+    ) {
         Text(
             text = "发现新版本 v${update.version}",
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            style = MaterialTheme.typography.titleSmall,
             color = Ink,
         )
         Row {
@@ -277,51 +307,74 @@ private fun LibraryRow(
             .fillMaxWidth()
             .testTag("library-row-${item.id}")
             .clickable(onClick = onClick)
-            .padding(vertical = 16.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        SourceTile(item.sourceKind)
+        Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = Ink,
             )
-            Spacer(Modifier.height(6.dp))
             Text(
                 text = "${item.sourceLabel} · ${formatRelativeTime(item.createdAt)}",
+                modifier = Modifier.padding(top = 2.dp),
                 style = MaterialTheme.typography.bodySmall,
-                color = Ink2,
+                color = Meta,
             )
             if (percent > 0) {
-                Spacer(Modifier.height(8.dp))
-                ProgressLine(progress = percent / 100f)
+                ProgressLine(
+                    progress = percent / 100f,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
         Spacer(Modifier.width(8.dp))
         Text(
             text = "$percent%",
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 12.5.sp,
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.Medium,
                 fontFeatureSettings = "tnum",
             ),
-            color = Ink2,
+            color = Meta,
             textAlign = TextAlign.End,
         )
         IconButton(
             onClick = onDelete,
             modifier = Modifier
-                .size(48.dp)
+                .size(44.dp)
                 .testTag("library-delete-${item.id}"),
         ) {
             Icon(
                 imageVector = Icons.Filled.Delete,
                 contentDescription = "删除",
-                tint = Ink2,
+                tint = Meta,
                 modifier = Modifier.size(20.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun SourceTile(kind: SourceKind) {
+    val isWeb = kind == SourceKind.URL
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isWeb) StickerSky else StickerPurple),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = if (isWeb) Icons.Filled.Language else Icons.AutoMirrored.Filled.Subject,
+            contentDescription = null,
+            tint = if (isWeb) Color.White else StickerPurpleInk,
+            modifier = Modifier.size(17.dp),
+        )
     }
 }
 

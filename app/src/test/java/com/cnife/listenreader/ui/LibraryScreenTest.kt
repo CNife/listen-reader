@@ -69,7 +69,7 @@ class LibraryScreenTest {
         composeRule.onNodeWithText("上次读的文章").assertIsDisplayed()
         composeRule.onNodeWithText("粘贴文本 · 40%").assertIsDisplayed()
         composeRule.onNodeWithTag("continue-progress", useUnmergedTree = true).assertIsDisplayed()
-        composeRule.onNodeWithText("继续收听").assertDoesNotExist()
+        composeRule.onNodeWithText("继续收听").assertIsDisplayed()
 
         composeRule.onNodeWithTag("continue-play").performClick()
         composeRule.waitForIdle()
